@@ -1,0 +1,278 @@
+#!/usr/bin/env python3
+"""vista-compat-test [--plugins DIR] [--omarchy DIR] [--record]
+
+Can each ocko.vista-* plugin run on the installed Omarchy? Prints one line per
+plugin, "<id> ok", "<id> ok-unverified <why>" or "<id> fail <reason>", and
+exits 0 when nothing failed, 1 when something did, 2 when it could not run.
+vista-mode enables only the plugins that do not fail; the stock one stays.
+
+Every clone copies stock Omarchy files (4.0.6 when written) and calls stock
+APIs, so an Omarchy update can break it. Each plugin's compat.json records
+what was verified:
+  stock     sha256 of every stock file the plugin copied, by path under shell/
+  shared    one sha256 over the stock modules every plugin leans on
+            (Commons/, Ui/, services/, shell.qml)
+  self      one sha256 over the plugin's own files plus omarchy/vista/qml
+  external  member names the plugin uses that nothing in Omarchy or Vista defines
+            (Qt, Quickshell and JavaScript built-ins)
+
+  ok             all three hashes match: exactly what was verified; nothing runs.
+  otherwise both checks below run:
+    members      every `.name` the plugin uses must still be defined by the
+                 plugin, omarchy/vista/qml or the installed stock shell, or be in
+                 `external`. This is what catches a renamed stock API
+                 (bar.shell.firstPartyServiceFor -> ...), which only throws
+                 "is not a function" at runtime, on the code path that calls it.
+    compile      a headless quickshell compiles every .qml in the plugin against
+                 the installed qs.Commons / qs.Ui / qs.services: catches missing types,
+                 removed properties and broken imports. Nothing is instantiated
+                 (no window, no D-Bus name, no second polkit agent), so it is
+                 safe on a live desktop. Needs a Wayland session; without one
+                 it is skipped and the result can only be ok-unverified.
+  ok-unverified  both checks passed but something changed since the record.
+  fail           either check failed.
+
+--record runs both checks and, for each plugin that passes, rewrites its
+compat.json for the Omarchy installed now. Run it after verifying Vista on a new
+Omarchy release (or after editing a plugin) and commit the result.
+"""
+import argparse
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+SHARED = ("Commons", "Ui", "services", "shell.qml")
+SOURCE_SUFFIXES = (".qml", ".js")
+
+TOKENS = re.compile(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|`(?:\\.|[^`\\])*`', re.S)
+IMPORTS = re.compile(r'^\s*(?:import|pragma)\b[^\n]*', re.M)
+USED = re.compile(r'\.\s*([A-Za-z_$][\w$]*)')
+NAME = r'([A-Za-z_$][\w$]*)'
+DEFINED = re.compile(
+    r'\bfunction\s+' + NAME
+    + r'|\bsignal\s+' + NAME
+    + r'|\bproperty\s+(?:[\w.<>]+\s+)?' + NAME
+    + r'|\b(?:var|let|const)\s+' + NAME
+    + r'|\bid\s*:\s*' + NAME
+    + r'|' + NAME + r'\s*:(?!:)'
+    + r'|\.\s*' + NAME + r'\s*=(?!=)'
+    + r'|' + NAME + r'\s*\([^()]*\)\s*\{')
+ENUMS = re.compile(r'\benum\s+\w+\s*\{([^}]*)\}')
+
+
+def code(path):
+    """Source with comments, strings and import lines blanked."""
+    text = path.read_text(encoding="utf-8", errors="replace")
+    return IMPORTS.sub(" ", TOKENS.sub(" ", text))
+
+
+def defined_in(paths):
+    names = set()
+    for p in paths:
+        c = code(p)
+        for m in DEFINED.finditer(c):
+            names.update(g for g in m.groups() if g)
+        for m in ENUMS.finditer(c):
+            names.update(re.findall(r'[A-Za-z_$][\w$]*', m.group(1)))
+    return names
+
+
+def used_in(paths):
+    return {m.group(1) for p in paths for m in USED.finditer(code(p))}
+
+
+def sources(root):
+    return sorted(p for p in root.rglob("*") if p.is_file() and p.suffix in SOURCE_SUFFIXES)
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def tree_sha(root, entries, skip=()):
+    """One sha256 over relative path + content of every file under entries."""
+    h = hashlib.sha256()
+    for e in entries:
+        top = root / e
+        files = [top] if top.is_file() else sorted(p for p in top.rglob("*") if p.is_file())
+        for p in files:
+            if p.name in skip:
+                continue
+            h.update(str(p.relative_to(root)).encode() + b"\0" + p.read_bytes() + b"\0")
+    return h.hexdigest()
+
+
+def stock_dir_for(shell, clone_of):
+    """The stock plugin directory whose manifest has id clone_of."""
+    for m in sorted(shell.joinpath("plugins").rglob("*manifest.json")):
+        try:
+            if json.loads(m.read_text()).get("id") == clone_of:
+                return m.parent
+        except (ValueError, OSError):
+            continue
+    return None
+
+
+def omarchy_version():
+    try:
+        return subprocess.run(["pacman", "-Q", "omarchy"], capture_output=True, text=True).stdout.split()[1]
+    except (OSError, IndexError):
+        return "unknown"
+
+
+# The qs.* imports are what make quickshell's scanner generate qmldirs for the
+# stock modules (services/ ships none); a plugin's own import cannot.
+RUNNER = """import QtQuick
+import Quickshell
+import qs.Commons as A
+import qs.Ui as B
+import qs.services as C
+ShellRoot {
+  Component.onCompleted: {
+    var urls = %s
+    for (var i = 0; i < urls.length; i++) {
+      var c = Qt.createComponent(urls[i], Component.PreferSynchronous)
+      console.warn("XPCOMPAT\\t" + urls[i] + "\\t" + c.status + "\\t" + c.errorString().replace(/\\s+/g, " "))
+    }
+    console.warn("XPCOMPAT-DONE")
+  }
+}
+"""
+
+
+def compile_all(files, shell, timeout=60):
+    """{file: error or ""} for every .qml, or None when it cannot run here."""
+    if not os.environ.get("WAYLAND_DISPLAY") or not shutil.which("quickshell"):
+        return None
+    tmp = Path(tempfile.mkdtemp(prefix="vista-compat-"))
+    try:
+        for d in ("Commons", "Ui", "services"):
+            (tmp / d).symlink_to(shell / d)
+        (tmp / "shell.qml").write_text(RUNNER % json.dumps([p.as_uri() for p in files]))
+        # quickshell never exits by itself (Qt.quit has no receiver in it), so
+        # poll its output for the end marker, then stop it.
+        log = tmp / "out.log"
+        with open(log, "w") as fh:
+            proc = subprocess.Popen(["quickshell", "--no-color", "-p", str(tmp / "shell.qml")],
+                                    stdout=fh, stderr=subprocess.STDOUT)
+        out, deadline, buf = {}, time.monotonic() + timeout, ""
+        while time.monotonic() < deadline and proc.poll() is None:
+            buf = log.read_text(errors="replace")
+            if "XPCOMPAT-DONE" in buf:
+                break
+            time.sleep(0.1)
+        proc.terminate()
+        try:
+            proc.wait(5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        buf = log.read_text(errors="replace")
+        for line in buf.splitlines():
+            parts = line.split("XPCOMPAT\t", 1)
+            if len(parts) == 2:
+                url, status, err = (parts[1].split("\t") + ["", ""])[:3]
+                out[url] = "" if status == "1" else (err.strip() or "status " + status)
+        if "XPCOMPAT-DONE" not in buf:
+            return {p: "quickshell did not finish compiling" for p in files}
+        return {p: out.get(p.as_uri(), "not compiled") for p in files}
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Check Vista plugins against the installed Omarchy.")
+    ap.add_argument("--plugins", type=Path, default=HERE.parent.parent / "plugins")
+    ap.add_argument("--omarchy", type=Path, default=Path(os.environ.get("OMARCHY_PATH") or "/usr/share/omarchy"))
+    ap.add_argument("--record", action="store_true", help="rewrite compat.json for each plugin that passes")
+    a = ap.parse_args()
+    # Absolute: the compile check hands the files to quickshell as file:// URLs.
+    a.plugins, a.omarchy = a.plugins.absolute(), a.omarchy.absolute()
+
+    shell = a.omarchy / "shell"
+    plugins = sorted(p for p in a.plugins.glob("ocko.vista-*") if (p / "manifest.json").is_file())
+    xpqml = a.plugins.parent / "vista" / "qml"
+    if not shell.is_dir() or not plugins or not xpqml.is_dir():
+        print(f"vista-compat-test: need {shell}, ocko.vista-* plugins in {a.plugins} and {xpqml}", file=sys.stderr)
+        return 2
+
+    shared_now = tree_sha(shell, SHARED)
+    vista_defined = defined_in(sources(xpqml))
+    stock_defined = defined_in(sources(shell))
+    rows, to_check = {}, []
+
+    for p in plugins:
+        pid = p.name
+        compat_file = p / "compat.json"
+        try:
+            compat = json.loads(compat_file.read_text()) if compat_file.stat().st_size else {}
+        except (OSError, ValueError):
+            compat = {}
+        self_now = tree_sha(p.parent.parent, [f"{p.parent.name}/{pid}", "vista/qml"], skip=("compat.json",))
+        changed = []
+        if compat.get("self") != self_now:
+            changed.append("plugin")
+        for rel, h in sorted(compat.get("stock", {}).items()):
+            f = shell / rel
+            if not f.is_file() or sha(f) != h:
+                changed.append(rel)
+        if compat.get("shared") != shared_now:
+            changed.append("shared")
+        if not compat:
+            changed = ["no compat.json"]
+        if not changed and not a.record:
+            rows[pid] = "ok"
+            continue
+
+        own = sources(p)
+        missing = used_in(own) - defined_in(own) - vista_defined - stock_defined - set(compat.get("external", []))
+        to_check.append((p, own, compat, changed, missing, self_now))
+
+    qml = [f for (_, own, *_rest) in to_check for f in own if f.suffix == ".qml"]
+    compiled = compile_all(qml, shell) if qml else {}
+
+    for p, own, compat, changed, missing, self_now in to_check:
+        pid = p.name
+        errs = [] if compiled is None else [f"{f.name}: {compiled[f]}" for f in own if f.suffix == ".qml" and compiled.get(f)]
+        if not a.record and missing:
+            rows[pid] = "fail undefined in Omarchy " + omarchy_version() + ": " + ", ".join(sorted(missing))
+        elif errs:
+            rows[pid] = "fail " + errs[0][:300]
+        elif compiled is None:
+            rows[pid] = "ok-unverified compile check skipped (no Wayland session); changed: " + ", ".join(changed)
+        elif a.record:
+            manifest = json.loads((p / "manifest.json").read_text())
+            stock_dir = stock_dir_for(shell, manifest.get("omarchy", {}).get("clonedFrom", ""))
+            stock = {}
+            if stock_dir:
+                for f in own:
+                    s = stock_dir / f.relative_to(p)
+                    if s.is_file():
+                        stock[str(s.relative_to(shell))] = sha(s)
+            used = used_in(own)
+            record = {
+                "verified": "omarchy " + omarchy_version(),
+                "stock": stock,
+                "shared": shared_now,
+                "self": self_now,
+                "external": sorted(used - defined_in(own) - vista_defined - stock_defined),
+            }
+            (p / "compat.json").write_text(json.dumps(record, indent=2) + "\n")
+            rows[pid] = f"recorded ({len(stock)} stock files)"
+        else:
+            rows[pid] = "ok-unverified changed: " + ", ".join(changed)
+
+    for pid in sorted(rows):
+        print(f"{pid:<22} {rows[pid]}")
+    return 1 if any(r.startswith("fail") for r in rows.values()) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

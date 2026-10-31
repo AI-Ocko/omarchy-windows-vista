@@ -1,0 +1,10 @@
+#!/bin/bash
+# Windows Vista on for windows-vista / windows-vista-*. Named to run LAST
+# among the theme-set hooks: other themes' hooks undo their own changes first,
+# so Vista saves a clean pre-Vista state and nothing re-enables a stock plugin
+# after Vista has picked its clones. Leaving Vista is 00-windows-vista-off,
+# which runs FIRST. The logic and its error log live in vista-mode.
+case $1 in
+  windows-vista | windows-vista-*) exec "$HOME/.config/omarchy/vista/bin/vista-mode" on ;;
+esac
+exit 0

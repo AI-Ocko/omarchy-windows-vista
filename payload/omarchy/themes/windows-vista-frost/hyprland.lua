@@ -1,0 +1,14 @@
+-- Windows Vista (Aero (Frost)) -- Hyprland colours only (geometry is
+-- omarchy/vista/hypr/late.lua, which loads after looknfeel.lua).
+-- PLACEHOLDER colours until the Vista look.
+local active_border_color = "rgb(c3d6ef)"
+local inactive_border_color = "rgb(e2eaf4)"
+
+hl.config({
+	general = {
+		col = {
+			active_border = active_border_color,
+			inactive_border = inactive_border_color,
+		},
+	},
+})

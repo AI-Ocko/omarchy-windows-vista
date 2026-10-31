@@ -1,0 +1,31 @@
+#!/bin/bash
+# Print every piece of desktop state the Vista theme touches, one fact per line,
+# so a theme round trip can be checked with a plain `diff` of two dumps.
+#   vista-state-dump > before.txt; ...switch themes...; vista-state-dump | diff before.txt -
+cfg=~/.config
+state=~/.local/state/omarchy
+
+sum() { if [[ -e $1 ]]; then sha256sum <"$1" | cut -c1-16; else echo absent; fi; }
+
+echo "theme.name: $(cat "$state/current/theme.name" 2>/dev/null)"
+for k in gtk-theme icon-theme cursor-theme cursor-size font-name document-font-name monospace-font-name color-scheme; do
+  echo "gsettings $k: $(gsettings get org.gnome.desktop.interface "$k")"
+done
+echo "shell.json: $(sum "$cfg/omarchy/shell.json")"
+echo "shell.json keys: $(jq -c '{bar: .bar.id, disabledPlugins, plugins}' "$cfg/omarchy/shell.json")"
+echo "plugins enabled: $(omarchy plugin list --json | jq -c '[.[] | select(.enabled) | .id] | sort')"
+echo "hyprctl plugins: $(hyprctl plugin list | tr '\n' ' ')"
+echo "STARSHIP_CONFIG (new shell): $(bash -ic 'echo "${STARSHIP_CONFIG:-unset}"' 2>/dev/null | tail -1)"
+for f in "$cfg/starship.toml" "$cfg/foot/foot.ini" "$cfg/tmux/tmux.conf" \
+         "$cfg/omarchy/branding/about.txt" "$cfg/omarchy/branding/screensaver.txt" \
+         "$cfg/gtk-3.0/settings.ini" "$cfg/gtk-3.0/gtk.css" "$cfg/gtk-4.0/settings.ini" "$cfg/gtk-4.0/gtk.css" \
+         "$cfg/fastfetch/config.jsonc"; do
+  echo "file ${f#$cfg/}: $(sum "$f")"
+done
+find "$cfg/zen" -maxdepth 3 -path '*/chrome/*' -name 'user*.css' -print0 2>/dev/null | sort -z |
+  while IFS= read -r -d '' f; do echo "zen ${f#$cfg/zen/}: $(sum "$f") $( [[ -L $f ]] && echo "-> $(readlink "$f")")"; done
+echo "file .bashrc: $(sum ~/.bashrc)"
+echo "dir gtk-4.0: $( [[ -d $cfg/gtk-4.0 ]] && echo present || echo absent)"
+echo "hypr toggles: $(ls "$state/toggles/hypr" 2>/dev/null | tr '\n' ' ')"
+echo "vista saved-state: $( [[ -e $state/vista/saved-state.json ]] && echo present || echo absent)"
+echo "git diff (tracked): $(git -C "$cfg" diff | sha256sum | cut -c1-16)"

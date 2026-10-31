@@ -1,0 +1,12 @@
+#!/bin/bash
+# Windows Vista off for every non-Vista theme (a fast no-op if Vista was never
+# on). Named to run FIRST among the theme-set hooks (omarchy-hook runs them in
+# name order): Vista puts back exactly what it saved, so it has to restore
+# before the new theme's own hooks apply their changes, or it would undo them.
+# Entering Vista is zz-windows-vista-on, which runs LAST. Windows XP's hooks
+# (00-windows-xp-off / zz-windows-xp-on) follow the same rule, so the two
+# packages never restore over each other.
+case $1 in
+  windows-vista | windows-vista-*) exit 0 ;;
+esac
+exec "$HOME/.config/omarchy/vista/bin/vista-mode" off

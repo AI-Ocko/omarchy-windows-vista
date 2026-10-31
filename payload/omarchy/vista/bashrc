@@ -1,0 +1,15 @@
+# Windows Vista shell hook, sourced from ~/.bashrc by interactive shells only,
+# before Omarchy's bash init. Builtins and /proc reads only: no forks, here or
+# per prompt. "Vista is active" = theme.name is windows-vista or windows-vista-*.
+
+_vista_theme=
+[[ -r ~/.local/state/omarchy/current/theme.name ]] && read -r _vista_theme <~/.local/state/omarchy/current/theme.name
+
+if [[ $_vista_theme == windows-vista || $_vista_theme == windows-vista-* ]]; then
+  # The cmd.exe banner belongs to a new console window only: a shell foot
+  # started directly. Not tmux panes, subshells or `bash -ic` (parent bash).
+  if [[ -z ${TMUX-} ]] && read -r _vista_parent </proc/$PPID/comm && [[ $_vista_parent == foot ]]; then
+    printf 'Microsoft Windows [Version 6.0.6002]\nCopyright (c) 2006 Microsoft Corporation.  All rights reserved.\n\n'
+  fi
+fi
+unset _vista_theme _vista_parent

@@ -1,0 +1,614 @@
+#!/bin/bash
+# vista-mode on|off|status -- apply or fully revert the Windows Vista side effects
+# that an Omarchy theme cannot carry by itself. Called by the theme-set hooks
+# 00-windows-vista-off (first) and zz-windows-vista-on (last), after every
+# `omarchy theme set`.
+#
+#   on      First call saves the pre-Vista state to saved-state.json, then applies.
+#           Later calls (switching Aero -> Basic) only re-apply; never re-save.
+#   off     Restores from saved-state.json, removes what `on` installed, deletes
+#           the saved state. With nothing saved and nothing installed it returns
+#           before forking anything.
+#   status  "on" or "off" plus a short summary.
+#   sizes   Re-apply only the sizes step (Vista terminal font from Omarchy's text
+#           size); a no-op outside Vista. Run by systemd/user/vista-sizes.path.
+#
+# The hook's stdout is discarded, so errors go to stderr AND to $LOG.
+#
+# Adding a step: define <name>_save (print a JSON value, `null` if nothing to
+# save), <name>_apply and <name>_restore (gets that saved JSON as $1), then
+# append <name> to STEPS. Each step is run and logged independently; `off`
+# keeps saved-state.json if any restore failed so a rerun can finish the job.
+
+STEPS=(gsettings hypr shell tmux files sizes)
+
+SCHEMA=org.gnome.desktop.interface
+STATE_DIR=$HOME/.local/state/omarchy/vista
+SAVED=$STATE_DIR/saved-state.json
+LOG=$STATE_DIR/vista-mode.log
+THEME_NAME_FILE=$HOME/.local/state/omarchy/current/theme.name
+TOGGLE=$HOME/.local/state/omarchy/toggles/hypr/windows-vista.lua
+LATE=${BASH_SOURCE[0]%/*}/../hypr/late.lua
+SHELL_JSON=$HOME/.config/omarchy/shell.json
+THEME_DIR=$HOME/.local/state/omarchy/current/theme
+VISTA_DIR=$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)
+
+log() {
+  local line
+  printf -v line '%(%F %T)T vista-mode %s: %s' -1 "$CMD" "$*"
+  echo "$line" >&2
+  mkdir -p "$STATE_DIR" && echo "$line" >>"$LOG"
+}
+
+vista_theme_active() {
+  local name=""
+  [[ -r $THEME_NAME_FILE ]] && read -r name <"$THEME_NAME_FILE"
+  [[ $name == windows-vista || $name == windows-vista-* ]]
+}
+
+# ---------------------------------------------------------------- gsettings
+# All seven keys are recorded, but only the ones Vista sets are restored.
+# gtk-theme, icon-theme and color-scheme are re-derived for the *new* theme by
+# omarchy-theme-set-gnome before this hook runs; writing the saved values back
+# would give e.g. amber-crt Miasma's icon theme. So Vista sets gtk-theme (the
+# scheme's B00merang GTK theme, named in the theme's gtk.theme) and
+# color-scheme (Vista is light, though its terminal palette makes colors.toml
+# "dark") without restoring them; icon-theme comes from icons.theme.
+GSETTINGS_SAVED=(gtk-theme icon-theme cursor-theme cursor-size font-name document-font-name monospace-font-name)
+# Vista pins no text size of its own. @PT@ is the point size of the font Vista
+# replaces, read from saved-state.json: Segoe UI takes the pre-Vista
+# font-name's, Consolas the pre-Vista monospace-font-name's (Omarchy's 11 if
+# unreadable). Omarchy's text-scaling-factor stays Omarchy's and scales both.
+# The Aero cursors come with the assets (cursor-theme is added then).
+declare -A GSETTINGS_VISTA=(
+  [font-name]="'Segoe UI @PT@'"
+  [document-font-name]="'Segoe UI @PT@'"
+  [monospace-font-name]="'Consolas @PT@'"
+)
+declare -A GSETTINGS_PT_FROM=([font-name]=font-name [document-font-name]=font-name [monospace-font-name]=monospace-font-name)
+
+# saved_pt <key>: the pt at the end of the saved pre-Vista value ('Adwaita Sans 11').
+saved_pt() {
+  local v
+  v=$(jq -r --arg k "$1" '.gsettings[$k] // empty' "$SAVED" 2>/dev/null)
+  v=${v%\'}
+  v=${v##* }
+  [[ $v =~ ^[0-9]+(\.[0-9]+)?$ ]] && echo "$v" || echo 11
+}
+
+# Hyprland draws the pointer itself (and for cursor-shape clients), so it is
+# switched too. There is no getter for its theme, but with
+# cursor:sync_gsettings_theme (default on) it mirrors whatever it loads into
+# gsettings cursor-theme/-size, so the saved gsettings value is its pre-Vista
+# theme. 'default' is what it reports for "no theme set", and an empty theme
+# reloads exactly that (XCURSOR_THEME or "default"), so it maps back to empty.
+hypr_cursor() {
+  local theme=${1#\'} size
+  theme=${theme%\'}
+  [[ $theme == default ]] && theme=
+  size=$(gsettings get "$SCHEMA" cursor-size) || return 1
+  [[ $(hyprctl setcursor $theme "$size") == ok ]] || { log "hyprctl setcursor '$theme' $size failed"; return 1; }
+}
+
+# Values are kept as gsettings' own GVariant text ('Adwaita Sans 11', 24), which
+# `gsettings set` parses back exactly.
+gsettings_save() {
+  local k v args=()
+  for k in "${GSETTINGS_SAVED[@]}"; do
+    v=$(gsettings get "$SCHEMA" "$k") || return 1
+    args+=(--arg "$k" "$v")
+  done
+  jq -n '$ARGS.named' "${args[@]}"
+}
+
+gsettings_apply() {
+  local k v gtk="" rc=0
+  for k in "${!GSETTINGS_VISTA[@]}"; do
+    v=${GSETTINGS_VISTA[$k]}
+    [[ -n ${GSETTINGS_PT_FROM[$k]:-} ]] && v=${v//@PT@/$(saved_pt "${GSETTINGS_PT_FROM[$k]}")}
+    gsettings set "$SCHEMA" "$k" "$v" || { log "gsettings set $k $v failed"; rc=1; }
+  done
+  [[ -r $THEME_DIR/gtk.theme ]] && read -r gtk <"$THEME_DIR/gtk.theme"
+  if [[ -n $gtk ]]; then
+    gsettings set "$SCHEMA" gtk-theme "$gtk" || { log "gsettings set gtk-theme $gtk failed"; rc=1; }
+  fi
+  gsettings set "$SCHEMA" color-scheme prefer-light || { log "gsettings set color-scheme failed"; rc=1; }
+  if [[ -n ${GSETTINGS_VISTA[cursor-theme]-} ]]; then hypr_cursor "${GSETTINGS_VISTA[cursor-theme]}" || rc=1; fi
+  return $rc
+}
+
+gsettings_restore() {
+  [[ $1 != null ]] || return 0
+  local k v rc=0
+  for k in "${!GSETTINGS_VISTA[@]}"; do
+    v=$(jq -er --arg k "$k" '.[$k]' <<<"$1") || { log "no saved value for $k"; rc=1; continue; }
+    gsettings set "$SCHEMA" "$k" "$v" || { log "gsettings set $k $v failed"; rc=1; }
+  done
+  if [[ -n ${GSETTINGS_VISTA[cursor-theme]-} ]]; then hypr_cursor "$(jq -r '."cursor-theme"' <<<"$1")" || rc=1; fi
+  return $rc
+}
+
+# --------------------------------------------------------------------- hypr
+# late.lua must load after hypr/looknfeel.lua: install it as a toggle (a copy;
+# require_all skips symlinks). By the time the hook runs, omarchy-theme-set has
+# already written theme.name and reloaded Hyprland, so reload again only when
+# the installed copy actually changed.
+hypr_save() { echo null; }
+
+hypr_reload() {
+  hyprctl reload >/dev/null || return 1
+  local errs
+  errs=$(hyprctl configerrors)
+  [[ -z ${errs//[[:space:]]/} ]] || { log "hyprland config errors: $errs"; return 1; }
+}
+
+hypr_apply() {
+  # Rebuild the caption-button hyprbars if a Hyprland update outdated it. In
+  # the background, detached, and without our lock fd 9 (a build takes a
+  # minute; theme switches must not wait on it).
+  setsid -f "$VISTA_DIR/bin/vista-hyprbars-heal" </dev/null >/dev/null 2>&1 9>&-
+  cmp -s "$LATE" "$TOGGLE" && return 0
+  cp "$LATE" "$TOGGLE.tmp" && mv "$TOGGLE.tmp" "$TOGGLE" || return 1
+  hypr_reload
+}
+
+# late.lua guards on theme.name, so after a theme switch the copy is already
+# inert. Reload only when called directly while an Vista theme is still active.
+hypr_restore() {
+  [[ -e $TOGGLE ]] || return 0
+  rm -f "$TOGGLE" || return 1
+  if vista_theme_active; then hypr_reload; fi
+}
+
+# -------------------------------------------------------------------- shell
+# bar.id / plugins / disabledPlugins in shell.json. Absent is saved as null,
+# present as {"v": value}, so restore can delete a key rather than write null
+# into it. Restore writes only if the keys differ from what was saved, so a
+# file Vista never touched stays byte-identical (jq --indent 2 matches the
+# shell's format).
+SHELL_KEYS='{
+  bar_id: (if (.bar | type) == "object" and (.bar | has("id")) then {v: .bar.id} else null end),
+  disabledPlugins: (if has("disabledPlugins") then {v: .disabledPlugins} else null end),
+  plugins: (if has("plugins") then {v: .plugins} else null end)
+}'
+
+shell_save() { jq -c "$SHELL_KEYS" "$SHELL_JSON"; }
+
+# {"<plugin id>": "<omarchy.clonedFrom or null>"} for every installed plugin.
+cloned_map() {
+  local m=("$HOME"/.config/omarchy/plugins/*/manifest.json)
+  [[ -e ${m[0]} ]] || { echo '{}'; return 0; }
+  jq -cs 'map(select(type == "object" and (.id | type) == "string") | {(.id): (.omarchy.clonedFrom // null)}) | add // {}' "${m[@]}"
+}
+
+# Vista selects the Vista taskbar (omarchy/plugins/ocko.vista-taskbar) and swaps five
+# first-party plugins for their Vista clones, which exist only for this: a
+# clone is enabled by its plugins[] entry, and the stock one it replaces
+# goes in disabledPlugins[]. Callers keep using the omarchy.* ids; the
+# shell's resolveEnabledId() routes them to the enabled clone. Non-Vista
+# themes never list the clones, so they load the stock plugins.
+VISTA_BAR=ocko.vista-taskbar
+VISTA_CLONES='[["ocko.vista-menu", "omarchy.menu"], ["ocko.vista-polkit", "omarchy.polkit"],
+            ["ocko.vista-notifications", "omarchy.notifications"], ["ocko.vista-osd", "omarchy.osd"],
+            ["ocko.vista-idle", "omarchy.idle"], ["ocko.vista-lock", "omarchy.lock"]]'
+# Bar-widget clones are enabled the same way but the stock widget is NOT
+# disabled: bar.layout keeps naming the stock id, the Vista taskbar puts the
+# enabled clone in its place (Bar.qml xpCloneEntry), and resolveEnabledId()
+# sends `omarchy-shell shell toggle omarchy.<id>` to the clone. A stock bar
+# (no Vista) never sees them, because restore puts plugins[] back.
+VISTA_WIDGET_CLONES='["ocko.vista-monitor", "ocko.vista-audio", "ocko.vista-network", "ocko.vista-clock", "ocko.vista-tray", "ocko.vista-power", "ocko.vista-weather", "ocko.vista-bluetooth", "ocko.vista-agents"]'
+# Rivals: the user's own clones of the same stock plugin (manifest
+# omarchy.clonedFrom, e.g. a you.polkit cloned from omarchy.polkit).
+# One listed in plugins[] would stay enabled next to the Vista clone: two
+# polkit agents or two lock services at once, and resolveEnabledId() would
+# route omarchy.* calls to whichever it meets first. So every rival of an
+# enabled Vista clone goes in disabledPlugins[] as well (isDisabled() wins over
+# plugins[]); plugins[] itself keeps its entries, and restore puts both keys
+# back exactly. $cloned maps each installed plugin id to its clonedFrom.
+# Order-preserving: entries already there keep their place; missing ones are appended.
+# $failed (from compat_check) lists Vista plugins the installed Omarchy broke:
+# they are dropped from plugins[] (and their stock service comes back out of
+# disabledPlugins[], unless it was disabled before Vista, per $orig, the saved
+# pre-Vista keys). A failed taskbar keeps bar.id on the stock bar and drops the
+# widget clones too, since only the Vista taskbar places them.
+VISTA_CONFIG='($failed | index($bar) | not) as $bar_ok
+  | [(.plugins // [])[] | if type == "object" then .id else . end] as $listed
+  | [$clones[] | select(.[0] as $c | $failed | index($c) | not)] as $on
+  | [$clones[] | select(.[0] as $c | $failed | index($c))] as $off
+  | (if $bar_ok then [$widgets[] | select(. as $c | $failed | index($c) | not)] else [] end) as $won
+  | def rivals($pairs): [$pairs[] | .[0] as $c | .[1] as $s
+      | select($s != null) | $cloned | to_entries[]
+      | select(.value == $s and .key != $c and (.key as $k | $listed | index($k))) | .key];
+    rivals($on + [$won[] | [., $cloned[.]]]) as $rivals
+  | rivals($off + [($widgets - $won)[] | [., $cloned[.]]]) as $off_rivals
+  | ([$off[] | .[0]] + ($widgets - $won)) as $drop
+  | (([$off[] | .[1]] + $off_rivals) - ($orig.disabledPlugins.v // []) - $rivals) as $undisable
+  | (if $bar_ok then .bar.id = $bar
+     elif (.bar | type) == "object" and .bar.id == $bar then
+       (if $orig.bar_id then .bar.id = $orig.bar_id.v else del(.bar.id) end)
+     else . end)
+  | .plugins = ([(.plugins // [])[] | select((if type == "object" then .id else . end) as $i | $drop | index($i) | not)] as $p
+      | $p + [([$on[] | .[0]] + $won)[] as $c | select([$p[] | if type == "object" then .id else . end] | index($c) | not) | {id: $c}])
+  | .disabledPlugins = ([(.disabledPlugins // [])[] | select(. as $s | $undisable | index($s) | not)] as $d
+      | $d + ([$on[] | .[1]] + $rivals | reduce .[] as $s ([]; if index($s) then . else . + [$s] end)
+              | map(select(. as $s | $d | index($s) | not))))'
+
+# ------------------------------------------------------------ compatibility
+# Every Vista plugin copies stock Omarchy code and calls stock APIs, so an
+# Omarchy update can break one. vista-compat-test prints "<id> ok|ok-unverified|
+# fail <reason>" per plugin; the failing ones go in VISTA_FAILED (a JSON array)
+# and stay off, so their stock plugin keeps working. If the test cannot run
+# at all, every Vista plugin stays off. The user is told once per distinct set
+# of fallbacks (the marker), not on every theme switch.
+VISTA_FAILED='[]'
+COMPAT_NOTIFIED=$STATE_DIR/compat-fallback
+
+compat_check() {
+  local out rc ids=() id st name names=() absent=() p
+  local installed=("$VISTA_DIR"/../plugins/ocko.vista-*/manifest.json)
+  if [[ ! -e ${installed[0]} ]]; then
+    out="" rc=0
+  else
+    out=$("$VISTA_DIR/bin/vista-compat-test" 2>&1)
+    rc=$?
+  fi
+  if [[ ! -e ${installed[0]} ]]; then
+    :
+  elif ((rc > 1)) || [[ -z $out ]]; then
+    log "vista-compat-test could not run (exit $rc): $out -- every Vista plugin stays off"
+    for p in "${installed[@]}"; do p=${p%/manifest.json}; ids+=("${p##*/}"); done
+  else
+    while read -r id st _; do [[ $st == fail ]] && ids+=("$id"); done <<<"$out"
+    ((${#ids[@]})) && log "vista-compat-test: $(grep -v ' ok$' <<<"$out" | tr '\n' ';')"
+  fi
+  # A clone that is not installed at all counts as failed: enabling it would
+  # disable the stock plugin (and the user's own clones of it) for nothing,
+  # which for the lock would mean no lock screen.
+  for id in "$VISTA_BAR" $(jq -r '.[][0]' <<<"$VISTA_CLONES") $(jq -r '.[]' <<<"$VISTA_WIDGET_CLONES"); do
+    [[ -r $VISTA_DIR/../plugins/$id/manifest.json ]] && continue
+    [[ " ${ids[*]} " == *" $id "* ]] || absent+=("$id")
+  done
+  # Not installed is not a fallback worth a notification (the package may
+  # simply not ship that part): logged once per distinct set, stock stays.
+  if ((${#absent[@]})) && [[ $(cat "$STATE_DIR/absent" 2>/dev/null) != "${absent[*]}" ]]; then
+    echo "${absent[*]}" >"$STATE_DIR/absent"
+    log "not installed, stock plugins stay in use: ${absent[*]}"
+  fi
+  VISTA_FAILED=$(printf '%s\n' "${ids[@]}" "${absent[@]}" | jq -R . | jq -cs 'map(select(length > 0))')
+  if ((${#ids[@]} == 0)); then
+    rm -f "$COMPAT_NOTIFIED"
+    return 0
+  fi
+  [[ -r $COMPAT_NOTIFIED && $(<"$COMPAT_NOTIFIED") == "$VISTA_FAILED" ]] && return 0
+  echo "$VISTA_FAILED" >"$COMPAT_NOTIFIED"
+  for id in "${ids[@]}"; do
+    name=$(jq -r '.name // empty' "$VISTA_DIR/../plugins/$id/manifest.json" 2>/dev/null)
+    names+=("${name:-$id}")
+  done
+  omarchy-notification-send -u normal "Windows Vista: some parts fell back to Omarchy's own" \
+    "This Omarchy version changed what they need, so the stock versions are in use: $(printf '%s, ' "${names[@]}" | sed 's/, $//'). Details: ~/.local/state/omarchy/vista/vista-mode.log" \
+    >/dev/null 2>&1 || log "could not send the fallback notification"
+}
+
+# The swap needs a shell restart. omarchy.notifications and omarchy.polkit
+# own session-wide names (org.freedesktop.Notifications, the polkit agent
+# object), and the shell creates a newly enabled service before it destroys
+# the one being disabled, so a live swap leaves the clone without the name
+# (verified 2026-10-28, see evidence/phaseC/task8/NOTES.md). A restart also
+# covers the two omarchy 4.0.6 bar-swap bugs (CLAUDE.md). Never restart
+# while the session is locked: then only the bar is selected live, the
+# Phase B way (enable + rescan), and the clones wait for the next unlocked
+# `vista-mode on`.
+shell_apply() {
+  local locked orig=null cloned
+  compat_check
+  [[ -r $SAVED ]] && orig=$(jq -c '.shell // null' "$SAVED")
+  cloned=$(cloned_map) || return 1
+  # The Vista taskbar reads this to place its widget clones over bar.layout
+  # entries that name the user's own clones (you.power cloned from
+  # omarchy.power -> ocko.vista-power): a plugin bar cannot see other manifests.
+  [[ $(cat "$STATE_DIR/clones.json" 2>/dev/null) == "$cloned" ]] ||
+    { printf '%s\n' "$cloned" >"$STATE_DIR/clones.json.tmp" && mv "$STATE_DIR/clones.json.tmp" "$STATE_DIR/clones.json"; }
+  jq --indent 2 --arg bar "$VISTA_BAR" --argjson clones "$VISTA_CLONES" --argjson widgets "$VISTA_WIDGET_CLONES" \
+    --argjson failed "$VISTA_FAILED" --argjson orig "$orig" --argjson cloned "$cloned" \
+    "$VISTA_CONFIG" "$SHELL_JSON" >"$SHELL_JSON.vista-tmp" || return 1
+  # Quoted right-hand side: unquoted, [[ == ]] reads it as a glob pattern and
+  # JSON's brackets never match (it restarted the shell on every Vista -> Vista switch).
+  if [[ $(jq -cS . "$SHELL_JSON.vista-tmp") == "$(jq -cS . "$SHELL_JSON")" ]]; then
+    rm -f "$SHELL_JSON.vista-tmp"
+    return 0
+  fi
+  locked=$(timeout 3 omarchy-shell lock isLocked 2>/dev/null)
+  if [[ $locked == true ]]; then
+    rm -f "$SHELL_JSON.vista-tmp"
+    log "session locked: selecting the Vista bar live only; the Vista menu/polkit/notification/OSD/idle clones load at the next unlocked 'omarchy theme set windows-vista*'"
+    [[ $(jq -r '.bar.id // empty' "$SHELL_JSON") == "$VISTA_BAR" ]] && return 0
+    jq -e --arg bar "$VISTA_BAR" 'index($bar)' <<<"$VISTA_FAILED" >/dev/null && return 0
+    timeout 5 omarchy-plugin-enable "$VISTA_BAR" >/dev/null || return 1
+    timeout 5 omarchy-shell shell rescanPlugins >/dev/null || log "rescanPlugins failed; Vista tray may be blank until omarchy-restart-shell"
+    return 0
+  fi
+  log "selecting the Vista bar and plugins in shell.json (diff: $(diff <(jq -S . "$SHELL_JSON") <(jq -S . "$SHELL_JSON.vista-tmp") | grep -c "^[<>]") lines)"
+  mv "$SHELL_JSON.vista-tmp" "$SHELL_JSON" || return 1
+  if [[ $locked == false ]]; then
+    shell_restart
+  else
+    log "shell not answering: Vista config written to shell.json; it applies when the shell starts"
+  fi
+}
+
+shell_restore() {
+  [[ $1 != null ]] || return 0
+  local now
+  now=$(jq -c "$SHELL_KEYS" "$SHELL_JSON") || return 1
+  [[ $(jq -cS . <<<"$now") == "$(jq -cS . <<<"$1")" ]] && return 0
+  # A saved state from before `plugins` was recorded leaves plugins alone.
+  jq --indent 2 --argjson s "$1" '
+    (if $s.bar_id then .bar.id = $s.bar_id.v elif (.bar | type) == "object" then del(.bar.id) else . end)
+    | (if $s.disabledPlugins then .disabledPlugins = $s.disabledPlugins.v else del(.disabledPlugins) end)
+    | (if ($s | has("plugins")) then (if $s.plugins then .plugins = $s.plugins.v else del(.plugins) end) else . end)
+  ' "$SHELL_JSON" >"$SHELL_JSON.vista-tmp" && mv "$SHELL_JSON.vista-tmp" "$SHELL_JSON" || return 1
+  shell_restart
+  return 0
+}
+
+# Both directions restart the shell: entering Vista for the service swap (see
+# shell_apply); leaving it for the swap back and because omarchy 4.0.6
+# leaves the shell's `bar` reference null after a live switch from a plugin
+# bar to the built-in one (shell.qml: the default bar's Loader configures
+# it, then the plugin bar Loader's onActiveChanged clears it), which breaks
+# `omarchy-shell shell toggle <panel>` hotkeys and the notification offset.
+# Never while the session is locked.
+#
+# omarchy-restart-shell is not serialised: two overlapping calls both kill
+# every instance, both see none left, and both launch one, so the session
+# ends with two shells (two bars, two lock services, two polkit agents).
+# Another theme's own hook can restart the shell at the same moment (one that
+# switches its icon font does), so ours runs under a lock and a detached check
+# watches for 30 s afterwards: two shells seen twice in a row, while
+# unlocked, get one more (locked) restart, which leaves one.
+SHELL_RESTART_LOCK=${XDG_RUNTIME_DIR:-/tmp}/omarchy-shell-restart.lock
+
+shell_restart() {
+  if [[ $(timeout 3 omarchy-shell lock isLocked 2>/dev/null) == false ]]; then
+    flock "$SHELL_RESTART_LOCK" omarchy-restart-shell >/dev/null 2>&1 ||
+      log "omarchy-restart-shell failed; run it by hand to load the right plugins"
+    setsid -f bash -c '
+      count() { quickshell list -a -j 2>/dev/null | jq --arg d "$1" "[.[] | select(.config_path | startswith(\$d))] | length"; }
+      seen=0
+      for _ in $(seq 15); do
+        sleep 2
+        n=$(count "$1")
+        if ((${n:-0} > 1)); then seen=$((seen + 1)); else seen=0; fi
+        ((seen < 2)) && continue
+        [[ $(timeout 3 omarchy-shell lock isLocked 2>/dev/null) == false ]] || exit 0
+        printf "%(%F %T)T vista-mode: two Omarchy shells after overlapping restarts; restarting once\n" -1 >>"$2"
+        exec flock "$3" omarchy-restart-shell
+      done' _ "${OMARCHY_PATH:-/usr/share/omarchy}/shell/" "$LOG" "$SHELL_RESTART_LOCK" </dev/null >/dev/null 2>&1 9>&-
+  else
+    log "session locked or shell not answering: skipped shell restart; run omarchy-restart-shell"
+  fi
+}
+
+# --------------------------------------------------------------------- tmux
+# tmux/tmux.conf sources the active theme's tmux.conf last, so a server started
+# later picks the Vista status bar up, or drops it, by itself. One that is already
+# running has to be pushed: `on` sources the theme's file; `off` re-sources
+# tmux.conf, which sets every option the Vista file overrides (and, the theme
+# having changed, no longer finds an Vista file to source). Default socket only.
+TMUX_THEME=$HOME/.local/state/omarchy/current/theme/tmux.conf
+
+tmux_save() { echo null; }
+
+tmux_apply() {
+  tmux has-session 2>/dev/null || return 0
+  [[ -r $TMUX_THEME ]] || { log "theme has no $TMUX_THEME"; return 1; }
+  tmux source-file "$TMUX_THEME"
+}
+
+tmux_restore() {
+  tmux has-session 2>/dev/null || return 0
+  tmux source-file "$HOME/.config/tmux/tmux.conf"
+}
+
+# -------------------------------------------------------------------- files
+# Files Vista swaps in place. On the first `on`, each pre-Vista file is moved
+# (mv, so bytes, inode and mtime survive) into $ORIG, or an .absent marker is
+# left if there was none; `off` moves it back or deletes what Vista put there.
+# Later `on`s only refresh the Vista side, so a Vista -> Vista switch never
+# stashes Vista's own files as "original". Kinds: none (absent under Vista),
+# copy <src>, link <target>.
+#   gtk-3.0/gtk.css   a user override would recolour the GTK3 Vista theme
+#   gtk-4.0/gtk.css   -> the scheme's libadwaita palette (theme gtk.css)
+ORIG=$STATE_DIR/orig
+
+files_list() {
+  printf '%s\n' "$HOME/.config/gtk-3.0/gtk.css|none" \
+    "$HOME/.config/gtk-4.0/gtk.css|link|$THEME_DIR/gtk.css"
+}
+
+files_save() { echo null; }
+
+files_apply() {
+  local path kind src aside rc=0
+  mkdir -p "$ORIG" || return 1
+  while IFS='|' read -r path kind src; do
+    aside=$ORIG/${path//\//%}
+    if [[ ! -e $aside && ! -L $aside && ! -e $aside.absent ]]; then
+      if [[ -e $path || -L $path ]]; then
+        mv -T "$path" "$aside" || { log "could not stash $path"; rc=1; continue; }
+      else
+        : >"$aside.absent" || { rc=1; continue; }
+      fi
+    fi
+    # A parent directory Vista has to create (gtk-4.0/ on a system that never
+    # had one) is recorded in the .absent marker, so `off` removes it again.
+    # Also covers a marker left empty by an earlier version that never
+    # created the directory.
+    if [[ -e $aside.absent && ! -s $aside.absent && ! -d ${path%/*} ]]; then
+      local d=${path%/*} created=""
+      while [[ $d == /?* && ! -d $d ]]; do created=$d; d=${d%/*}; done
+      printf '%s\n' "$created" >"$aside.absent" || { rc=1; continue; }
+    fi
+    [[ $kind == none ]] || mkdir -p "${path%/*}" || { log "could not create ${path%/*}"; rc=1; continue; }
+    case $kind in
+      none) rm -f "$path" ;;
+      copy) rm -f "$path" && cp "$src" "$path" ;;
+      link) ln -sfn "$src" "$path" ;;
+    esac || { log "could not install the Vista $path"; rc=1; }
+  done < <(files_list)
+  return $rc
+}
+
+# Walks $ORIG rather than files_list, so a file stashed under an earlier
+# layout (or a Zen profile that has since changed) still comes back.
+files_restore() {
+  local aside path rc=0
+  [[ -d $ORIG ]] || return 0
+  for aside in "$ORIG"/*; do
+    [[ -e $aside || -L $aside ]] || continue
+    path=${aside#"$ORIG"/}
+    if [[ $path == *.absent ]]; then
+      path=${path%.absent}
+      path=${path//%//}
+      local created="" d
+      read -r created <"$aside"
+      rm -f "$path" || { log "could not remove the Vista $path"; rc=1; continue; }
+      # Remove the directories Vista created, innermost first, only while empty
+      # (anything put there since is left alone, with its directory).
+      if [[ -n $created ]]; then
+        d=${path%/*}
+        while [[ $d == "$created" || $d == "$created"/* ]]; do
+          rmdir "$d" 2>/dev/null || break
+          d=${d%/*}
+        done
+      fi
+      rm -f "$aside" || { log "could not remove $aside"; rc=1; }
+    else
+      path=${path//%//}
+      rm -f "$path" && mv -T "$aside" "$path" || { log "could not restore $path"; rc=1; }
+    fi
+  done
+  ((rc == 0)) && rmdir "$ORIG"
+  return $rc
+}
+
+# -------------------------------------------------------------------- sizes
+# The Vista terminal font follows Omarchy's text size. `omarchy display text
+# size` writes the terminal pt into ~/.config/foot/foot.ini (Omarchy's default
+# is 9); Consolas matches JetBrainsMono's x-height at the same pt, so the
+# size is copied as it is. Only the size fields of the font=
+# line in the live copy of the theme's foot.ini change, via a new file, so
+# nothing tracked is written; theme-set regenerates the copy from the theme.
+# The shell and GTK follow Omarchy by themselves (no base-size pin in the Vista
+# shell.toml; gsettings_apply above). Nothing to restore: a theme switch
+# replaces the live copy.
+USER_FOOT=$HOME/.config/foot/foot.ini
+
+sizes_save() { echo null; }
+sizes_restore() { return 0; }
+
+sizes_apply() {
+  local pt=9 lpt line live=$THEME_DIR/foot.ini
+  if [[ -r $USER_FOOT ]]; then
+    while IFS= read -r line; do
+      [[ $line =~ ^[[:space:]]*font[[:space:]]*=.*:size=([0-9.]+) ]] && { pt=${BASH_REMATCH[1]}; break; }
+    done <"$USER_FOOT"
+  fi
+  lpt=$pt
+  [[ -r $live ]] || { log "no $live to size"; return 1; }
+  sed -E "/^[[:space:]]*font[[:space:]]*=/ s/(:size=)[0-9.]+/\1$lpt/g" "$live" >"$live.vista-tmp" || return 1
+  if cmp -s "$live.vista-tmp" "$live"; then
+    rm -f "$live.vista-tmp"
+  else
+    mv "$live.vista-tmp" "$live" && log "terminal: foot $pt pt -> Consolas $lpt pt"
+  fi
+}
+
+# ---------------------------------------------------------------- commands
+save_state() {
+  local s v args=()
+  for s in "${STEPS[@]}"; do
+    v=$("${s}_save") || { log "save failed in step $s"; return 1; }
+    args+=(--argjson "$s" "$v")
+  done
+  jq -n '$ARGS.named' "${args[@]}" >"$SAVED.tmp" && mv "$SAVED.tmp" "$SAVED"
+}
+
+# Windows XP (the omarchy-windows-xp package) may be installed too. Its
+# theme-set hooks already run its `off` before this `on` (00-windows-xp-off),
+# but a direct `vista-mode on` must not save XP's state as "pre-Vista".
+XP_MODE=$HOME/.config/omarchy/xp/bin/xp-mode
+
+cmd_on() {
+  mkdir -p "$STATE_DIR" || return 1
+  if [[ -x $XP_MODE ]] && [[ $("$XP_MODE" status 2>/dev/null | head -n 1) == on ]]; then
+    log "Windows XP is on: turning it off first"
+    "$XP_MODE" off || { log "xp-mode off failed; Vista not applied"; return 1; }
+  fi
+  if [[ ! -e $SAVED ]]; then
+    save_state || { log "could not save pre-Vista state; nothing applied"; return 1; }
+  fi
+  local s rc=0
+  for s in "${STEPS[@]}"; do
+    "${s}_apply" || { log "apply failed in step $s (others still applied; rerun 'vista-mode on' or 'off')"; rc=1; }
+  done
+  return $rc
+}
+
+cmd_off() {
+  local s part rc=0
+  for s in "${STEPS[@]}"; do
+    part=null
+    [[ -e $SAVED ]] && part=$(jq -c --arg s "$s" '.[$s]' "$SAVED")
+    "${s}_restore" "$part" || { log "restore failed in step $s"; rc=1; }
+  done
+  if ((rc == 0)); then
+    rm -f "$SAVED"
+  else
+    log "kept $SAVED so a rerun of 'vista-mode off' can finish the restore"
+  fi
+  return $rc
+}
+
+cmd_status() {
+  local name=""
+  [[ -r $THEME_NAME_FILE ]] && read -r name <"$THEME_NAME_FILE"
+  if [[ -e $SAVED ]]; then echo on; else echo off; fi
+  echo "theme: ${name:-unknown}"
+  if [[ -e $SAVED ]]; then
+    echo "saved-state: $SAVED ($(date -r "$SAVED" '+%F %T'))"
+  else
+    echo "saved-state: absent"
+  fi
+  if [[ ! -e $TOGGLE ]]; then
+    echo "hypr toggle: absent"
+  elif cmp -s "$LATE" "$TOGGLE"; then
+    echo "hypr toggle: installed"
+  else
+    echo "hypr toggle: installed, differs from late.lua"
+  fi
+  echo "font-name: $(gsettings get "$SCHEMA" font-name)  monospace: $(gsettings get "$SCHEMA" monospace-font-name)"
+  [[ -s $LOG ]] && echo "last logged error: $(tail -n 1 "$LOG")"
+  return 0
+}
+
+CMD=${1:-}
+case $CMD in
+  on | off) ;;
+  status) cmd_status; exit ;;
+  sizes) vista_theme_active || exit 0 ;;
+  *) echo "usage: vista-mode on|off|status|sizes" >&2; exit 2 ;;
+esac
+
+# Never forked or locked when there is nothing to undo: this runs on every
+# non-Vista theme switch.
+[[ $CMD == off && ! -e $SAVED && ! -e $TOGGLE ]] && exit 0
+
+# Theme switches can overlap (omarchy-theme-set runs hooks outside its lock);
+# two concurrent first `on`s could otherwise both save, the second capturing Vista
+# values as the "original" state.
+exec 9>"${XDG_RUNTIME_DIR:-/tmp}/vista-mode.lock"
+flock 9
+
+if [[ $CMD == sizes ]]; then sizes_apply; else "cmd_$CMD"; fi

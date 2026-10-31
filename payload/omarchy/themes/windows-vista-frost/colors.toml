@@ -1,0 +1,38 @@
+# Windows Vista (Aero (Frost)) -- terminal palette.
+#
+# The ANSI slots are the cmd.exe console palette, the same in every Vista
+# scheme. `accent` is the scheme's active frame colour: a PLACEHOLDER until
+# it is read from aero.msstyles and the Window Color presets.
+mode = "dark"
+
+accent    = "#C3D6EF"
+selection = "#C0C0C0"
+selection_background = "#C0C0C0"
+selection_foreground = "#000000"
+muted     = "#808080"
+
+background         = "#000000"
+dark_background    = "#000000"
+darker_background  = "#000000"
+lighter_background = "#000080"
+
+foreground        = "#C0C0C0"
+dark_foreground   = "#808080"
+light_foreground  = "#C0C0C0"
+bright_foreground = "#FFFFFF"
+
+red     = "#800000"
+green   = "#008000"
+yellow  = "#808000"
+blue    = "#000080"
+magenta = "#800080"
+cyan    = "#008080"
+orange  = "#808000"
+brown   = "#808000"
+
+bright_red     = "#FF0000"
+bright_green   = "#00FF00"
+bright_yellow  = "#FFFF00"
+bright_blue    = "#0000FF"
+bright_magenta = "#FF00FF"
+bright_cyan    = "#00FFFF"

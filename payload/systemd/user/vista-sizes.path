@@ -1,0 +1,12 @@
+[Unit]
+Description=Resize the Windows Vista terminal font when Omarchy's text size changes
+
+# `omarchy display text size` rewrites both files. vista-mode sizes is a no-op
+# outside an Vista theme, so this can stay enabled under any theme.
+[Path]
+PathChanged=%h/.config/foot/foot.ini
+PathChanged=%h/.config/omarchy/shell.toml
+Unit=vista-sizes.service
+
+[Install]
+WantedBy=default.target

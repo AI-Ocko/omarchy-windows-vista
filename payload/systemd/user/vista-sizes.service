@@ -1,0 +1,6 @@
+[Unit]
+Description=Resize the Windows Vista terminal font to Omarchy's text size
+
+[Service]
+Type=oneshot
+ExecStart=%h/.config/omarchy/vista/bin/vista-mode sizes

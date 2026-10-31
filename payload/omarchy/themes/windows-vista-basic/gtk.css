@@ -1,0 +1,18 @@
+/* Windows Vista (Vista Basic) for libadwaita / GTK4. vista-mode links this
+ * as ~/.config/gtk-4.0/gtk.css only while a Vista theme is active. Colours
+ * only. PLACEHOLDER values until the Vista look (aero.msstyles). */
+:root {
+  --window-bg-color: #F0F0F0;
+  --window-fg-color: #000000;
+  --view-bg-color: #FFFFFF;
+  --view-fg-color: #000000;
+  --headerbar-bg-color: #F0F0F0;
+  --headerbar-fg-color: #000000;
+  --accent-bg-color: #3399FF;
+  --accent-fg-color: #FFFFFF;
+  --accent-color: #3399FF;
+  --dialog-bg-color: #F0F0F0;
+  --dialog-fg-color: #000000;
+  --popover-bg-color: #FFFFFF;
+  --popover-fg-color: #000000;
+}
