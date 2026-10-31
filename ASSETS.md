@@ -151,9 +151,34 @@ fetch-assets.sh links every official wallpaper into each scheme's
 picker grouped them (the group is each JPEG's XMP `dc:subject`): Aurora
 (img36) first, then Black and White (img1-4), Light Auras (img25-29),
 Paintings (img12-15), Textures (img5-11), Vistas (img16-23). Frost puts
-Light Auras before Black and White. The DVD's Widescreen group (img30-36)
+Light Auras before Black and White. The two Windows Ultimate wallpapers
+(below) follow the official groups. The DVD's Widescreen group (img30-36)
 holds 16:10 copies of img10, 23, 5, 21, 19, 22 and 24; each replaces its
 4:3 original in its group, so 29 unique wallpapers.
+
+## Extra official wallpapers (not on the DVD)
+
+Two wallpapers Microsoft published on its Windows Vista Ultimate team site
+(windowsultimate.com, pages "(c)2007 Microsoft Corporation"), "Ultimate
+Downloads" entries 166 and 169, each in its 16:10 size (the 4:3 and 30"
+versions, entries 167/168/170/171, are the same designs). The files carry
+XMP `dc:rights` "Microsoft Corporation 2007", keywords "Widescreen; Windows
+Ultimate". Fetched from the archive.org item `windows-vista-ultimate-wallpaper`
+(`Windows Vista Ultimate Wallpaper.zip`, sha256 1bc2cc85...e4cd48, members
+UltimateStart_1920x1200.jpg / UltimateStrands_1920x1200.jpg), whose bytes
+match the Wayback Machine's raw copies of the Microsoft site's own downloads
+(the fallback URLs):
+
+| file | sha256 | primary | Microsoft original (Wayback) |
+|---|---|---|---|
+| `wallpapers/windows-ultimate-start-1920x1200.jpg` | f5709f05...7c8c9e1 | archive.org zip member | web.archive.org/web/20070310162644id_/http://windowsultimate.com:80/files/folders/166/download.aspx |
+| `wallpapers/windows-ultimate-strands-1920x1200.jpg` | 09610df4...0ee3 | archive.org zip member | web.archive.org/web/20070310162501id_/http://windowsultimate.com:80/files/folders/169/download.aspx |
+
+Looked for and not used: the archive.org item
+`windowsvistaultimateextraswallpaper` (img37-41: re-saved copies of the
+above with altered XMP, plus a watermarked third-party photo); DreamScene
+content (video only, no Microsoft stills); Microsoft launch or (PRODUCT)RED
+wallpaper downloads (none found on microsoft.com captures); OEM and fan packs.
 
 ## Generated on this machine (not pinned, rebuilt from the pinned files)
 

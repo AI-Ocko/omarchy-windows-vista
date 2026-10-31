@@ -556,6 +556,15 @@ get() {  # path in install.wim -> local file
     echo "$out"
 }
 
+# Files outside the DVD, each from its own URLs (tried in order) and pinned
+# by sha256 like everything else: dest|sha256|url [url ...]. ASSETS.md
+# gives each one's provenance.
+URLFILES=$(cat <<'EOF'
+wallpapers/windows-ultimate-start-1920x1200.jpg|f5709f055f62e700fb566cfc6303b4e40af9a17d7c875a7c83ec173ad8c7c9e1|https://archive.org/download/windows-vista-ultimate-wallpaper/Windows%20Vista%20Ultimate%20Wallpaper.zip/UltimateStart_1920x1200.jpg https://web.archive.org/web/20070310162644id_/http://windowsultimate.com:80/files/folders/166/download.aspx
+wallpapers/windows-ultimate-strands-1920x1200.jpg|09610df42cef5c32c10b6a72b272f0ac4fe99725f4469d0898137327180e7ee3|https://archive.org/download/windows-vista-ultimate-wallpaper/Windows%20Vista%20Ultimate%20Wallpaper.zip/UltimateStrands_1920x1200.jpg https://web.archive.org/web/20070310162501id_/http://windowsultimate.com:80/files/folders/169/download.aspx
+EOF
+)
+
 total=$(grep -c . <<<"$FILES")
 n=0
 while IFS='|' read -r dest sha path; do
@@ -571,6 +580,23 @@ while IFS='|' read -r dest sha path; do
     mkdir -p "$(dirname "$target")" && mv "$got" "$target"
     fetched=$((fetched + 1))
 done <<<"$FILES"
+
+while IFS='|' read -r dest sha urls; do
+    [[ -n $dest ]] || continue
+    target=$ASSETS/$dest
+    if [[ -f $target && $(sha256sum "$target" | cut -d' ' -f1) == "$sha" ]]; then
+        verified=$((verified + 1)); continue
+    fi
+    printf '  [url] %s\n' "$dest"
+    ok=0
+    for url in $urls; do
+        tmp=$WORK/url.part
+        curl -sfL --retry 3 -A "$UA" -o "$tmp" "$url" || continue
+        [[ $(sha256sum "$tmp" | cut -d' ' -f1) == "$sha" ]] || { err "hash mismatch from $url"; continue; }
+        mkdir -p "$(dirname "$target")" && mv "$tmp" "$target" && ok=1 && fetched=$((fetched + 1)) && break
+    done
+    ((ok)) || failures+=("not fetched: $dest")
+done <<<"$URLFILES"
 
 build() {  # method input member -> produced path (inside $WORK)
     local method=$1 in=$ASSETS/$2 member=$3 x
@@ -652,10 +678,13 @@ walls_for() {  # scheme -> "group:id" lines in picker order
         windows-vista-frost) groups="light-auras black-and-white paintings textures vistas" ;;
         *) groups="black-and-white light-auras paintings textures vistas" ;;
     esac
-    echo "aurora:36"
+    echo "aurora:wallpapers/img36.jpg"
     for group in $groups; do
-        for id in ${VISTA_WALLS[$group]}; do echo "$group:$id"; done
+        for id in ${VISTA_WALLS[$group]}; do echo "$group:wallpapers/img$id.jpg"; done
     done
+    # Microsoft's own Windows Ultimate site downloads (ASSETS.md)
+    echo "windows-ultimate:wallpapers/windows-ultimate-start-1920x1200.jpg"
+    echo "windows-ultimate:wallpapers/windows-ultimate-strands-1920x1200.jpg"
 }
 for t in "$HERE"/../themes/windows-vista*/; do
     [[ -d $t ]] || continue
@@ -664,10 +693,11 @@ for t in "$HERE"/../themes/windows-vista*/; do
     mkdir -p "$bg"
     rm -f "$bg/placeholder.png"
     n=0
-    while IFS=: read -r group id; do
-        src=$ASSETS/wallpapers/img$id.jpg
+    while IFS=: read -r group rel; do
+        src=$ASSETS/$rel
         [[ -f $src ]] || continue
-        name=$(printf '%02d-%s-%s-img%s.jpg' "$n" "$tag" "$group" "$id")
+        base=${rel##*/}; base=${base#windows-ultimate-}
+        name=$(printf '%02d-%s-%s-%s' "$n" "$tag" "$group" "$base")
         want+=("$name"); n=$((n + 1))
         [[ $(readlink "$bg/$name" 2>/dev/null) == "$src" ]] || ln -sfn "$src" "$bg/$name"
     done < <(walls_for "$scheme")
