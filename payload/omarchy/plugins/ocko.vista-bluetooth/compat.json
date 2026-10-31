@@ -5,7 +5,7 @@
     "plugins/panels/bluetooth/Panel.qml": "018af5e96d27fe1f09dca2b2f24904c06290e31d21d00974387e0d51de8ae4b2"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "4e5f353ed30d1453e88ee695dd907b20f85248f4348cc1c8581ddb2c2ab91cf1",
+  "self": "42da4d677255fed68aa6f63ea935e1928b14d6c109a131b1f69c9a9805d13099",
   "external": [
     "AlignHCenter",
     "Color",

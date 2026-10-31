@@ -5,7 +5,7 @@
     "plugins/panels/network/Panel.qml": "1e551a8d109535d2673ec9bb08faea01acdba27141c82aae6b7ae3be8da3c002"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "6a02cc8f8d622366740eab23949a22be2e9f0b728772e2b5471b31e26351ff6c",
+  "self": "a9911cd0c60576f785c741447bdd017c92ab33503bf767e346eaa8b4cfd053ea",
   "external": [
     "AlignVCenter",
     "Color",

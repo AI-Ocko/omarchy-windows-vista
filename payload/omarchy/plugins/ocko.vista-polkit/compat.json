@@ -5,7 +5,7 @@
     "plugins/polkit/PolkitModel.js": "29c0b96b25fea18d8dcc1e61912f8906ff75c599b07f9bf8b0f8cc4f6fb985c9"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "23fc0b46a4eea5b19903b180e735d0c8379e0b83b8917b9dea9f58e8311bad0f",
+  "self": "aa4c846d01b2aa909efd9e222b40e764e1df5e915aceeeeb5bdbd47dcf696698",
   "external": [
     "BeforeItem",
     "Color",
