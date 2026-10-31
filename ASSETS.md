@@ -35,16 +35,23 @@ was implemented but not exercised, because it means a 3.2 GB download.)
   extracted here as `sounds/startup.wav` (880 684 bytes, 16-bit stereo 44.1 kHz).
 - 43 files were pinned twice, independently (research run and pin run): identical.
 
-## What is fetched (355 files)
+## What is fetched (372 files)
 
 | group | files |
 |---|---|
-| `binaries/` | 17 |
+| `account-pictures/` | 13 |
+| `binaries/` | 21 |
 | `cursors/` | 39 |
 | `fonts/` | 8 |
 | `gadgets/` | 236 |
 | `sounds/` | 19 |
 | `wallpapers/` | 36 |
+
+Account pictures: Vista's User Account Pictures (`ProgramData/Microsoft/User Account
+Pictures`: Default Pictures usertile2-12, user, guest; usertile7 is the chess picture
+used for the logon tile and the Start menu). Binaries added in Phase 4a: pnidui.dll
+(network tray icons), SndVolSSO.dll (volume tray icons), bthprops.cpl (Bluetooth),
+timedate.cpl (the clock flyout: clock face PNGFILE 5000-5007, layout UIFILE 305).
 
 Fonts: Vista's four Segoe UI weights (regular, bold, italic, bold italic: Light and
 Semibold first shipped with Windows 7) and Consolas. Sounds are renamed (e.g.
@@ -71,6 +78,10 @@ Semibold first shipped with Windows 7) and Consolas. Sounds are renamed (e.g.
 | `graphics/user32-ico` | icons | `binaries/user32.dll` 16,32,48 | message-box icons |
 | `graphics/explorer-ico` | icons | `binaries/explorer.exe` 16,32,48,256 | explorer.exe icons |
 | `graphics/consent-ico` | icons | `binaries/consent.exe` 16,32,48,256 | UAC shield icons |
+| `graphics/pnidui-ico` | icons | `binaries/pnidui.dll` 16,32,48 | network tray icons (3020-3026 wireless/disconnected, 3048 wired) |
+| `graphics/sndvolsso-ico` | icons | `binaries/sndvolsso.dll` 16,32,48 | volume tray icons (120 muted, 122-124 levels) |
+| `graphics/bthprops-ico` | icons | `binaries/bthprops.cpl` 16,32,48 | Bluetooth icon (151) |
+| `graphics/timedate` | peres | `binaries/timedate.cpl` PNGFILE,UIFILE | clock flyout: analog clock face and glass (5000-5007), flyout layout (305) |
 | `icons/windows-vista-cursors` | xcursor | `cursors` | Xcursor theme: the Aero scheme (aero_*.cur/.ani at 24/36/48 nominal from 32/48/64 px art, animations at Vista's frame rates) plus user32's I-beam and crosshair (GROUP_CURSOR 101, 103), as in Vista's own scheme |
 | `gtk/Windows-Vista` | gtk | `-` Windows-Vista-719b12bdb6f6dd352f7ca26ac2fd78ddc10efb8c | B00merang-Project/Windows-Vista @ 719b12bdb6f6 (GPL-3.0), tarball sha256 `6b08f59b9d39…`; installed as GTK theme "Windows Vista" |
 
@@ -110,3 +121,21 @@ DWMWindow (the Aero glass frame and caption buttons) uses a single PNG atlas
   approximate until the values are found in themecpl's code, or the sample is
   calibrated against Default, whose true value is known.
 - **Vista Basic:** the opaque `Window` class parts of the same aero.msstyles.
+
+## Generated on this machine (not pinned, rebuilt from the pinned files)
+
+`bin/vista-art` (run by fetch-assets.sh) cuts the pinned art into what the shell and
+the title bars load: icon PNGs per library (`graphics/<lib>/<size>/<id>.png`), the
+icon theme, caption art (`captions/glass|basic`), taskbar, orb and battery frames,
+Start menu parts, the logon art (`logon/`: authui BITMAPs, basebrd 120 as
+`brand.png`, imageres 5031-5043 backgrounds), `account-pictures/*.png`, the control
+art for the widget library (`taskbar/widgets/`: Aero msstyles Button, Combobox,
+Header, Progress, ScrollBar, Spin, TrackBar, Tab, Tooltip and the Basic Window
+frame), and Vista icons under the XP icon names some ported windows still use.
+
+`bin/vista-boot render` draws the Plymouth boot screen: no Microsoft bitmap is
+used for the progress bar, which is reconstructed at 640x480 from
+`commons-boot-screen-640.png` (outline, six blocks, row colours sampled) and
+pixel-doubled; the footer is drawn with the fetched Segoe UI; the shutdown screen
+uses imageres 5038 (the 16:9 logon background). Nothing is installed into
+`/usr/share/plymouth` until `vista-boot install|on` is run.

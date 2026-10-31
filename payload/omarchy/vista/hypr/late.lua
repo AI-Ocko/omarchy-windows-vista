@@ -160,9 +160,9 @@ else
 end
 
 if c.glass then
-	o.window({ focus = false }, { ["hyprbars:bar_color"] = c.idle, ["hyprbars:title_color"] = "rgb(4a4a4a)" })
+	o.window({ focus = false }, { ["hyprbars:bar_color"] = c.idle, ["hyprbars:title_color"] = "rgb(333333)" })
 else
-	o.window({ focus = false }, { ["hyprbars:title_color"] = "rgb(6d6d6d)" })
+	o.window({ focus = false }, { ["hyprbars:title_color"] = "rgb(4c4c4c)" })
 end
 o.window("^(com\\.rice\\.(btop|logs)|org\\.omarchy\\.screensaver)$", { ["hyprbars:no_bar"] = true })
 o.window({ tag = "floating-window" }, { ["hyprbars:no_bar"] = true })
