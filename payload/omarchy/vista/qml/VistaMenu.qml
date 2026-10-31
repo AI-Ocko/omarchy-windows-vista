@@ -21,7 +21,7 @@ Item {
 
   readonly property real itemHeight: Style.space(17)
   readonly property real sepHeight: Style.space(9)
-  readonly property real gutter: Style.space(18)
+  readonly property real gutter: Style.space(28)
   readonly property real shadow: Style.space(2)
 
   function selectable(i) {
@@ -57,9 +57,12 @@ Item {
   Rectangle {
     width: parent.width - menu.shadow
     height: parent.height - menu.shadow
-    color: "#FFFFFF"
+    // Vista: light grey with the icon gutter's etched divider.
+    color: "#F0F0F0"
     border.width: 1
-    border.color: "#ACA899"
+    border.color: "#979797"
+    Rectangle { x: menu.gutter - 2; y: 2; width: 1; height: parent.height - 4; color: "#E2E3E3" }
+    Rectangle { x: menu.gutter - 1; y: 2; width: 1; height: parent.height - 4; color: "#FFFFFF" }
 
     Column {
       id: column
@@ -82,16 +85,24 @@ Item {
           Rectangle {
             visible: entry.sep
             anchors.verticalCenter: parent.verticalCenter
-            x: Style.space(1)
-            width: parent.width - Style.space(2)
+            x: menu.gutter
+            width: parent.width - menu.gutter - Style.space(2)
             height: 1
-            color: "#ACA899"
+            color: "#E0E0E0"
+            Rectangle { y: 1; width: parent.width; height: 1; color: "#FFFFFF" }
           }
 
           Rectangle {
             visible: entry.lit
             anchors.fill: parent
-            color: VistaScheme.sc.highlight
+            anchors.leftMargin: Style.space(2)
+            anchors.rightMargin: Style.space(2)
+            radius: Style.space(3)
+            border.color: "#A8D8EB"
+            gradient: Gradient {
+              GradientStop { position: 0; color: "#F2F8FD" }
+              GradientStop { position: 1; color: "#DDEEFB" }
+            }
           }
 
           Text {
@@ -122,12 +133,12 @@ Item {
           Text {
             id: label
             visible: !entry.sep
-            x: menu.gutter
+            x: menu.gutter + Style.space(6)
             height: parent.height
             verticalAlignment: Text.AlignVCenter
             text: String(entry.item.text || "")
             textFormat: Text.StyledText
-            color: entry.item.enabled === false ? "#ACA899" : entry.lit ? VistaScheme.sc.highlightText : "#000000"
+            color: entry.item.enabled === false ? "#6D6D6D" : "#000000"
             font.family: "Segoe UI"
             font.bold: entry.item.bold === true
             font.pixelSize: Style.font.bodySmall

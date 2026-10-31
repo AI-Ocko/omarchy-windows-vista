@@ -6,8 +6,9 @@
     "plugins/panels/weather/Panel.qml": "3a5b1345741f699e426ac08a2e4548a8bc0e0c4c82a54600402f716c20736de5"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "e633af34e8a06ac812c6fc684e679550155abfe7d81918f6953578b6ca7539e8",
+  "self": "6322452109c80bea31ad8ada8991083d941054f11b1ea6cf2db23708db16d391",
   "external": [
+    "AlignHCenter",
     "ElideRight",
     "Key_Down",
     "Key_Enter",
@@ -17,6 +18,7 @@
     "Keys",
     "MiddleButton",
     "PlainText",
+    "Raised",
     "RightButton",
     "abs",
     "admin1",
@@ -54,7 +56,6 @@
     "test",
     "time",
     "toLowerCase",
-    "toString",
     "trim",
     "weatherCode",
     "weather_code",

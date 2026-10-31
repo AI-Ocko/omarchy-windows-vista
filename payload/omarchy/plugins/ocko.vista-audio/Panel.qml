@@ -883,6 +883,7 @@ Panel {
     target: "vistaaudio"
     function mixer(): void { root.openMixer(false) }
     function sound(): void { root.openMixer(true) }
+    function menu(): void { root.menuOpen = true }
   }
 
   // ---- Vista mixer and Sound dialog helpers -------------------------------
@@ -1234,10 +1235,17 @@ Panel {
         id: ctxMenu
         anchors.fill: parent
         items: [
-          { text: "Open Volume Control", bold: true },
-          { text: "Adjust Audio Properties" }
+          { text: "Open Volume <u>M</u>ixer", bold: true },
+          { separator: true },
+          { text: "<u>P</u>layback devices" },
+          { text: "<u>R</u>ecording devices" },
+          { text: "<u>S</u>ounds", enabled: false }
         ]
-        onTriggered: function(i) { root.openMixer(i === 1) }
+        // Vista's speaker menu: the mixer, or the Sound dialog on its tab.
+        onTriggered: function(i) {
+          root.openMixer(i === 2 || i === 3)
+          if (i === 3) root.setPropsMode("recording")
+        }
       }
     }
   }

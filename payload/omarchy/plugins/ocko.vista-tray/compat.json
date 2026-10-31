@@ -5,7 +5,7 @@
     "plugins/bar/widgets/TrayModel.js": "925a879daf505071608094664c7c53679eaa77b74c169434be026499ccf6c27e"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "4b65e2625e0c8c41757592a8781e14679057bea1919c24f3cdfd68238cd807e5",
+  "self": "c666d084481881477b57e43f9b11c41183a470fdfd089a62b8ba74036a41546b",
   "external": [
     "Bottom",
     "Checked",

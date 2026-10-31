@@ -5,11 +5,12 @@
     "plugins/panels/monitor/Panel.qml": "7ce864b8360625b008d5539adb555b3366513cdfd8fe57a93c64acef23d94bfa"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "243c76cd7ff104783b25e30892d9cb931ffeaab24d20ec42f0d137daf4935e1f",
+  "self": "0a2847e3451f6efec0cbffd56f1367b52585ec768e64de9d143bb86df9437b00",
   "external": [
     "AlignHCenter",
     "ElideRight",
     "PlainText",
+    "Raised",
     "WordWrap",
     "abs",
     "indexOf",

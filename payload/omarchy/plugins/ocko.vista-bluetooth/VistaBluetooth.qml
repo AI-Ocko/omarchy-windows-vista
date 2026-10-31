@@ -7,9 +7,11 @@ import "../../vista/qml"
 // the screenshot harness, a mock with the same members; nothing here touches
 // Quickshell.Bluetooth, so the mock never needs an adapter.
 //
-// Geometry is xpsp2res.dll's own dialog templates (Vista SP2), from dialog units
-// at Tahoma 8 / 96 dpi (1 DLU = 1.5 px across, 13/8 px down):
-//   107  Devices, 135 Options, 132 COM Ports (pages 227 x 215)
+// Geometry is from dialog units at 8 pt / 96 dpi (1 DLU = 1.5 px across,
+// 13/8 px down): Options is bthprops.cpl.mui DIALOG 135 (Vista's); Devices,
+// COM Ports, Select Bluetooth Device and General keep XP SP2's xpsp2res
+// templates, which Vista's bthprops kept nearly unchanged:
+//   107  Devices, 132 COM Ports (pages 227 x 215)
 //   136  Select Bluetooth Device (Add...), 325 x 195
 //   138  <device> Properties > General, 227 x 215
 // The Hardware tab is the generic Device Manager page (134 is only its
@@ -36,7 +38,12 @@ Item {
   function s(n) { return Style.space(n) }
   function du(x) { return Style.space(Math.round(x * 1.5)) }
   function dv(y) { return Style.space(Math.round(y * 13 / 8)) }
-  function icon(id, size) { return VistaScheme.graphics + "/xpsp2res/" + size + "/" + id + ".png" }
+  // bthprops.cpl's own icons (151 the Bluetooth device, 101 the adapter);
+  // XP's xpsp2res ids map onto them.
+  function icon(id, size) {
+    var map = { 300: 151, 144: 151, 2026: 101, 101: 101 }
+    return VistaScheme.graphics + "/bthprops/" + size + "/" + (map[id] || 151) + ".png"
+  }
 
   readonly property var adapter: host.adapter
   readonly property bool radioOn: !!adapter && adapter.enabled === true
@@ -332,49 +339,40 @@ Item {
       anchors.fill: parent
       visible: bt.host.vistaTab === 1
 
-      VistaGroupBox { x: bt.du(7); y: bt.dv(7); width: bt.du(213); height: bt.dv(68); caption: "Discovery" }
-      VistaLabel {
-        x: bt.du(15); y: bt.dv(17); width: bt.du(195)
-        wrapMode: Text.WordWrap
-        text: "To allow Bluetooth devices to find this computer, select the following check box."
-      }
+      // bthprops.cpl.mui DIALOG 135 (Vista's Options page).
+      VistaGroupBox { x: bt.du(7); y: bt.dv(7); width: bt.du(213); height: bt.dv(48); caption: "Discovery" }
       // Stock never changes discoverability: shown, read-only.
       VistaCheckBox {
-        x: bt.du(15); y: bt.dv(37); width: bt.du(190); height: bt.dv(10)
-        text: "<u>T</u>urn discovery on"
+        x: bt.du(15); y: bt.dv(17); width: bt.du(190); height: bt.dv(10)
+        text: "Allow Bluetooth devices to <u>f</u>ind this computer"
         enabled: false
         checked: !!bt.adapter && bt.adapter.discoverable === true
       }
       Image {
-        x: bt.du(9); y: bt.dv(54)
-        width: bt.s(32); height: bt.s(32)
-        source: bt.icon(101, 32)
+        x: bt.du(9); y: bt.dv(32)
+        width: bt.s(16); height: bt.s(16)
+        source: VistaScheme.sysIcon("warning", 16)
       }
       VistaLabel {
-        x: bt.du(33); y: bt.dv(54); width: bt.du(180)
+        x: bt.du(33); y: bt.dv(34); width: bt.du(180)
         wrapMode: Text.WordWrap
-        text: "To protect your privacy, turn on discovery only when you want a Bluetooth device to find this computer."
+        text: "To protect your privacy, select this check box only when you want a Bluetooth device to find this computer."
       }
 
-      VistaGroupBox { x: bt.du(7); y: bt.dv(78); width: bt.du(213); height: bt.dv(58); caption: "Connections" }
-      VistaLabel {
-        x: bt.du(15); y: bt.dv(89); width: bt.du(171)
-        wrapMode: Text.WordWrap
-        text: "Use these settings to control whether a Bluetooth device can connect to this computer."
-      }
+      VistaGroupBox { x: bt.du(7); y: bt.dv(58); width: bt.du(213); height: bt.dv(38); caption: "Connections" }
       VistaCheckBox {
-        x: bt.du(15); y: bt.dv(109); width: bt.du(190); height: bt.dv(10)
+        x: bt.du(15); y: bt.dv(69); width: bt.du(195); height: bt.dv(10)
         text: "Allow Bluetooth devices to <u>c</u>onnect to this computer"
         enabled: false
         checked: !!bt.adapter && bt.adapter.pairable === true
       }
       VistaCheckBox {
-        x: bt.du(15); y: bt.dv(121); width: bt.du(190); height: bt.dv(10)
+        x: bt.du(15); y: bt.dv(81); width: bt.du(195); height: bt.dv(10)
         text: "Alert me when a new Bluetooth device <u>w</u>ants to connect"
         enabled: false
       }
       VistaCheckBox {
-        x: bt.du(7); y: bt.dv(140); width: bt.du(213); height: bt.dv(10)
+        x: bt.du(7); y: bt.dv(100); width: bt.du(213); height: bt.dv(10)
         text: "Show the Bluetooth icon in the <u>n</u>otification area"
         enabled: false
         checked: true
@@ -383,8 +381,8 @@ Item {
       // tray icon's right-click. The keyboard's "header" stop lands here.
       VistaCheckBox {
         id: radioBox
-        x: bt.du(7); y: bt.dv(152); width: bt.du(213); height: bt.dv(10)
-        text: "Turn off the <u>B</u>luetooth radio"
+        x: bt.du(7); y: bt.dv(112); width: bt.du(213); height: bt.dv(10)
+        text: "Turn off the <u>B</u>luetooth adapter"
         enabled: !!bt.adapter
         checked: !!bt.adapter && !bt.radioOn
         focused: bt.host.headerHasCursor

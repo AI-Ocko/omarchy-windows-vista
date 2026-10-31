@@ -2,7 +2,7 @@ import QtQuick
 import qs.Commons
 import "../../vista/qml"
 
-// Vista's Display Properties > Settings page over the stock monitor panel's
+// Vista's Display Settings (Monitor tab) over the stock monitor panel's
 // model. `host` is the panel (ocko.vista-monitor Panel.qml) or, for the
 // screenshot harness, a mock with the same members; nothing here runs a
 // command itself.
@@ -28,8 +28,6 @@ VistaPropertySheet {
   id: sheet
 
   required property var host
-  // themeui BITMAP 126, magenta keyed out (vista-taskbar-art).
-  property url monitorArt: VistaScheme.artRoot + "/desk-monitor.png"
 
   readonly property var displays: host.displays || []
   readonly property bool multi: displays.length > 1
@@ -84,11 +82,11 @@ VistaPropertySheet {
   readonly property int extendY: textY + 33
   readonly property int buttonsY: multi ? extendY + 17 : textY + 35
 
-  title: "Display Properties"
+  title: "Display Settings"
   titleIcon: VistaScheme.graphics + "/desk/16/100.png"
   buttons: ["close"]
   onCloseClicked: host.close()
-  titles: ["Settings"]
+  titles: ["Monitor"]
   tab: 0
   pageWidth: du(252)
   pageHeight: dv(buttonsY + 14 + 4)
@@ -207,14 +205,31 @@ VistaPropertySheet {
       }
     }
 
-    Image {
+    // Vista's Display Settings drew each monitor as a blue rounded panel
+    // with its number, in the screen's proportions.
+    Rectangle {
       visible: !sheet.multi
-      x: sheet.du(63) + (sheet.du(125) - width) / 2
+      readonly property var d: sheet.displays[0] || ({})
+      readonly property real aspect: (d.width || 16) / Math.max(1, d.height || 9)
+      height: sheet.dv(80)
+      width: Math.min(sheet.du(150), height * aspect)
+      x: (parent.width - width) / 2
       y: sheet.dv(7) + (sheet.dv(107) - height) / 2
-      width: Style.space(185)
-      height: Style.space(163)
-      source: sheet.monitorArt
-      smooth: false
+      radius: Style.space(3)
+      border.width: 2
+      border.color: "#3A6EA5"
+      gradient: Gradient {
+        GradientStop { position: 0; color: "#8DB8E8" }
+        GradientStop { position: 1; color: "#3D7BC4" }
+      }
+      Text {
+        anchors.centerIn: parent
+        text: "1"
+        color: "#FFFFFF"
+        font.family: "Segoe UI"
+        font.pixelSize: Style.space(44)
+        style: Text.Raised; styleColor: "#40000000"
+      }
     }
 
     // ---- Display: (1820) and its combo (1800) / static (1811) ----------
