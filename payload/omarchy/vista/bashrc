@@ -6,10 +6,28 @@ _vista_theme=
 [[ -r ~/.local/state/omarchy/current/theme.name ]] && read -r _vista_theme <~/.local/state/omarchy/current/theme.name
 
 if [[ $_vista_theme == windows-vista || $_vista_theme == windows-vista-* ]]; then
+  export STARSHIP_CONFIG=$HOME/.config/omarchy/vista/starship.toml
+
+  # cmd.exe's path for the prompt (omarchy/vista/starship.toml says why bash
+  # computes it): ~/foo -> C:\Users\$USER\foo, /usr -> C:\usr.
+  _vista_prompt_path() {
+    local p=$PWD
+    if [[ $p == "$HOME" || $p == "$HOME"/* ]]; then
+      p="Users/$USER${p#"$HOME"}"
+    else
+      p=${p#/}
+    fi
+    export VISTA_PROMPT_PATH="C:\\${p//\//\\}"
+  }
+  # starship's bash init calls this before rendering each prompt.
+  starship_precmd_user_func=_vista_prompt_path
   # The cmd.exe banner belongs to a new console window only: a shell foot
   # started directly. Not tmux panes, subshells or `bash -ic` (parent bash).
   if [[ -z ${TMUX-} ]] && read -r _vista_parent </proc/$PPID/comm && [[ $_vista_parent == foot ]]; then
     printf 'Microsoft Windows [Version 6.0.6002]\nCopyright (c) 2006 Microsoft Corporation.  All rights reserved.\n\n'
   fi
+elif [[ ${STARSHIP_CONFIG-} == "$HOME/.config/omarchy/vista/starship.toml" ]]; then
+  # Inherited from a shell opened while Vista was active; not ours to keep.
+  unset STARSHIP_CONFIG VISTA_PROMPT_PATH
 fi
 unset _vista_theme _vista_parent

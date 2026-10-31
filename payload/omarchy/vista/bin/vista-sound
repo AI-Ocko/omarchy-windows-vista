@@ -1,0 +1,103 @@
+#!/bin/bash
+# vista-sound <event>     play omarchy/vista/assets/sounds/<event>.wav, Vista themes only
+# vista-sound --selftest  prove the dedupe / mute / theme gates (plays nothing)
+#
+# Events are the file names in assets/sounds/ (see ASSETS.md): startup,
+# logoff, shutdown, balloon, exclamation, critical-stop, ...
+#
+# Callers run once per monitor (the bar) or race each other (two balloons in a
+# burst), so a play is deduped per event: the first caller inside a WINDOW_US
+# window plays, the rest return at once. Never plays on a muted default sink,
+# never outside an Vista theme. Blocks until the sound ends (capped), so a caller
+# that wants to act *after* the sound just waits for this to exit.
+#
+# Every decision is one line in $XDG_RUNTIME_DIR/vista-sound.log.
+#
+# Test hooks (the selftest uses them): VISTA_SOUND_PLAYER replaces pw-play,
+# VISTA_SOUND_MUTED=0|1 replaces the wpctl query, VISTA_SOUND_THEME_FILE the
+# theme.name path.
+
+SOUNDS=${BASH_SOURCE[0]%/*}/../assets/sounds
+RUN=${XDG_RUNTIME_DIR:-/tmp}
+LOG=$RUN/vista-sound.log
+THEME_FILE=${VISTA_SOUND_THEME_FILE:-$HOME/.local/state/omarchy/current/theme.name}
+WINDOW_US=1500000
+VOLUME=0.6   # pw-play stream volume, on top of the sink's own
+CAP=6        # seconds; the longest sound (startup) is 5.0 s
+
+log() {
+  local t
+  printf -v t '%(%F %T)T' -1
+  echo "$t ${EPOCHREALTIME#*.} pid=$$ $*" >>"$LOG"
+}
+
+vista_active() {
+  local name=""
+  [[ -r $THEME_FILE ]] && read -r name <"$THEME_FILE"
+  [[ $name == windows-vista || $name == windows-vista-* ]]
+}
+
+sink_muted() {
+  [[ -n ${VISTA_SOUND_MUTED:-} ]] && { [[ $VISTA_SOUND_MUTED == 1 ]]; return; }
+  local v
+  v=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null) || return 0   # no sink: treat as muted
+  [[ $v == *MUTED* ]]
+}
+
+play() {
+  local event=$1 file=$SOUNDS/$1.wav now last=0
+  [[ $event =~ ^[a-z-]+$ && -r $file ]] || { log "error unknown-event $event"; echo "vista-sound: no such event: $event" >&2; return 2; }
+  vista_active || { log "skip $event not-vista"; return 0; }
+
+  # Check-and-stamp under the lock; play after releasing it, so a slow sound
+  # never makes a second caller wait.
+  exec 9<>"$RUN/vista-sound-$event"
+  flock -w 2 9 || { log "skip $event lock-timeout"; return 0; }
+  read -r last <&9
+  now=${EPOCHREALTIME/./}
+  if ((now - ${last:-0} < WINDOW_US)); then
+    exec 9>&-
+    log "skip $event dedupe"
+    return 0
+  fi
+  echo "$now" >"$RUN/vista-sound-$event"
+  exec 9>&-
+
+  sink_muted && { log "skip $event muted"; return 0; }
+  log "play $event"
+  timeout "$CAP" ${VISTA_SOUND_PLAYER:-pw-play} --volume "$VOLUME" --media-role Notification "$file" 2>/dev/null
+  return 0
+}
+
+selftest() {
+  local dir self=${BASH_SOURCE[0]} n fail=0
+  dir=$(mktemp -d) || return 1
+  echo windows-vista >"$dir/theme"
+  t() { XDG_RUNTIME_DIR=$dir VISTA_SOUND_THEME_FILE=$dir/theme VISTA_SOUND_PLAYER=true VISTA_SOUND_MUTED=${M:-0} "$self" "$@"; }
+  plays() { grep -c " play $1\$" "$dir/vista-sound.log" 2>/dev/null; }
+  check() { if [[ $2 == "$3" ]]; then echo "ok   $1"; else echo "FAIL $1: got $2, want $3"; fail=1; fi; }
+
+  t balloon & t balloon & t balloon & wait
+  check "3 concurrent callers -> 1 play" "$(plays balloon)" 1
+  t exclamation
+  check "other event not deduped by balloon" "$(plays exclamation)" 1
+  sleep 1.6; t balloon
+  check "after the 1.5 s window -> plays again" "$(plays balloon)" 2
+  sleep 1.6; M=1 t balloon
+  check "muted sink -> no play" "$(plays balloon)" 2
+  n=$(grep -c ' skip balloon muted$' "$dir/vista-sound.log"); check "muted logged" "$n" 1
+  sleep 1.6; echo miasma >"$dir/theme"; t balloon
+  check "non-Vista theme -> no play" "$(plays balloon)" 2
+  echo windows-vista-basic >"$dir/theme"; sleep 1.6; t balloon
+  check "Vista scheme variant -> plays" "$(plays balloon)" 3
+  t no-such-sound; check "unknown event exits 2" "$?" 2
+  t '../x'; check "path in event rejected" "$?" 2
+  rm -rf "$dir"
+  return $fail
+}
+
+case ${1:-} in
+  --selftest) selftest ;;
+  '' | -*) echo "usage: vista-sound <event> | --selftest" >&2; exit 2 ;;
+  *) play "$1" ;;
+esac

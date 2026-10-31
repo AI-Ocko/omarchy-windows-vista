@@ -1,0 +1,23 @@
+# Windows Vista -- the cmd.exe prompt:   C:\Users\ocko\foo>
+#
+# Selected by omarchy/vista/bashrc (STARSHIP_CONFIG) in shells started while a
+# Vista theme is active. No git, no glyphs, no colour, no exit status: cmd.exe
+# shows none of them. Only modules named in `format` are evaluated, so the
+# git_status cost (~14ms per prompt in ~/.config) is gone too.
+#
+# The path comes from $VISTA_PROMPT_PATH, which omarchy/vista/bashrc recomputes
+# before every prompt with bash builtins (no fork). The directory module can't
+# produce it: starship 1.27 contracts $HOME to `home_symbol` *before* applying
+# `substitutions`, and neither can read $USER (no env interpolation in TOML).
+format = '${env_var.VISTA_PROMPT_PATH}>'
+
+# cmd.exe prints a blank line before every prompt, even after an empty Enter.
+add_newline = true
+
+# cmd.exe's own continuation prompt (`dir ^` + Enter).
+continuation_prompt = 'More? '
+
+[env_var.VISTA_PROMPT_PATH]
+format = '$env_value'
+# Shown if starship runs without the bash hook (e.g. `starship prompt` by hand).
+default = 'C:\'

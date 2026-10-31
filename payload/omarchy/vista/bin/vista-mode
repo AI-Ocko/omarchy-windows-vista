@@ -59,11 +59,12 @@ GSETTINGS_SAVED=(gtk-theme icon-theme cursor-theme cursor-size font-name documen
 # replaces, read from saved-state.json: Segoe UI takes the pre-Vista
 # font-name's, Consolas the pre-Vista monospace-font-name's (Omarchy's 11 if
 # unreadable). Omarchy's text-scaling-factor stays Omarchy's and scales both.
-# The Aero cursors come with the assets (cursor-theme is added then).
+# cursor-theme: the Aero pointers (fetch-assets.sh, Xcursor windows-vista-cursors).
 declare -A GSETTINGS_VISTA=(
   [font-name]="'Segoe UI @PT@'"
   [document-font-name]="'Segoe UI @PT@'"
   [monospace-font-name]="'Consolas @PT@'"
+  [cursor-theme]="'windows-vista-cursors'"
 )
 declare -A GSETTINGS_PT_FROM=([font-name]=font-name [document-font-name]=font-name [monospace-font-name]=monospace-font-name)
 

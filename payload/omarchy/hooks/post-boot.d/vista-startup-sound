@@ -1,0 +1,8 @@
+#!/bin/bash
+# Windows Vista startup sound, once per login. omarchy-hook runs post-boot hooks
+# once per Hyprland start (default/hypr/autostart.lua); the marker, keyed on
+# this Hyprland instance, makes a hand-run or repeated hook a no-op. vista-sound
+# itself does nothing outside an Vista theme or on a muted sink.
+marker=${XDG_RUNTIME_DIR:-/tmp}/vista-startup-sound.${HYPRLAND_INSTANCE_SIGNATURE:-none}
+(set -o noclobber; : >"$marker") 2>/dev/null || exit 0
+exec "$HOME/.config/omarchy/vista/bin/vista-sound" startup
