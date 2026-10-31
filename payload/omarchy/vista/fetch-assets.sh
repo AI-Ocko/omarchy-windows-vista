@@ -629,20 +629,51 @@ done
 install_tree gtk/Windows-Vista "$DATA/themes/Windows Vista"
 install_tree icons/windows-vista-cursors "$DATA/icons/windows-vista-cursors"
 
-# Wallpapers: every scheme gets Vista's default, Aurora, and only Aurora:
-# img36 (16:10, the closer crop on 16:9 screens) then img24 (4:3). Omarchy
-# moves to the next background whenever a theme is set again, so a longer
-# list would rotate away from Aurora on every scheme switch. The other
-# wallpapers stay in assets/wallpapers/. Replaces the installer's placeholder.
+# Wallpapers: every official Vista wallpaper in each scheme's backgrounds/,
+# as links into assets/wallpapers. Aurora first, then the groups of Vista's
+# Desktop Background picker (each file's XMP dc:subject): Black and White,
+# Light Auras, Paintings, Textures, Vistas; Graphite opens with Black and
+# White after Aurora, Frost with Light Auras. The DVD's "Widescreen" group
+# is 16:10 copies of seven 4:3 images (img30-36 = img10, 23, 5, 21, 19, 22,
+# 24); on 16:9 screens the 16:10 copy is the closer crop, so it replaces its
+# 4:3 original in that group (29 unique).
+# Names carry the scheme: Omarchy keeps the background as a path through
+# current/theme/ and, if that path is in the new theme's list, moves on to
+# the next one; per-scheme names make a scheme switch start on its Aurora.
+# Only our own links (into assets/) are ever replaced or removed; anything
+# else in backgrounds/ is the user's.
+declare -A VISTA_WALLS=(
+    [black-and-white]="1 2 3 4" [light-auras]="25 26 27 28 29" [paintings]="12 13 14 15"
+    [textures]="32 6 7 8 9 30 11" [vistas]="16 17 18 34 20 33 35 31"
+)
+walls_for() {  # scheme -> "group:id" lines in picker order
+    local groups group id
+    case $1 in
+        windows-vista-frost) groups="light-auras black-and-white paintings textures vistas" ;;
+        *) groups="black-and-white light-auras paintings textures vistas" ;;
+    esac
+    echo "aurora:36"
+    for group in $groups; do
+        for id in ${VISTA_WALLS[$group]}; do echo "$group:$id"; done
+    done
+}
 for t in "$HERE"/../themes/windows-vista*/; do
     [[ -d $t ]] || continue
-    mkdir -p "$t/backgrounds"
-    find "$t/backgrounds" -maxdepth 1 \( -name 'placeholder.png' -o -name '[0-9][0-9]-img*.jpg' \) \
-        ! -name '00-img36.jpg' ! -name '01-img24.jpg' -delete
-    for pair in 00:36 01:24; do
-        src=$ASSETS/wallpapers/img${pair#*:}.jpg link=$t/backgrounds/${pair%%:*}-img${pair#*:}.jpg
+    scheme=$(basename "$t") tag=${scheme#windows-vista}; tag=${tag#-}; tag=${tag:-vista}
+    bg=$t/backgrounds want=()
+    mkdir -p "$bg"
+    rm -f "$bg/placeholder.png"
+    n=0
+    while IFS=: read -r group id; do
+        src=$ASSETS/wallpapers/img$id.jpg
         [[ -f $src ]] || continue
-        [[ $(readlink "$link" 2>/dev/null) == "$src" ]] || ln -sfn "$src" "$link"
+        name=$(printf '%02d-%s-%s-img%s.jpg' "$n" "$tag" "$group" "$id")
+        want+=("$name"); n=$((n + 1))
+        [[ $(readlink "$bg/$name" 2>/dev/null) == "$src" ]] || ln -sfn "$src" "$bg/$name"
+    done < <(walls_for "$scheme")
+    for link in "$bg"/*; do
+        [[ -L $link && $(readlink "$link") == "$ASSETS"/* ]] || continue
+        [[ " ${want[*]} " == *" ${link##*/} "* ]] || rm -f "$link"
     done
 done
 

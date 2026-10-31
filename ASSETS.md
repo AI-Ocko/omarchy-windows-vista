@@ -143,6 +143,18 @@ DWMWindow (the Aero glass frame and caption buttons) uses a single PNG atlas
   calibrated against Default, whose true value is known.
 - **Vista Basic:** the opaque `Window` class parts of the same aero.msstyles.
 
+## Wallpapers in each scheme
+
+fetch-assets.sh links every official wallpaper into each scheme's
+`backgrounds/` (links into `assets/wallpapers/`, named
+`NN-<scheme>-<group>-imgK.jpg`), grouped as Vista's Desktop Background
+picker grouped them (the group is each JPEG's XMP `dc:subject`): Aurora
+(img36) first, then Black and White (img1-4), Light Auras (img25-29),
+Paintings (img12-15), Textures (img5-11), Vistas (img16-23). Frost puts
+Light Auras before Black and White. The DVD's Widescreen group (img30-36)
+holds 16:10 copies of img10, 23, 5, 21, 19, 22 and 24; each replaces its
+4:3 original in its group, so 29 unique wallpapers.
+
 ## Generated on this machine (not pinned, rebuilt from the pinned files)
 
 Resource extractions that vista-art also writes icons beside live in
