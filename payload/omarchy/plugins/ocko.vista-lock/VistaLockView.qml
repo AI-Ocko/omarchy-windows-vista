@@ -2,11 +2,13 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import "../../vista/qml"
 
 // The Windows Vista logon screen, locked: the 190 rp zoomed user tile with
 // the account picture, the user name and "Locked", the password box with
 // its cue banner and the round arrow, Ease of Access bottom left, the
-// Windows Vista wordmark centred and the red power button bottom right.
+// Windows Vista wordmark centred and the red power button bottom right, and
+// the Switch User button under the box.
 // Layout and art are authui.dll's (UIFILE 11000, BITMAP 111xx; logon/ in
 // omarchy/vista/assets/graphics, cut by vista-art). The power and Ease of
 // Access buttons are drawn but inert: a locked session offers no actions
@@ -307,6 +309,15 @@ Item {
             onClicked: { go.submit(); root.forcePasswordFocus() }
           }
         }
+      }
+
+      // Switch User (authui GenericButton, resstr 11413): drawn, inert; one
+      // seat, no fast user switching.
+      Item { width: 1; height: root.rp(24) }
+      VistaButton {
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: root.rp(100)
+        text: "Switch User"
       }
 
       // Fingerprint hint under the box.
