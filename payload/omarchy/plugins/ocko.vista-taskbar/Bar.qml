@@ -99,6 +99,11 @@ Item {
   IpcHandler {
     target: "vistastart"
     function toggle(): void { root.toggleStartMenu(root.vistaFocusedScreen()) }
+    // Vista's "Shut Down Windows" dialog (the Vista menu's system route).
+    function shutdown(): void { vistaStartMenu.showShutdown(root.vistaFocusedScreen()) }
+    // Vista's Run dialog (All Programs > Accessories > Run...).
+    function run(): void { vistaStartMenu.showRun(root.vistaFocusedScreen()) }
+    function closeDialogs(): void { vistaStartMenu.closeDialogs() }
   }
   // The hyprbars minimise button (omarchy/vista/hypr/late.lua) calls this, so a
   // title-bar minimise records its origin like a taskbar click does.

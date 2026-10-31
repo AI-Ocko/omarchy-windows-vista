@@ -310,6 +310,9 @@ Scope {
       if (folder) (groups[folder] = groups[folder] || []).push(it)
       else loose.push(it)
     }
+    // Vista kept Run under Accessories.
+    (groups["Accessories"] = groups["Accessories"] || []).push({ kind: "fly", label: "Run...",
+      icon: VistaScheme.icon(160, 32), run: function() { sm.showRun(sm.screenObj || null) } })
     var out = Object.keys(groups).map(function(name) {
       var list = groups[name].sort(sm.byLabel)
       return { kind: "fly", label: name, icon: iconUrl("folder", "inode-directory"), flyout: function() { return list } }
@@ -353,6 +356,10 @@ Scope {
 
   // Footer: the power button (Vista's default: Sleep), the lock button and
   // the arrow with the full list. Every item runs through systemAction.
+  function showShutdown(screen) { exitDialog.show(screen) }
+  function showRun(screen) { runDialog.show(screen || Quickshell.screens[0]) }
+  function closeDialogs() { runDialog.hide(); exitDialog.hide() }
+
   function powerItems() {
     function act(label, what, cmd) { return { kind: "fly", icon: "", label: label, run: function() { sm.systemAction(what, cmd) } } }
     return [

@@ -6,8 +6,9 @@ import qs.Commons
 import "../../vista/qml"
 
 // Vista's Run dialog (Start > Run…), bottom-left above the taskbar where Vista put
-// it. Window chrome is the scheme's own Window.Caption / Frame* / CloseButton
-// / HelpButton art; buttons are Button.Pushbutton; the Open box is an
+// it. Layout: shell32.dll.mui DIALOG 1003 (the "Run in separate memory space"
+// box is hidden, as on 32-bit Vista); chrome: VistaWindow (glass or Basic);
+// buttons are Button.Pushbutton; the Open box is an
 // editable combo whose drop list is the Run history (newest first, 26 kept,
 // like RunMRU a–z) stored in start-usage.json. The command runs detached
 // through bash -lc, as every Omarchy launcher does.
@@ -24,6 +25,10 @@ Scope {
   property int focusButton: 0        // 0 OK, 1 Cancel, 2 Browse… (dotted ring)
 
   function s(n) { return Style.space(n) }
+  // shell32.dll.mui DIALOG 1003 (227 x 93 DLU, Segoe UI 9 pt): one dialog
+  // unit is 1.75 px across and 1.875 px down at 96 dpi.
+  function du(x) { return Style.space(Math.round(x * 1.75)) }
+  function dv(y) { return Style.space(Math.round(y * 1.875)) }
 
   function show(screen) {
     if (!screen) return
@@ -78,8 +83,9 @@ Scope {
       exclusionMode: ExclusionMode.Ignore
       anchors { bottom: true; left: true }
       margins.bottom: run.menu.bar.barSize
-      implicitWidth: run.s(347)
-      implicitHeight: run.s(179)
+      implicitWidth: run.du(227) + 2 * frameW
+      implicitHeight: run.dv(93) + run.s(29) + frameW
+      readonly property int frameW: run.s(VistaScheme.glass ? 8 : 4)
       WlrLayershell.namespace: "vista-run-dialog"
       WlrLayershell.layer: WlrLayer.Top
       WlrLayershell.keyboardFocus: run.focusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive
@@ -88,8 +94,7 @@ Scope {
       VistaWindow {
         anchors.fill: parent
         title: "Run"
-        buttons: ["help", "close"]
-        onHelpClicked: run.menu.run("omarchy-launch-webapp 'https://omarchy.org/manual/'")
+        buttons: ["close"]
         onCloseClicked: run.hide()
 
       // ---- client area
@@ -112,18 +117,18 @@ Scope {
         }
 
         Image {
-          x: run.s(12)
-          y: run.s(15)
+          x: run.du(7) + (run.du(21) - width) / 2
+          y: run.dv(11) + (run.dv(20) - height) / 2
           width: run.s(32)
           height: run.s(32)
           sourceSize.width: width
           sourceSize.height: height
-          source: VistaScheme.icon(25, 32)
+          source: VistaScheme.icon(160, 32)
         }
         Text {
-          x: run.s(55)
-          y: run.s(14)
-          width: run.s(270)
+          x: run.du(36)
+          y: run.dv(11)
+          width: run.du(182)
           wrapMode: Text.WordWrap
           text: "Type the name of a program, folder, document, or Internet resource, and Windows will open it for you."
           color: "#000000"
@@ -131,7 +136,7 @@ Scope {
           font.pixelSize: Style.font.bodySmall
         }
         Text {
-          x: run.s(12)
+          x: run.du(7)
           y: combo.y + (combo.height - height) / 2
           text: "<u>O</u>pen:"
           textFormat: Text.StyledText
@@ -143,10 +148,10 @@ Scope {
         // Open: [Combobox] white, 1 px #7F9DB9, DropDownButton art on the right
         Rectangle {
           id: combo
-          x: run.s(55)
-          y: run.s(53)
-          width: run.s(270)
-          height: run.s(21)
+          x: run.du(36)
+          y: run.dv(37)
+          width: run.du(183)
+          height: run.s(23)
           color: "#FFFFFF"
           border.width: Math.max(1, run.s(1))
           border.color: "#7F9DB9"
@@ -198,14 +203,14 @@ Scope {
             readonly property int frame: run.menu.usage.run.length === 0 ? 3 : dropMouse.pressed || run.listOpen ? 2 : dropMouse.containsMouse ? 1 : 0
             VistaArt {
               anchors.fill: parent
-              source: run.menu.artDir + "/combo-" + dropBtn.frame + ".png"
+              source: VistaScheme.artDir + "/combo-" + dropBtn.frame + ".png"
               margins: [3, 3, 3, 3]
             }
             Image {
               anchors.centerIn: parent
               width: run.s(10)
               height: run.s(7)
-              source: run.menu.artDir + "/combog-" + dropBtn.frame + ".png"
+              source: VistaScheme.artDir + "/combog-" + dropBtn.frame + ".png"
               smooth: true
             }
             MouseArea {
@@ -218,26 +223,32 @@ Scope {
         }
 
         VistaButton {
-          x: client.width - run.s(12 + 75 + 6 + 75 + 6 + 75)
-          y: client.height - run.s(12 + 23)
-          artDir: run.menu.artDir
+          x: run.du(62)
+          width: run.du(50)
+          height: run.dv(14)
+          y: run.dv(70)
+          artDir: VistaScheme.artDir
           text: "OK"
           isDefault: true
           focused: run.focusButton === 0
           onClicked: run.submit(field.text)
         }
         VistaButton {
-          x: client.width - run.s(12 + 75 + 6 + 75)
-          y: client.height - run.s(12 + 23)
-          artDir: run.menu.artDir
+          x: run.du(116)
+          width: run.du(50)
+          height: run.dv(14)
+          y: run.dv(70)
+          artDir: VistaScheme.artDir
           text: "Cancel"
           focused: run.focusButton === 1
           onClicked: run.hide()
         }
         VistaButton {
-          x: client.width - run.s(12 + 75)
-          y: client.height - run.s(12 + 23)
-          artDir: run.menu.artDir
+          x: run.du(170)
+          width: run.du(50)
+          height: run.dv(14)
+          y: run.dv(70)
+          artDir: VistaScheme.artDir
           text: "<u>B</u>rowse..."
           focused: run.focusButton === 2
           onClicked: { run.browseTarget = field; browse.running = true }

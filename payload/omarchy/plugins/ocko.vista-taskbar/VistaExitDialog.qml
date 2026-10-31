@@ -1,264 +1,143 @@
 import QtQuick
-import QtQuick.Effects
 import Quickshell
-import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
+import "../../vista/qml"
 
-// Vista's "Turn off computer" and "Log Off Windows" dialogs (msgina's fancy
-// dialogs: bitmap 20142 background, 20143 flag, 20150 buttons). Every screen
-// is covered and fades to greyscale behind it, as Vista desaturated the desktop;
-// the dialog itself sits centred on the screen the Start menu was opened on.
-// Actions go through menu.systemAction(), which owns the dry-run switch.
+// Vista's "Shut Down Windows" dialog (Alt+F4 on the desktop): the basebrd.dll
+// banner (BITMAP 101, 413x72) over its orange rule (111), the power icon,
+// "What do you want the computer to do?" with a drop-down of the Start menu
+// power arrow's actions (same commands: VistaStartMenu.powerItems), the
+// chosen action's description, and OK / Cancel / Help. Opened by
+// `omarchy-shell vistastart shutdown` (the Vista menu's system route). No
+// template of it survives in the pinned files, so the layout is reconstructed
+// at Vista's proportions. Actions go through menu.systemAction(), which owns
+// the sounds and the dry-run switch.
 Scope {
   id: dlg
 
   required property var menu       // VistaStartMenu
 
-  property string mode: ""          // "logoff" | "turnoff" | ""
-  property string pendingMode: ""
   property var screenObj: null
-  property int sel: 1               // keyboard selection; buttons.length = Cancel
-  property bool standByOk: true
+  property int sel: 0
 
   function s(n) { return Style.space(n) }
 
-  // frames: 20150 cells [normal, hot, pressed]; 9 is Stand By disabled.
-  // Commands are the stock power menu's (default/omarchy/omarchy-menu.jsonc
-  // system.*); Switch User locks, as the spec decided.
-  readonly property var buttons: mode === "turnoff" ? [
-    { label: "<u>S</u>tand By", key: Qt.Key_S, frames: [3, 5, 4], what: "suspend", cmd: "systemctl suspend" },
-    { label: "T<u>u</u>rn Off", key: Qt.Key_U, frames: [0, 2, 1], what: "shutdown", cmd: "omarchy-system-shutdown" },
-    { label: "<u>R</u>estart", key: Qt.Key_R, frames: [6, 8, 7], what: "reboot", cmd: "omarchy-system-reboot" }
-  ] : [
-    { label: "<u>S</u>witch User", key: Qt.Key_S, icon: "switch", what: "lock", cmd: "omarchy-system-lock" },
-    { label: "<u>L</u>og Off", key: Qt.Key_L, icon: "key", what: "logout", cmd: "omarchy-system-logout" }
-  ]
+  readonly property var actions: menu.powerItems().filter(function(it) { return it.kind !== "sep" })
+  readonly property var descriptions: ({
+    "Switch User": "Lets another person log on while your programs and files stay open.",
+    "Log Off": "Closes your programs and ends your session.",
+    "Lock": "Locks the computer. Your programs and files stay open.",
+    "Restart": "Ends your session, shuts down Windows, and then starts Windows again.",
+    "Sleep": "Keeps your session in memory and puts the computer in a low-power state so that you can quickly resume working.",
+    "Hibernate": "Saves your session and turns off the computer. When you turn on the computer, your session is restored.",
+    "Shut Down": "Ends your session and shuts down Windows so that you can safely turn off the power."
+  })
 
-  function show(m, screen) {
+  function show(screen) {
     if (!screen) return
+    var i = 0
+    for (; i < actions.length; i++) if (actions[i].label === "Shut Down") break
+    sel = i < actions.length ? i : 0
     screenObj = screen
-    pendingMode = m
-    sel = 1
-    if (m === "turnoff") suspendCheck.running = true
-    // Let the Start menu's surface unmap before the screen is captured.
-    openTimer.restart()
   }
 
-  function hide() {
-    mode = ""
-    pendingMode = ""
-  }
+  function hide() { screenObj = null; combo.open = false }
 
-  function enabledAt(i) {
-    return !(mode === "turnoff" && i === 0 && !standByOk)
-  }
-
-  function choose(i) {
-    if (i >= buttons.length) { hide(); return }
-    if (!enabledAt(i)) return
-    var b = buttons[i]
+  function choose() {
+    var a = actions[sel]
     hide()
-    menu.systemAction(b.what, b.cmd)
+    if (a) a.run()
   }
 
-  Timer {
-    id: openTimer
-    interval: 120
-    onTriggered: dlg.mode = dlg.pendingMode
-  }
-
-  // The stock menu hides Suspend when the suspend-off toggle is on; Vista
-  // greys Stand By instead (20150 cell 9).
-  Process {
-    id: suspendCheck
-    command: ["omarchy-toggle-enabled", "suspend-off"]
-    onExited: function(code) { dlg.standByOk = code !== 0 }
-  }
-
-  // Classic 3D push button, as in reference/turn-off-computer-dialog.png
-  // (msgina draws its Cancel unthemed).
-  component ClassicButton: Item {
-    id: cb
-    property string text: ""
-    property bool focused: false
-    signal clicked()
-    width: dlg.s(60)
-    height: dlg.s(20)
-    Rectangle { anchors.fill: parent; color: area.pressed ? "#000000" : "#FFFFFF" }
-    Rectangle { x: dlg.s(1); y: dlg.s(1); width: parent.width - x; height: parent.height - y; color: area.pressed ? "#FFFFFF" : "#000000" }
-    Rectangle { x: dlg.s(1); y: dlg.s(1); width: parent.width - dlg.s(2); height: parent.height - dlg.s(2); color: area.pressed ? "#808080" : "#C0C0C0" }
-    Rectangle { x: dlg.s(1); y: dlg.s(1); width: parent.width - dlg.s(3); height: parent.height - dlg.s(3); color: "#C0C0C0" }
-    Text {
-      anchors.centerIn: parent
-      anchors.horizontalCenterOffset: area.pressed ? dlg.s(1) : 0
-      anchors.verticalCenterOffset: area.pressed ? dlg.s(1) : 0
-      text: cb.text
-      color: "#000000"
-      font.family: "Segoe UI"
-      font.pixelSize: Style.font.bodySmall
-    }
-    Rectangle {
-      visible: cb.focused
-      anchors.fill: parent
-      anchors.margins: dlg.s(4)
-      color: "transparent"
-      border.width: 1
-      border.color: "#000000"
-      opacity: 0.5
-    }
-    MouseArea { id: area; anchors.fill: parent; onClicked: cb.clicked() }
-  }
-
-  Variants {
-    model: dlg.mode !== "" ? Quickshell.screens : []
+  LazyLoader {
+    active: dlg.screenObj !== null
 
     PanelWindow {
-      id: win
-      required property var modelData
-      readonly property bool primary: !!dlg.screenObj && modelData.name === dlg.screenObj.name
-
-      screen: modelData
+      screen: dlg.screenObj
       color: "transparent"
       exclusionMode: ExclusionMode.Ignore
-      anchors { top: true; bottom: true; left: true; right: true }
+      implicitWidth: win.width
+      implicitHeight: win.height
       WlrLayershell.namespace: "vista-exit-dialog"
       WlrLayershell.layer: WlrLayer.Overlay
-      WlrLayershell.keyboardFocus: primary ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+      WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
 
-      // One still frame of this output, then the same frame in greyscale
-      // fading in over it. live: false, so it costs one capture, not a stream.
-      ScreencopyView {
-        id: shot
-        anchors.fill: parent
-        captureSource: win.modelData
-        live: false
-      }
-      MultiEffect {
-        anchors.fill: parent
-        source: shot
-        saturation: -1.0
-        opacity: 0
-        NumberAnimation on opacity { running: shot.hasContent; from: 0; to: 1; duration: 1500; easing.type: Easing.InOutQuad }
-      }
+      VistaWindow {
+        id: win
+        readonly property int frameW: dlg.s(VistaScheme.glass ? 8 : 4)
+        width: dlg.s(413) + 2 * frameW
+        height: captionHeight + body.height + frameW
+        title: "Shut Down Windows"
+        buttons: ["close"]
+        onCloseClicked: dlg.hide()
 
-      // Modal: swallow every click outside the dialog.
-      MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons }
-
-      Item {
-        id: box
-        visible: win.primary
-        anchors.centerIn: parent
-        width: dlg.s(313)
-        height: dlg.s(198)
-        focus: win.primary
-        Component.onCompleted: if (win.primary) Qt.callLater(function() { box.forceActiveFocus() })
-
-        Keys.onPressed: function(event) {
-          var n = dlg.buttons.length
-          if (event.key === Qt.Key_Escape) dlg.hide()
-          else if (event.key === Qt.Key_Left || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier)) || event.key === Qt.Key_Backtab)
-            dlg.sel = (dlg.sel + n) % (n + 1)
-          else if (event.key === Qt.Key_Right || event.key === Qt.Key_Tab)
-            dlg.sel = (dlg.sel + 1) % (n + 1)
-          else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space)
-            dlg.choose(dlg.sel)
-          else {
-            for (var i = 0; i < n; i++) if (event.key === dlg.buttons[i].key) dlg.choose(i)
-            if (event.key === Qt.Key_C) dlg.hide()
+        Item {
+          id: body
+          width: parent.width
+          height: dlg.s(72 + 5 + 150)
+          focus: true
+          Keys.onPressed: function(event) {
+            if (event.key === Qt.Key_Escape) { dlg.hide(); event.accepted = true }
+            else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { dlg.choose(); event.accepted = true }
+            else if (event.key === Qt.Key_Down) { dlg.sel = Math.min(dlg.actions.length - 1, dlg.sel + 1); event.accepted = true }
+            else if (event.key === Qt.Key_Up) { dlg.sel = Math.max(0, dlg.sel - 1); event.accepted = true }
           }
-          event.accepted = true
-        }
 
-        Image {
-          anchors.fill: parent
-          source: dlg.menu.artRoot + "/dlg-bg.png"
-          smooth: true
-        }
-
-        Text {
-          x: dlg.s(12)
-          y: dlg.s(9)
-          text: dlg.mode === "turnoff" ? "Turn off computer" : "Log Off Windows"
-          color: "#FFFFFF"
-          font.family: "Arial"
-          font.pixelSize: Style.font.iconLarge
-        }
-
-        Image {
-          x: parent.width - width
-          y: dlg.s(1)
-          width: dlg.s(48)
-          height: dlg.s(40)
-          source: dlg.menu.artRoot + "/dlg-flag.png"
-          smooth: true
-        }
-
-        Row {
-          anchors.horizontalCenter: parent.horizontalCenter
-          y: dlg.s(80)
-          spacing: dlg.s(86 - 32)
-          Repeater {
-            model: dlg.buttons.length
-            Item {
-              id: cell
-              required property int index
-              readonly property var b: dlg.buttons[index]
-              readonly property bool ok: dlg.enabledAt(index)
-              readonly property bool hot: ok && (area.containsMouse || dlg.sel === index)
-              width: dlg.s(32)
-              height: dlg.s(32)
-
-              // Turn Off dialog: a 32 px cell of msgina 20150.
-              Image {
-                visible: !!cell.b.frames
-                anchors.fill: parent
-                source: cell.b.frames
-                  ? dlg.menu.artRoot + "/dlg-btn-" + (!cell.ok ? 9 : area.pressed ? cell.b.frames[2] : cell.hot ? cell.b.frames[1] : cell.b.frames[0]) + ".png"
-                  : ""
-                smooth: true
-              }
-              // Log Off dialog: shell32.dll bitmap 14356, the real Switch User
-              // and Log Off buttons (normal 0 / pressed 1 / hot 2), cut by
-              // vista-taskbar-art into dlg-switch-* and dlg-logoff-*.
-              Image {
-                visible: cell.b.icon === "switch" || cell.b.icon === "key"
-                anchors.fill: parent
-                source: visible ? dlg.menu.artRoot + (cell.b.icon === "switch" ? "/dlg-switch-" : "/dlg-logoff-")
-                  + (area.pressed ? 1 : cell.hot ? 2 : 0) + ".png" : ""
-                smooth: true
-              }
-
-              Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.bottom
-                anchors.topMargin: dlg.s(6)
-                text: cell.b.label
-                textFormat: Text.StyledText
-                color: cell.ok ? "#FFFFFF" : "#A6B8E8"
-                font.family: "Segoe UI"
-                font.pixelSize: Style.font.bodySmall
-              }
-
-              MouseArea {
-                id: area
-                anchors.fill: parent
-                hoverEnabled: true
-                onEntered: dlg.sel = cell.index
-                onClicked: dlg.choose(cell.index)
-              }
-            }
+          Image {
+            id: banner
+            width: dlg.s(413); height: dlg.s(72)
+            source: VistaScheme.graphics + "/basebrd/BITMAP/101.bmp"
           }
-        }
+          Image {
+            y: banner.height
+            width: dlg.s(413); height: dlg.s(5)
+            source: VistaScheme.graphics + "/basebrd/BITMAP/111.bmp"
+          }
 
-        ClassicButton {
-          anchors.right: parent.right
-          anchors.rightMargin: dlg.s(9)
-          anchors.bottom: parent.bottom
-          anchors.bottomMargin: dlg.s(11)
-          text: "Cancel"
-          focused: dlg.sel === dlg.buttons.length
-          onClicked: dlg.hide()
+          Image {
+            x: dlg.s(16); y: dlg.s(72 + 5 + 18)
+            width: dlg.s(32); height: dlg.s(32)
+            source: VistaScheme.icon(28, 32)
+            smooth: true
+          }
+          Text {
+            x: dlg.s(60); y: dlg.s(72 + 5 + 16)
+            text: "What do you want the computer to do?"
+            color: "#000000"
+            font.family: "Segoe UI"
+            font.pixelSize: dlg.s(12)
+          }
+          VistaComboBox {
+            id: combo
+            z: 5
+            x: dlg.s(60); y: dlg.s(72 + 5 + 38)
+            width: dlg.s(240)
+            model: dlg.actions.map(function(a) { return a.label })
+            currentIndex: dlg.sel
+            visibleRows: 7
+            focused: true
+            onActivated: function(i) { dlg.sel = i; open = false }
+          }
+          Text {
+            x: dlg.s(60); y: dlg.s(72 + 5 + 68)
+            width: dlg.s(330)
+            wrapMode: Text.WordWrap
+            text: dlg.descriptions[(dlg.actions[dlg.sel] || {}).label] || ""
+            color: "#000000"
+            font.family: "Segoe UI"
+            font.pixelSize: dlg.s(12)
+          }
+
+          Row {
+            anchors.right: parent.right
+            anchors.rightMargin: dlg.s(12)
+            y: body.height - dlg.s(12 + 23)
+            spacing: dlg.s(8)
+            VistaButton { text: "OK"; isDefault: true; onClicked: dlg.choose() }
+            VistaButton { text: "Cancel"; onClicked: dlg.hide() }
+            VistaButton { text: "<u>H</u>elp"; enabled: false }
+          }
         }
       }
     }

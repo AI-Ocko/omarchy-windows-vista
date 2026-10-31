@@ -35,6 +35,8 @@ Item {
       // menu. The Start menu's Control Panel adds "vista", which opens the root
       // here instead, so the two never bounce off each other.
       if (route === "root" && !payload.vista) root.vistaOpenStartMenu()
+      // Vista: the system (power) menu is Vista's "Shut Down Windows" dialog.
+      else if (route === "system" && !payload.vista) root.vistaOpenShutdown()
       else root.openRoute(route)
     }
   }
@@ -1037,14 +1039,19 @@ Item {
   // Bare root route (SUPER+SPACE, `omarchy-menu`) -> the Vista Start menu, via
   // the taskbar's IPC. If the Vista bar is not running the call fails and the
   // root menu opens instead, so the key never does nothing.
+  function vistaOpenShutdown() {
+    root.cancel()
+    Quickshell.execDetached(["omarchy-shell", "vistastart", "shutdown"])
+  }
+
   function vistaOpenStartMenu() {
     if (!vistaStartProc.running) vistaStartProc.running = true
   }
 
   Process {
     id: vistaStartProc
-    command: ["omarchy-shell", "xpstart", "toggle"]
-    stderr: SplitParser { onRead: function(line) { if (line) console.warn("ocko.vista-menu: xpstart: " + line) } }
+    command: ["omarchy-shell", "vistastart", "toggle"]
+    stderr: SplitParser { onRead: function(line) { if (line) console.warn("ocko.vista-menu: vistastart: " + line) } }
     onExited: function(exitCode) {
       if (exitCode !== 0) {
         console.warn("ocko.vista-menu: Start menu unavailable (exit " + exitCode + "), opening the root menu")

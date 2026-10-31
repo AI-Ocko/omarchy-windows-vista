@@ -15,7 +15,7 @@ G=$(dirname "$(readlink -f "$0")")/../assets/graphics
 DATA=${XDG_DATA_HOME:-$HOME/.local/share}
 [[ -d $G ]] || { echo "vista-art: no $G (run fetch-assets.sh first)" >&2; exit 1; }
 
-for lib in imageres shell32 user32 explorer consent pnidui sndvolsso bthprops; do
+for lib in imageres shell32 user32 explorer consent pnidui sndvolsso bthprops mmsys sndvol netshell desk van; do
   for ico in "$G/$lib-ico"/*/*.ico; do
     [[ -f $ico ]] || continue
     size=${ico%/*}
@@ -281,7 +281,7 @@ if [[ -d $G/pnidui && ( ! -e $AL || $AL -ot $G/pnidui ) ]]; then
       src=$G/${vi%%/*}/$size/${vi#*/}.png
       [[ -f $src ]] || continue
       mkdir -p "$G/${xp%%/*}/$size"
-      cp "$src" "$G/${xp%%/*}/$size/${xp#*/}.png"
+      [[ -e $G/${xp%%/*}/$size/${xp#*/}.png ]] || cp "$src" "$G/${xp%%/*}/$size/${xp#*/}.png"
     done
   done
   cp "$G/explorer/32/205.png" "$G/taskbar/desk-monitor.png"

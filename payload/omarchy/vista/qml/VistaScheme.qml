@@ -33,6 +33,13 @@ Singleton {
   readonly property color infoWindow: "#FFFFE1"
   readonly property color infoText: "#000000"
 
+  // Aero glass (all but Basic) and its colorization (late.lua's tints, as
+  // QML #AARRGGBB), for VistaWindow's frame on the blurred dialog layer.
+  readonly property bool glass: slug !== "windows-vista-basic"
+  readonly property color tint: ({ "windows-vista": "#45409EFE", "windows-vista-graphite": "#45000000",
+    "windows-vista-frost": "#459ABFC8" })[slug] || "#45409EFE"
+  readonly property string captionArt: graphics + "/captions/glass/"
+
   function art(name) { return artDir + "/" + name + ".png" }
   // shell32.dll icon group <id> at 16, 32 or 48 px.
   // imageres.dll icon group <id> at 16, 32, 48 or 256 px (Vista's own icons).

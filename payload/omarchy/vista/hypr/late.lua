@@ -66,11 +66,13 @@ hl.config({
 	},
 })
 
--- Aero glass behind the taskbar and the Start menu: blur what is under
--- their translucent pixels (fully transparent ones, e.g. the strip above the
+-- Aero glass behind the taskbar, the Start menu and the shell's dialogs and
+-- flyouts (omarchy-keyboard-panel: VistaWindow's glass frame; their client
+-- areas are opaque, so only the frame shows it): blur what is under their
+-- translucent pixels (fully transparent ones, e.g. the strip above the
 -- taskbar the orb overhangs into, stay clear). Vista Basic has no glass.
 if c.glass then
-	hl.layer_rule({ match = { namespace = "^(omarchy-bar|vista-start-menu)$" }, blur = true, ignore_alpha = 0.05 })
+	hl.layer_rule({ match = { namespace = "^(omarchy-bar|vista-start-menu|omarchy-keyboard-panel|vista-run-dialog|vista-exit-dialog)$" }, blur = true, ignore_alpha = 0.05 })
 end
 
 local home = os.getenv("HOME")

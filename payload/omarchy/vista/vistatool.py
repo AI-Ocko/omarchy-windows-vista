@@ -14,6 +14,7 @@ bytes only: it never loads, links or runs anything it reads. Run with
                                                    parts/<class>/<part>.<state>.<prop>.png
    vistatool.py xcursor <cursors> <user32.dll> <outdir>
    vistatool.py halfblock <in.ppm> <out.txt> color|mono   (terminal art)
+   vistatool.py dialog <DIALOG.bin>                      (print a dialog template)
                                                    the Windows Aero scheme as an Xcursor
                                                    theme (aero_*.cur/.ani; text select and
                                                    precision select are user32's, as in
@@ -575,6 +576,59 @@ def xcursor(cdir, user32, out):
 
 
 
+def dialog(path):
+    """Print a DIALOG resource (DLGTEMPLATE or DLGTEMPLATEEX): caption, font,
+    size and every control as class, id, text, x y cx cy in dialog units."""
+    d = open(path, "rb").read()
+    o = 0
+    def u16():
+        nonlocal o
+        v = struct.unpack_from("<H", d, o)[0]; o += 2; return v
+    def u32():
+        nonlocal o
+        v = struct.unpack_from("<I", d, o)[0]; o += 4; return v
+    def i16():
+        nonlocal o
+        v = struct.unpack_from("<h", d, o)[0]; o += 2; return v
+    def sz_or_ord():
+        nonlocal o
+        if struct.unpack_from("<H", d, o)[0] == 0xFFFF:
+            o += 2; return "#%d" % u16()
+        e = o
+        while struct.unpack_from("<H", d, e)[0]: e += 2
+        t = d[o:e].decode("utf-16le"); o = e + 2; return t
+    def align():
+        nonlocal o
+        o = (o + 3) & ~3
+    ex = struct.unpack_from("<HH", d, 0) == (1, 0xFFFF)
+    if ex:  # dlgVer, signature, helpID, then exStyle, style
+        o = 8; u32(); style = u32()
+    else:
+        style = u32(); u32()
+    n = u16(); x, y, cx, cy = i16(), i16(), i16(), i16()
+    menu, cls, cap = sz_or_ord(), sz_or_ord(), sz_or_ord()
+    font = ""
+    if style & 0x40:  # DS_SETFONT
+        pt = u16()
+        if ex: u16(); o += 2
+        font = "%s %dpt" % (sz_or_ord(), pt)
+    print("DIALOG %dx%d caption=%r font=%r controls=%d" % (cx, cy, cap, font, n))
+    names = {0x80: "Button", 0x81: "Edit", 0x82: "Static", 0x83: "ListBox", 0x84: "ScrollBar", 0x85: "ComboBox"}
+    for _ in range(n):
+        align()
+        if ex:
+            u32(); u32(); cstyle = u32()
+        else:
+            cstyle = u32(); u32()
+        x, y, cx, cy = i16(), i16(), i16(), i16()
+        cid = u32() if ex else u16()
+        c = sz_or_ord()
+        if c.startswith("#"): c = names.get(int(c[1:]), c)
+        t = sz_or_ord()
+        extra = u16(); o += extra
+        print("  %-18s id=%-6d %4d %4d %4d %4d style=%08x %r" % (c, cid if cid < 0x80000000 else -1, x, y, cx, cy, cstyle, t))
+
+
 def halfblock(src, dst, mode):
     """Binary PPM (P6, maxval 255) -> text, two pixel rows per line. color:
     U+2580 with 24-bit fg = top pixel, bg = bottom pixel, black left to the
@@ -619,6 +673,8 @@ if __name__ == "__main__":
         msstyles(a[0], a[1])
     elif cmd == "xcursor":
         xcursor(a[0], a[1], a[2])
+    elif cmd == "dialog":
+        dialog(a[0])
     elif cmd == "halfblock":
         halfblock(a[0], a[1], a[2])
     else:
