@@ -6,7 +6,7 @@
     "plugins/agents/Panel.qml": "320db85a63f400af3013910d2e9715ae40b1a261c4d0848a68d1fab1ac8df9f6"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "f102a4bf44401486e05a2da73df17e0852db6d5a659ca126dd8bd883622a7013",
+  "self": "ca6fe7cd5e2617a23a09939f7a809fc3d163cfbbd0a03729eba268d6a43aff2e",
   "external": [
     "AlignHCenter",
     "Color",

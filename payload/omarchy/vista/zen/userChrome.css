@@ -55,6 +55,21 @@
   background: var(--vista-face) !important;
 }
 
+/* The sidebar is the window's glass, as IE7's frame was: the scheme's frame
+ * gradient with Aero's faint diagonal reflection streaks over it. */
+#navigator-toolbox {
+  background:
+    linear-gradient(115deg, transparent 18%, rgba(255, 255, 255, 0.22) 21%, transparent 27%,
+                    transparent 52%, rgba(255, 255, 255, 0.16) 55%, transparent 60%),
+    var(--vista-frame) !important;
+  border-right: 1px solid var(--vista-glass-edge) !important;
+}
+#navigator-toolbox > *,
+#TabsToolbar,
+#zen-sidebar-bottom-buttons {
+  background: transparent !important;
+}
+
 /* Top band and toolbar: the scheme's glass, as IE7's frame. */
 #zen-sidebar-top-buttons,
 #nav-bar {
@@ -100,25 +115,35 @@ toolbarbutton:not([disabled]):is([open], [checked], :hover:active) > :is(.toolba
   font-family: "Segoe UI", sans-serif !important;
 }
 
-/* Tabs: IE7's, stacked down the sidebar: light blue-grey, white when chosen. */
+/* Tabs: IE7's on glass, stacked down the sidebar: translucent white with a
+ * dark outer and light inner edge and 3 px corners; white when chosen. */
 .tabbrowser-tab .tab-background {
-  border-radius: 3px 3px 0 0 !important;
-  border: 1px solid #8F9BAD !important;
-  background: linear-gradient(to bottom, #FBFCFE, #EDF2F9 50%, #DFE7F1 51%, #E7EDF5) !important;
-  box-shadow: none !important;
+  border-radius: 3px !important;
+  border: 1px solid var(--vista-tab-edge) !important;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.30) 50%,
+                              rgba(255, 255, 255, 0.18) 51%, rgba(255, 255, 255, 0.32)) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45) !important;
   outline: none !important;
 }
 .tabbrowser-tab:hover .tab-background {
-  border-color: #7DA2CE !important;
-  background: linear-gradient(to bottom, #F2F9FE, #E3F2FC 50%, #CDE8FA 51%, #DCEFFC) !important;
+  border-color: #3C7FB1 !important;
+  background: linear-gradient(to bottom, rgba(234, 246, 253, 0.95), rgba(217, 240, 252, 0.9) 50%,
+                              rgba(190, 230, 253, 0.9) 51%, rgba(167, 217, 245, 0.9)) !important;
 }
 .tabbrowser-tab:is([selected], [visuallyselected], [multiselected]) .tab-background {
   background: #FFFFFF !important;
-  border-color: #8F9BAD !important;
+  border-color: var(--vista-tab-edge) !important;
+  box-shadow: none !important;
 }
 .tabbrowser-tab .tab-label {
-  color: #000000 !important;
+  color: var(--vista-glass-text) !important;
+  text-shadow: 0 0 6px var(--vista-glow) !important;
   font-family: "Segoe UI", sans-serif !important;
+}
+.tabbrowser-tab:is([selected], [visuallyselected], [multiselected]) .tab-label,
+.tabbrowser-tab:hover .tab-label {
+  color: #000000 !important;
+  text-shadow: none !important;
 }
 
 /* The page sits flush in a 1 px frame, not a rounded floating card. */
@@ -154,4 +179,13 @@ menupopup menu[_moz-menuactive] {
 menupopup menuitem[disabled],
 menupopup menu[disabled] {
   color: var(--vista-gray-text) !important;
+}
+
+/* Text sitting directly on the glass (workspace name, New Tab): the scheme's
+ * glass text with its glow, like caption text. */
+#navigator-toolbox :is(#zen-current-workspace-indicator, #tabs-newtab-button, .zen-current-workspace-indicator-name),
+#navigator-toolbox #tabs-newtab-button :is(.toolbarbutton-text, .toolbarbutton-icon) {
+  color: var(--vista-glass-text) !important;
+  fill: var(--vista-glass-text) !important;
+  text-shadow: 0 0 6px var(--vista-glow) !important;
 }

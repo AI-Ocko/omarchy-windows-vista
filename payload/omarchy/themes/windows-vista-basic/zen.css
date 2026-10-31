@@ -8,4 +8,7 @@
   --vista-glass-text: #000000;
   --vista-glass-edge: #8FA5BF;
   --vista-gray-text: #6D6D6D;
+  --vista-frame: linear-gradient(to bottom, #D3E1F1 0%, #C2D5EB 100%);
+  --vista-tab-edge: #8FA5BF;
+  --vista-glow: rgba(255,255,255,0.0);
 }

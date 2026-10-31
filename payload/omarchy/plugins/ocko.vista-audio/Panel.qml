@@ -859,7 +859,14 @@ Panel {
     else if (col.node && col.node.audio) col.node.audio.muted = !col.node.audio.muted
   }
 
+  // Sound alone (the speaker menu's Playback/Recording devices, `vistaaudio
+  // sound`): Vista opened the Sound dialog by itself there; from the mixer's
+  // device icon it opens over the mixer.
+  property bool soundOnly: false
+  onPropsOpenChanged: if (!propsOpen && soundOnly) closeMixer()
+
   function openMixer(withProps) {
+    soundOnly = !!withProps
     mixerFocus = 0
     mixerOpen = true
     menuOpen = false
@@ -868,6 +875,7 @@ Panel {
   }
 
   function closeMixer() {
+    soundOnly = false
     propsOpen = false
     mixerOpen = false
   }
@@ -1305,6 +1313,7 @@ Panel {
       VistaWindow {
         id: mixerWin
         anchors.fill: parent
+        visible: !root.soundOnly
         title: "Volume Mixer - " + (root.volumeSink ? root.vistaLabel(root.volumeSink, root.displayAudioSinks) : "Speakers")
         titleIcon: VistaScheme.graphics + "/sndvol/16/101.png"
         buttons: ["min", "close"]

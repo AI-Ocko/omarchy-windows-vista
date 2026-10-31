@@ -180,7 +180,9 @@ Item {
       Flickable {
         id: flick
         width: parent.width - (scroll.visible ? scroll.width : 0)
-        height: parent.height - bottomRow.height - view.dv(7)
+        // Ends a gap and an etched rule above the button row, so content
+        // scrolls under neither (Vista separated a sheet's button row so).
+        height: parent.height - bottomRow.height - 3 * view.dv(7)
         contentWidth: width
         contentHeight: col.implicitHeight + 2 * view.dv(7)
         clip: true
@@ -394,6 +396,12 @@ Item {
         target: flick
         x: parent.width - width
         height: flick.height
+      }
+
+      VistaEtched {
+        x: view.du(7)
+        y: flick.height + view.dv(7)
+        width: parent.width - 2 * view.du(7)
       }
 
       // ---- footer and the page's push buttons (Task Manager's place) ----

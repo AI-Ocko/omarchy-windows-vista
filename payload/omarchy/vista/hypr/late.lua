@@ -168,3 +168,7 @@ else
 end
 o.window("^(com\\.rice\\.(btop|logs)|org\\.omarchy\\.screensaver)$", { ["hyprbars:no_bar"] = true })
 o.window({ tag = "floating-window" }, { ["hyprbars:no_bar"] = true })
+
+-- Win+R: Vista's Run dialog (ocko.vista-taskbar). Bound here, so it exists
+-- only while a Vista theme is active (plain SUPER+R is unbound in Omarchy).
+o.bind("SUPER + R", "Run", "omarchy-shell vistastart run")
