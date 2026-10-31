@@ -29,7 +29,9 @@ set -euo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ASSETS=$HERE/assets
 DATA=${XDG_DATA_HOME:-$HOME/.local/share}
-UA='ocko-omarchy-vista-fetch/0.1 (personal use)'
+# Wikimedia's User-Agent policy requires a contact URL; generic agents get
+# HTTP 429 with Retry-After: 600, which curl's --retry would wait out (5x).
+UA='omarchy-windows-vista-fetch/1.0 (+https://github.com/AI-Ocko/omarchy-windows-vista; personal use) curl'
 BASE='https://archive.org/download/en_windows_vista_sp2_x86_dvd_342266.zip/en_windows_vista_sp2_x86_dvd.zip/sources%2Finstall%2F'
 ISO_URL='https://archive.org/download/en_windows_vista_sp2_x86_dvd_342266/en_windows_vista_sp2_x86_dvd_342266.iso'
 ISO_SIZE=3243413504
@@ -614,7 +616,8 @@ while IFS='|' read -r dest sha urls; do
     for url in $urls; do
         tmp=$WORK/url.part
         [[ $url == https://upload.wikimedia.org/* ]] && sleep 3
-        curl -sfL --retry 5 --retry-delay 10 -A "$UA" -o "$tmp" "$url" || continue
+        curl -sfL --retry 3 --retry-delay 10 --retry-max-time 90 -m 300 -A "$UA" -o "$tmp" "$url" ||
+            { err "download failed (rate-limited or offline?): $url"; continue; }
         [[ $(sha256sum "$tmp" | cut -d' ' -f1) == "$sha" ]] || { err "hash mismatch from $url"; continue; }
         mkdir -p "$(dirname "$target")" && mv "$tmp" "$target" && ok=1 && fetched=$((fetched + 1)) && break
     done
