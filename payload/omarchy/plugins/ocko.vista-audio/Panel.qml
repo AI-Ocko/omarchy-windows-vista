@@ -877,6 +877,38 @@ Panel {
     else clearDisplayAudioModels()
   }
 
+  // `omarchy-shell vistaaudio mixer|sound`: the Volume Mixer, or the mixer
+  // with the Sound dialog over it.
+  IpcHandler {
+    target: "vistaaudio"
+    function mixer(): void { root.openMixer(false) }
+    function sound(): void { root.openMixer(true) }
+  }
+
+  // ---- Vista mixer and Sound dialog helpers -------------------------------
+  // sndvol.exe.mui DIALOG 200 and mmsys.cpl.mui 110 are Segoe UI 9 / 8 pt:
+  // vu/vv are the 9 pt dialog units (1.75 x 1.875 px); du/dv (8 pt) as before.
+  function vu(x) { return Style.space(Math.round(x * 1.75)) }
+  function vv(y) { return Style.space(Math.round(y * 1.875)) }
+  readonly property var mixerMaster: shownColumns.length ? shownColumns[0] : null
+  readonly property var mixerApps: shownColumns.filter(function(c) { return c.kind === "stream" })
+  // mmsys.cpl's device icons by what the node says it is.
+  function deviceIcon(node, recording) {
+    var d = String((node && (node.description || node.nickname || node.name)) || "").toLowerCase()
+    var id = recording ? 3014 : 3010
+    if (/headset/.test(d)) id = 3015
+    else if (/headphone/.test(d)) id = 3011
+    else if (/hdmi|displayport|monitor/.test(d)) id = 3017
+    else if (/mic/.test(d)) id = 3014
+    return VistaScheme.graphics + "/mmsys/32/" + id + ".png"
+  }
+  function streamIcon(col) {
+    var props = col && col.node && col.node.properties ? col.node.properties : {}
+    var name = props["application.icon-name"] || props["application.process.binary"] || ""
+    var path = name ? Quickshell.iconPath(String(name), true) : ""
+    return path || (VistaScheme.graphics + "/sndvolsso/32/124.png")
+  }
+
   // ---- Properties ---------------------------------------------------------
   readonly property var propsDevices: propsMode === "playback" ? displayAudioSinks : displayAudioSources
 
@@ -975,115 +1007,93 @@ Panel {
   }
 
   // One sndvol32 column: template 101 for master, 102 for every other line.
-  component MixerColumn: Item {
+  // A Volume Mixer column (64 DLU, DIALOG 200's Device controls): icon, name,
+  // the vertical trackbar, and the mute button (the speaker glyph, crossed
+  // while muted). The master's icon opens the Sound dialog.
+  component VistaMixerColumn: Item {
     id: col
-    required property int index
-    readonly property var info: root.shownColumns[index] || null
+    property var info: null
+    property int colIndex: 0
     readonly property bool master: !!info && info.kind === "master"
     readonly property var audio: info && info.node ? info.node.audio : null
-    readonly property bool lastColumn: index === root.shownColumns.length - 1
-    // Template x offset of the labels: master 4, line 7.
-    readonly property real inset: master ? 4 : 7
-    width: root.s(master ? 137 : 108)
-    height: root.dv(150)
+    width: root.vu(64)
+    height: root.vv(153)
 
-    VistaLabel {
-      x: root.du(col.inset)
-      y: root.dv(7)
-      width: root.du(col.master ? 82 : 62)
+    Rectangle {
+      x: root.vu(17) - root.s(2); y: root.vv(13) - root.s(2)
+      width: root.s(36); height: root.s(36)
+      radius: root.s(3)
+      visible: col.master && iconMouse.containsMouse
+      color: "#E5F3FB"; border.color: "#70C0E7"
+    }
+    Image {
+      x: root.vu(17); y: root.vv(13)
+      width: root.s(32); height: root.s(32)
+      source: col.master ? root.deviceIcon(root.volumeSink, false) : root.streamIcon(col.info)
+      smooth: true; mipmap: true
+      MouseArea { id: iconMouse; anchors.fill: parent; hoverEnabled: col.master; enabled: col.master; onClicked: root.openProps() }
+    }
+    Text {
+      x: root.vu(4); y: root.vv(33)
+      width: root.vu(56); height: root.vv(16)
+      horizontalAlignment: Text.AlignHCenter
+      wrapMode: Text.WordWrap
+      maximumLineCount: 2
       elide: Text.ElideRight
       textFormat: Text.PlainText
-      text: root.columnCaption(col.info)
+      text: col.master ? (root.volumeSink ? root.vistaLabel(root.volumeSink, root.displayAudioSinks) : "Speakers") : root.columnCaption(col.info)
+      color: "#000000"
+      font.family: "Segoe UI"
+      font.pixelSize: root.s(12)
     }
-    VistaEtched {
-      x: root.du(col.inset)
-      y: root.dv(19)
-      width: root.du(col.master ? 82 : 60)
-    }
-    VistaLabel { x: root.du(col.inset); y: root.dv(25); text: "Balance:"; enabled: !!root.stereoPair(col.audio) }
-    Image {
-      x: root.du(col.master ? 13 : 5) + (root.du(16) - width) / 2
-      y: root.dv(37) + (root.dv(16) - height) / 2
-      width: root.s(16)
-      height: root.s(16)
-      source: VistaScheme.graphics + "/sndvol32/32/301.png"
-      // Vista drew it 16 px; the exe stores that in the top-left of a 32 px icon.
-      sourceClipRect: Qt.rect(0, 0, 16, 16)
-    }
-    Image {
-      x: root.du(col.master ? 66 : 58) + (root.du(16) - width) / 2
-      y: root.dv(37) + (root.dv(16) - height) / 2
-      width: root.s(16)
-      height: root.s(16)
-      source: VistaScheme.graphics + "/sndvol32/32/302.png"
-      // Vista drew it 16 px; the exe stores that in the top-left of a 32 px icon.
-      sourceClipRect: Qt.rect(0, 0, 16, 16)
-    }
-    VistaTrackbar {
-      x: root.du(col.master ? 25 : 17)
-      y: root.dv(35) + (root.dv(17) - height) / 2
-      width: root.du(40)
-      thumbStyle: "down"
-      tickCount: 3
-      from: -1
-      to: 1
-      stepSize: 0.05
-      pageSize: 0.25
-      enabled: !!root.stereoPair(col.audio)
-      value: root.balanceOf(col.audio)
-      onMoved: function(v) { root.setBalance(col.audio, v) }
-    }
-    VistaLabel { x: root.du(col.inset); y: root.dv(58); text: "Volume:" }
     VistaTrackbar {
       id: vol
-      readonly property real box: root.du(col.master ? 30 : 25)
-      x: root.du(col.master ? 32 : 24) + (box - width) / 2
-      y: root.dv(67)
-      height: root.dv(56)
+      x: root.vu(17) + (root.vu(17) - width) / 2 - root.s(2)
+      y: root.vv(51)
+      height: root.vv(77)
       orientation: Qt.Vertical
-      // The input column keeps its right side for the meter.
-      thumbStyle: col.info && col.info.kind === "input" ? "left" : "both"
-      tickCount: 7
+      thumbStyle: "both"
+      tickCount: 11
       to: col.info && col.info.kind === "stream" ? 1.5 : 1
       enabled: !!col.audio
-      focused: root.mixerFocus === col.index && !root.propsOpen
+      focused: root.mixerFocus === col.colIndex && !root.propsOpen
       value: root.columnLevel(col.info)
-      onMoved: function(v) { root.setColumnLevel(col.info, v); root.mixerFocus = col.index }
+      onMoved: function(v) { root.setColumnLevel(col.info, v); root.mixerFocus = col.colIndex }
       HoverHandler { id: volHover }
     }
-    PeakMeter {
-      visible: !!col.info && col.info.kind === "input"
-      x: root.du(41)
-      y: root.dv(72)
-      width: root.du(10)
-      height: root.dv(47)
-      opacity: root.inputMuted ? 0.35 : 1
-      peak: visible ? inputPeakMonitor.peak : 0
+    Rectangle {
+      x: root.vu(23) - root.s(2); y: root.vv(128)
+      width: root.vu(17); height: root.vv(15)
+      radius: root.s(2)
+      color: muteMouse.containsMouse ? "#E5F3FB" : "transparent"
+      border.color: muteMouse.containsMouse ? "#70C0E7" : "transparent"
+      Image {
+        anchors.centerIn: parent
+        width: root.s(16); height: root.s(16)
+        // the device's own mute (Vista muted the endpoint, not "everything")
+        source: VistaScheme.graphics + "/sndvolsso/16/" + ((col.master ? root.outputMuted : root.columnMuted(col.info)) ? 120 : 124) + ".png"
+      }
+      MouseArea {
+        id: muteMouse
+        anchors.fill: parent
+        hoverEnabled: true
+        enabled: col.master ? root.hasOutput : !!col.audio
+        onClicked: {
+          if (col.master) root.toggleOutputMute()
+          else root.toggleColumnMute(col.info)
+          root.mixerFocus = col.colIndex
+        }
+      }
     }
-    VistaCheckBox {
-      x: root.du(col.inset)
-      y: root.dv(123) + (root.dv(12) - height) / 2
-      text: col.master ? "Mute all" : "Mute"
-      enabled: col.master ? (root.hasOutput || root.hasInput) : !!col.audio
-      checked: root.columnMuted(col.info)
-      onToggled: { root.toggleColumnMute(col.info); root.mixerFocus = col.index }
-    }
-    VistaEtched {
-      visible: !col.lastColumn
-      vertical: true
-      x: col.width - 2
-      y: col.master ? root.dv(1) : root.dv(25)
-      height: col.master ? root.dv(148) : root.dv(128)
-    }
-    // TBS_TOOLTIPS-style value tip while the Volume thumb is handled.
     VistaToolTip {
       visible: volHover.hovered || vol.pressed
       x: Math.min(col.width - width - root.s(2), vol.x + vol.width)
       y: vol.y + (1 - vol.ratio) * vol.span - height / 2 + vol.thumbAlong / 2
       z: 10
-      text: Math.round(vol.shown * 100) + "%" + (col.master ? " (" + root.outputVolumeName(vol.shown, root.outputMuted) + ")" : "")
+      text: Math.round(vol.shown * 100) + "%"
     }
   }
+
 
   // ---- 1. the volume flyout -------------------------------------------------
   // Vista's (SndVolSSO): a narrow white flyout with the device's speaker icon,
@@ -1242,11 +1252,9 @@ Panel {
     focusTarget: mixerKeys
     padding: 0
     borderSpec: Border.none()
-    readonly property real naturalWidth: columnsRow.width + 2 * root.s(3)
-    readonly property real menuBarHeight: root.s(19)
-    readonly property real statusHeight: root.s(20)
+    readonly property real naturalWidth: root.vu(71 + 6) + Math.max(root.vu(193), root.mixerApps.length * root.vu(64) + root.vu(4)) + 2 * mixerWin.frameWidth
     contentWidth: mixerPanel.fittedContentWidth(naturalWidth)
-    contentHeight: root.s(29) + menuBarHeight + 2 + root.dv(150) + statusHeight + root.s(3)
+    contentHeight: root.s(29) + root.vv(166) + mixerWin.frameWidth
 
     PanelKeyCatcher {
       id: mixerKeys
@@ -1283,227 +1291,151 @@ Panel {
         if ((t === "m" || t === "M") && !root.propsOpen) root.toggleColumnMute(root.shownColumns[root.mixerFocus])
       }
 
+      // sndvol.exe's Volume Mixer (DIALOG 200): the Device group (the default
+      // output) and the Applications group (one column per playing stream).
+      // The device icon opens the Sound dialog, as in Vista.
       VistaWindow {
         id: mixerWin
         anchors.fill: parent
-        title: "Volume Control"
-        titleIcon: VistaScheme.graphics + "/sndvol32/16/300.png"
-        buttons: ["min", "max", "close"]
-        disabledButtons: ["max"]
+        title: "Volume Mixer - " + (root.volumeSink ? root.vistaLabel(root.volumeSink, root.displayAudioSinks) : "Speakers")
+        titleIcon: VistaScheme.graphics + "/sndvol/16/101.png"
+        buttons: ["min", "close"]
         active: !root.propsOpen
         onMinimizeClicked: root.closeMixer()
         onCloseClicked: root.closeMixer()
 
-        // Menu bar: O&ptions, &Help (mnemonics hidden until Alt, as Vista).
+        VistaGroupBox { x: root.vu(6); y: root.vv(6); width: root.vu(64); height: root.vv(153); caption: "Device" }
+        VistaMixerColumn { x: root.vu(6); y: root.vv(6); info: root.mixerMaster; colIndex: 0 }
+
+        VistaGroupBox {
+          x: root.vu(71); y: root.vv(6)
+          width: Math.max(root.vu(193), appsRow.width + root.vu(4)); height: root.vv(153)
+          caption: "Applications"
+        }
         Row {
-          id: menuBar
-          height: mixerPanel.menuBarHeight
+          id: appsRow
+          x: root.vu(73); y: root.vv(6)
           Repeater {
-            id: menuBarItems
-            model: [{ key: "options", text: "Options" }, { key: "help", text: "Help" }]
-            Rectangle {
-              id: mbItem
-              required property var modelData
-              readonly property bool lit: mixerKeys.menuName === modelData.key || mbMouse.containsMouse
-              width: mbText.implicitWidth + root.s(12)
-              height: menuBar.height
-              color: lit ? VistaScheme.sc.highlight : "transparent"
-              VistaLabel {
-                id: mbText
-                anchors.centerIn: parent
-                text: mbItem.modelData.text
-                color: mbItem.lit ? VistaScheme.sc.highlightText : "#000000"
-              }
-              MouseArea {
-                id: mbMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                onClicked: mixerKeys.menuName = mixerKeys.menuName === mbItem.modelData.key ? "" : mbItem.modelData.key
-                onContainsMouseChanged: if (containsMouse && mixerKeys.menuName !== "") mixerKeys.menuName = mbItem.modelData.key
-              }
+            model: root.mixerOpen ? root.mixerApps.length : 0
+            VistaMixerColumn {
+              required property int index
+              info: root.mixerApps[index]
+              colIndex: index + 1
             }
-          }
-        }
-        VistaEtched { y: menuBar.height; width: parent.width }
-
-        Flickable {
-          y: menuBar.height + 2
-          width: parent.width
-          height: root.dv(150)
-          contentWidth: columnsRow.width
-          clip: true
-          interactive: contentWidth > width
-          boundsBehavior: Flickable.StopAtBounds
-          Row {
-            id: columnsRow
-            Repeater {
-              model: root.mixerOpen ? root.shownColumns.length : 0
-              MixerColumn {}
-            }
-          }
-        }
-
-        // Status bar: the mixer device, as sndvol32 showed the card's name.
-        Rectangle {
-          y: parent.height - height
-          width: parent.width
-          height: mixerPanel.statusHeight
-          color: VistaScheme.sc.face
-          VistaEtched { width: parent.width }
-          VistaLabel {
-            x: root.s(4)
-            anchors.verticalCenter: parent.verticalCenter
-            width: parent.width - root.s(8)
-            elide: Text.ElideRight
-            textFormat: Text.PlainText
-            text: root.volumeSink ? root.friendlyDeviceLabel(root.volumeSink.description || root.nodeLabel(root.volumeSink)) : ""
-          }
-        }
-
-        // An open menu: a click anywhere else in the window closes it.
-        MouseArea {
-          anchors.fill: parent
-          visible: mixerKeys.menuName !== ""
-          z: 20
-          onClicked: mixerKeys.menuName = ""
-        }
-        VistaMenu {
-          id: mixerMenu
-          visible: mixerKeys.menuName !== ""
-          z: 21
-          x: mixerKeys.menuName === "help" && menuBarItems.itemAt(1) ? menuBarItems.itemAt(1).x : 0
-          y: menuBar.height
-          width: implicitWidth
-          height: implicitHeight
-          items: mixerKeys.menuName === "help"
-            ? [{ text: "Help Topics", enabled: false }, { separator: true }, { text: "About Volume Control", enabled: false }]
-            : [{ text: "Properties" }, { text: "Advanced Controls", enabled: false }, { separator: true }, { text: "Exit" }]
-          onTriggered: function(i) {
-            var name = mixerKeys.menuName
-            mixerKeys.menuName = ""
-            if (name !== "options") return
-            if (i === 0) root.openProps()
-            else if (i === 3) root.closeMixer()
           }
         }
       }
 
-      // ---- Properties (template 107), over the mixer --------------------
+      // ---- Sound (mmsys.cpl: Playback 110 / Recording 111), over the mixer -
       // Blocks the mixer while open, as a modal dialog does.
       MouseArea {
         anchors.fill: parent
         visible: root.propsOpen
         z: 30
       }
-      VistaWindow {
+      VistaPropertySheet {
         id: propsWin
         visible: root.propsOpen
         z: 31
-        width: root.du(224) + root.s(6)
-        height: root.dv(250) + root.s(29) + root.s(3)
-        // Centred on the mixer, kept on screen and above the taskbar.
         x: Math.max(-mixerPanel.cardOrigin.x, Math.min((parent.width - width) / 2, mixerPanel.screenW - mixerPanel.cardOrigin.x - width))
         y: parent.height - height
-        title: "Properties"
-        buttons: ["help", "close"]
-        disabledButtons: ["help"]
+        title: "Sound"
+        buttons: ["close"]
         onCloseClicked: root.propsOpen = false
+        titles: ["Playback", "Recording"]
+        tab: root.propsMode === "playback" ? 0 : 1
+        onTabClicked: function(i) { root.setPropsMode(i === 0 ? "playback" : "recording") }
+        pageWidth: root.du(252)
+        pageHeight: root.dv(218)
+        buttonLabels: ["OK", "Cancel", "<u>A</u>pply"]
+        onButtonClicked: function(i) {
+          if (i === 1) root.propsOpen = false
+          else root.applyProps()
+        }
 
-        VistaLabel { x: root.du(7); y: root.dv(8) + (propsCombo.height - height) / 2; text: "Mixer device:" }
-        VistaComboBox {
-          id: propsCombo
-          x: root.du(55)
-          y: root.dv(8)
-          z: 5
-          width: root.du(162)
-          model: root.propsDevices.map(function(n) { return root.vistaLabel(n, root.propsDevices) })
-          currentIndex: root.propsDevice
-          onActivated: function(i) { root.propsDevice = i; open = false }
-        }
-        VistaGroupBox {
-          x: root.du(7)
-          y: root.dv(25)
-          width: root.du(211)
-          height: root.dv(77)
-          caption: "Adjust volume for"
-        }
-        VistaRadio {
-          x: root.du(13)
-          y: root.dv(43)
-          text: "Playback"
-          checked: root.propsMode === "playback"
-          onClicked: root.setPropsMode("playback")
-        }
-        VistaRadio {
-          x: root.du(13)
-          y: root.dv(61)
-          text: "Recording"
-          checked: root.propsMode === "recording"
-          onClicked: root.setPropsMode("recording")
-        }
-        // "Other" mixer lines have no PipeWire counterpart.
-        VistaRadio {
-          x: root.du(13)
-          y: root.dv(80)
-          text: "Other"
-          enabled: false
-        }
-        VistaComboBox {
-          x: root.du(55)
-          y: root.dv(80) - root.s(4)
-          width: root.du(155)
-          enabled: false
-        }
-        VistaLabel {
-          x: root.du(7)
-          y: root.dv(109)
-          text: "Show the following volume controls:"
-          enabled: root.propsMode === "playback"
-        }
-        Rectangle {
-          x: root.du(7)
-          y: root.dv(122)
-          width: root.du(211)
-          height: root.dv(96)
-          color: "#FFFFFF"
-          border.width: 1
-          border.color: VistaScheme.sc.edit
-          clip: true
-          Column {
-            x: root.s(3)
-            y: root.s(3)
-            Repeater {
-              model: root.propsOpen ? root.mixerColumns.length : 0
-              VistaCheckBox {
-                required property int index
-                readonly property var info: root.mixerColumns[index]
-                height: root.s(17)
-                text: root.columnCaption(info)
-                // Master always shows, as in Vista.
-                enabled: root.propsMode === "playback" && !!info && info.kind !== "master"
-                checked: !!info && (info.kind === "master" || !root.propsHidden[info.key])
-                onToggled: {
-                  var h = JSON.parse(JSON.stringify(root.propsHidden))
-                  if (h[info.key]) delete h[info.key]
-                  else h[info.key] = true
-                  root.propsHidden = h
+        Item {
+          parent: propsWin.page
+          anchors.fill: parent
+          VistaLabel {
+            x: root.du(7); y: root.dv(7)
+            text: root.propsMode === "playback" ? "Select a playback device below to modify its settings:"
+              : "Select a recording device below to modify its settings:"
+          }
+          // SysListView32 (7,21 238x171): icon, name, "Default Device".
+          Rectangle {
+            x: root.du(7); y: root.dv(21)
+            width: root.du(238); height: root.dv(171)
+            color: "#FFFFFF"
+            border.width: 1
+            border.color: VistaScheme.sc.edit
+            clip: true
+            Column {
+              x: 1; y: 1
+              width: parent.width - 2
+              Repeater {
+                model: root.propsOpen ? root.propsDevices.length : 0
+                Item {
+                  id: devRow
+                  required property int index
+                  readonly property var node: root.propsDevices[index]
+                  readonly property bool chosen: root.propsDevice === index
+                  readonly property bool isDefault: node === (root.propsMode === "playback" ? root.sink : root.source)
+                  width: parent.width
+                  height: root.s(46)
+                  Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: root.s(2)
+                    visible: devRow.chosen || devMouse.containsMouse
+                    radius: root.s(2)
+                    border.color: devRow.chosen ? "#7DA2CE" : "#B8D6FB"
+                    gradient: Gradient {
+                      GradientStop { position: 0; color: devRow.chosen ? "#DCEBFC" : "#FAFBFD" }
+                      GradientStop { position: 1; color: devRow.chosen ? "#C1DBFC" : "#EBF3FD" }
+                    }
+                  }
+                  Image {
+                    x: root.s(8); anchors.verticalCenter: parent.verticalCenter
+                    width: root.s(32); height: root.s(32)
+                    source: root.deviceIcon(devRow.node, root.propsMode !== "playback")
+                    smooth: true
+                    // the default device's green check
+                    Rectangle {
+                      visible: devRow.isDefault
+                      anchors.right: parent.right; anchors.bottom: parent.bottom
+                      width: root.s(14); height: root.s(14)
+                      radius: width / 2
+                      color: "#2E9E2E"; border.color: "#FFFFFF"
+                      Text { anchors.centerIn: parent; text: "\u2713"; color: "white"; font.pixelSize: root.s(10); font.bold: true }
+                    }
+                  }
+                  Column {
+                    x: root.s(48); anchors.verticalCenter: parent.verticalCenter
+                    VistaLabel { text: root.friendlyDeviceLabel(devRow.node.description || root.nodeLabel(devRow.node)); textFormat: Text.PlainText }
+                    VistaLabel { text: devRow.isDefault ? "Default Device" : "Working"; color: "#575757" }
+                  }
+                  MouseArea {
+                    id: devMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: root.propsDevice = devRow.index
+                    onDoubleClicked: { root.propsDevice = devRow.index; root.applyProps() }
+                  }
                 }
               }
             }
           }
-        }
-        VistaButton {
-          x: root.du(114)
-          y: root.dv(226)
-          text: "OK"
-          isDefault: true
-          onClicked: root.applyProps()
-        }
-        VistaButton {
-          x: root.du(168)
-          y: root.dv(226)
-          text: "Cancel"
-          onClicked: root.propsOpen = false
+          VistaButton { x: root.du(7); y: root.dv(199); width: root.du(50); height: root.dv(14); text: "<u>C</u>onfigure"; enabled: false }
+          VistaButton {
+            x: root.du(131); y: root.dv(199); width: root.du(60); height: root.dv(14)
+            text: "<u>S</u>et Default"
+            enabled: root.propsDevice >= 0
+            onClicked: {
+              var dev = root.propsDevices[root.propsDevice]
+              if (root.propsMode === "playback") root.setDefaultSink(dev)
+              else root.setDefaultSource(dev)
+            }
+          }
+          VistaButton { x: root.du(195); y: root.dv(199); width: root.du(50); height: root.dv(14); text: "<u>P</u>roperties"; enabled: false }
         }
       }
     }

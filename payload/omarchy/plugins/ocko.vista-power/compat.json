@@ -5,7 +5,7 @@
     "plugins/panels/power/Panel.qml": "8e7b6c32c2bda2069a03a04d4d71d6a82aa8aa435bfba0b81782a51d3195a848"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "41b5c845796fcf5a8f1d9937dfcd3079a218dbe069fcdcde5a6d61564abe1db6",
+  "self": "3b707332c1333939fde937a5c845b65794261cbb6fe2799f7a76855d729c4470",
   "external": [
     "Color",
     "InQuad",

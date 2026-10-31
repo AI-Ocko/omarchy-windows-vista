@@ -23,12 +23,15 @@ Item {
   implicitWidth: Style.space(360)
   implicitHeight: Style.space(300)
 
-  VistaArt {
+  // Tab PANE: Vista's is a 1 px #898C95 edge round a white body (drawn here:
+  // the 5x4 msstyles bitmap does not 9-slice cleanly at these margins).
+  Rectangle {
     id: pane
     anchors.fill: parent
     anchors.topMargin: tabs.tabHeight
-    source: tabs.artDir + "/tab-pane.png"
-    margins: [2, 4, 2, 4]
+    color: "#FFFFFF"
+    border.width: 1
+    border.color: "#898C95"
 
     Item {
       id: page
@@ -57,7 +60,7 @@ Item {
                                        : (!tabs.enabled ? 3 : tabMouse.containsMouse ? 1 : 0)
           source: tabs.artDir + "/tab" + (tab.selected ? "-top" : "") + (tab.index === 0 ? (tab.selected ? "left" : "-left") : "")
                   + "-" + frame + ".png"
-          margins: [6, 6, 6, 6]
+          margins: [2, 2, 13, 4]  // Tab TABITEM / TOPTABITEM SizingMargins
         }
 
         Text {

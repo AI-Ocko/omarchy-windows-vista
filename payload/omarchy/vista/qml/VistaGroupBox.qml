@@ -25,7 +25,7 @@ Item {
       width: box.width
       height: box.height - box.frameY
       source: VistaScheme.art("groupbox")
-      margins: [4, 4, 4, 4]
+      margins: [2, 2, 2, 3]  // Button GROUPBOX SizingMargins
     }
   }
 

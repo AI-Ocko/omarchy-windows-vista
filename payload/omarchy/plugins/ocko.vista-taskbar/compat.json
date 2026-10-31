@@ -5,7 +5,7 @@
     "plugins/bar/BarModel.js": "908f30edce60dcba46d2039ba3d501fd0faa35fa1f90b7dbda69439288f8a8d0"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "9fa537729f688e239a6f4f0e3e22f7989607072f50028fc7eca193b40efc087c",
+  "self": "0756da714b8d25d0c522b5d0500392aada84719fae886277f223043328d321cb",
   "external": [
     "AlignHCenter",
     "AlignVCenter",
