@@ -121,6 +121,24 @@ per change), the rest stay Vista. The title bars are tied to Hyprland 0.56.x
 and are rebuilt by themselves after a Hyprland update (one notification if
 that fails); on another Hyprland version the stock bars are used.
 
+## Battery
+
+Measured on a laptop with a quad-core Intel i5 and two batteries, on battery, idle desktop,
+the same brightness throughout: 30 s to settle, then 3 minutes per theme with
+`power_now` sampled every 5 s; CPU is the process's own time over those 3
+minutes, as % of one core (Omarchy 4.0.6, Hyprland 0.56.2, 2026-10-31).
+
+| theme | power, average (W) | min-max (W) | quickshell CPU | Hyprland CPU |
+|---|---|---|---|---|
+| tokyo-night (stock) | 9.77 | 9.16-11.59 | 0.1 % | 0.5 % |
+| windows-xp | 9.78 | 9.19-12.87 | 0.1 % | 0.7 % |
+| windows-vista (Aero) | 9.37 | 9.15-10.49 | 0.1 % | 0.5 % |
+| windows-vista-basic | 9.43 | 9.29-10.05 | 0.0 % | 0.5 % |
+
+The differences are within the noise of one 3-minute run per theme: neither
+theme costs measurable battery against stock Omarchy. Vista Basic skips the
+glass blur, which matters more on weaker GPUs.
+
 ## Microsoft's files are not in this repository
 
 `~/.config/omarchy/vista/fetch-assets.sh` (run by the installer) downloads

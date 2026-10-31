@@ -41,3 +41,11 @@ vista-compat-test at release:
   ocko.vista-taskbar     ok
   ocko.vista-tray        ok
   ocko.vista-weather     ok
+
+Battery (on battery, idle, 3 min per theme, 2026-10-31):
+  | theme | power, average (W) | min-max (W) | quickshell CPU | Hyprland CPU |
+  |---|---|---|---|---|
+  | tokyo-night (stock) | 9.77 | 9.16-11.59 | 0.1 % | 0.5 % |
+  | windows-xp | 9.78 | 9.19-12.87 | 0.1 % | 0.7 % |
+  | windows-vista (Aero) | 9.37 | 9.15-10.49 | 0.1 % | 0.5 % |
+  | windows-vista-basic | 9.43 | 9.29-10.05 | 0.0 % | 0.5 % |
