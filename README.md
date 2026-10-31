@@ -31,7 +31,7 @@ see below):
   pointers, Segoe UI, a Vista fastfetch, an IE7-style Zen.
 - **Wallpapers:** all of Vista's own in each scheme (Aurora first, then
   Vista's picker groups), the two Windows Ultimate wallpapers Microsoft
-  published, and twelve Frutiger Aero photographs from Wikimedia Commons
+  published, and twenty Frutiger Aero photographs from Wikimedia Commons
   (credits in `NOTICE.md`).
 - An optional **boot splash** (below).
 
@@ -53,8 +53,8 @@ From a terminal in your Omarchy session, as yourself (not root):
 ```
 
 It asks for sudo only if a package it needs is missing, downloads
-Microsoft's files (below, about 103 MB) and twelve Frutiger Aero
-photographs from Wikimedia Commons (about 127 MB), about 230 MB the first
+Microsoft's files (below, about 103 MB) and twenty Frutiger Aero
+photographs from Wikimedia Commons (about 157 MB), about 260 MB the first
 time, fetched one file at a time (Wikimedia requests 3 s apart), so allow
 several minutes; builds the title-bar plugin, and ends on
 `omarchy theme set windows-vista`. Open a new terminal afterwards.

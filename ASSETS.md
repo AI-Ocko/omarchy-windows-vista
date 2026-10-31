@@ -35,7 +35,7 @@ was implemented but not exercised, because it means a 3.2 GB download.)
   extracted here as `sounds/startup.wav` (880 684 bytes, 16-bit stereo 44.1 kHz).
 - 43 files were pinned twice, independently (research run and pin run): identical.
 
-## What is fetched (385 files from the DVD, 14 by URL)
+## What is fetched (385 files from the DVD, 22 by URL)
 
 | group | files |
 |---|---|
@@ -183,7 +183,7 @@ wallpaper downloads (none found on microsoft.com captures); OEM and fan packs.
 
 ## Frutiger Aero wallpapers
 
-Twelve photographs from Wikimedia Commons, fetched from upload.wikimedia.org
+Twenty photographs from Wikimedia Commons, fetched from upload.wikimedia.org
 (the original files; licence checked on each file page) and pinned by sha256
 (the SHA-1 Commons lists matched too). Credits and licences: NOTICE.md. Each
 scheme links a 2560 px wide copy (`wallpapers/aero/2560/`, generated) as
@@ -193,6 +193,17 @@ dropped: an orange clownfish, a heavily compressed aurora, a busy dew
 photo with an odd licence template, two dark glass/prism abstracts, an
 autumn alpine meadow whose author adds terms, two small or soft files, a
 near-duplicate leaf drop, a grey frozen bubble and a 41 MB tea-field shot.
+Files 12-19 (links 92-99) are a second round for the classic bubble and
+glossy-water look, picked from 22 more candidates (licence templates read on
+each file page; all taken 2005-2017, so no generated images); dropped there:
+a CC0 blue drop and a CC0 bubble photo that are soft or blotchy at full
+size, a small grey bubble against bare branches, a near-duplicate drop
+impact, a leaf-drops photo with no named author, a frozen bubble (frost and
+lavender, not translucent), Rabich's soap-film and glass-ball series and two
+lipid/interference macros (black or rainbow grounds, not the Aero palette),
+a heavily compressed manta and NPS aurora, a murky kelp forest and diver
+silhouettes. No openly licensed, non-generated light-ribbon or glass-orb
+image was good enough.
 
 | file | sha256 | source | author | licence |
 |---|---|---|---|---|
@@ -208,6 +219,14 @@ near-duplicate leaf drop, a grey frozen bubble and a 41 MB tea-field shot.
 | `wallpapers/aero/09-aurora-alaska.jpg` | c39aadc0...3d0fb7 | [Aurora borealis over Eielson Air Force Base, Alaska.jpg](https://commons.wikimedia.org/wiki/File:Aurora_borealis_over_Eielson_Air_Force_Base%2C_Alaska.jpg) | U.S. Air Force photo by Senior Airman Joshua Strang | Public domain (US Government work) |
 | `wallpapers/aero/10-pool-ripples.jpg` | 843b330a...95e2fd | [Water ripples in a swimming pool, Beirã, Portugal julesvernex2.jpg](https://commons.wikimedia.org/wiki/File:Water_ripples_in_a_swimming_pool%2C_Beir%C3%A3%2C_Portugal_julesvernex2.jpg) | Jules Verne Times Two (julesvernex2.com) | CC BY-SA 4.0 |
 | `wallpapers/aero/11-reef-shark.jpg` | 386122fa...804c26 | [Blacktip reef shark (Carcharhinus melanopterus) Moorea 4.jpg](https://commons.wikimedia.org/wiki/File:Blacktip_reef_shark_%28Carcharhinus_melanopterus%29_Moorea_4.jpg) | Charles J. Sharp (Sharp Photography, sharpphotography.co.uk) | CC BY-SA 4.0 |
+| `wallpapers/aero/12-drops-impact.jpg` | 4b86f7e9...712506 | [Drops Impact.jpg](https://commons.wikimedia.org/wiki/File:Drops_Impact.jpg) | Marlon Felippe | CC BY-SA 4.0 |
+| `wallpapers/aero/13-leaf-drops.jpg` | 97d1a8e9...0f905c | [Water drops on a leaf.jpg](https://commons.wikimedia.org/wiki/File:Water_drops_on_a_leaf.jpg) | Boris Maric | CC0 1.0 |
+| `wallpapers/aero/14-bubble-bokeh.jpg` | 20022a0e...4f76e0 | [Bubble Bokeh (explored).jpg](https://commons.wikimedia.org/wiki/File:Bubble_Bokeh_%28explored%29_-_Flickr_-_koocbor.jpg) | Rob (koocbor on Flickr) | CC BY-SA 2.0 |
+| `wallpapers/aero/15-bubble-ring.jpg` | 7454beec...8125f0 | [Bubble Ring in Sunlight.JPG](https://commons.wikimedia.org/wiki/File:Bubble_Ring_in_Sunlight.JPG) | Joe Burch | CC BY-SA 3.0 |
+| `wallpapers/aero/16-aqua-splash.jpg` | f0ead947...581d6a | [Splash (2302361580).jpg](https://commons.wikimedia.org/wiki/File:Splash_%282302361580%29.jpg) | Anderson Mancini | CC BY 2.0 |
+| `wallpapers/aero/17-drop-crown.jpg` | 2952b5a0...e44829 | [Water drop impact on a water-surface - (3).jpg](https://commons.wikimedia.org/wiki/File:Water_drop_impact_on_a_water-surface_-_%283%29.jpg) | Davide Restivo | CC BY-SA 2.0 |
+| `wallpapers/aero/18-bubble-woods.jpg` | 4328d25d...9e321e | [Bubbles in the Woods.jpg](https://commons.wikimedia.org/wiki/File:Bubbles_in_the_Woods.jpg) | Gwoodak | CC BY-SA 4.0 |
+| `wallpapers/aero/19-reef-light.jpg` | a76efd68...e2e4bf | [Coral as seen from below in aquarium.jpg](https://commons.wikimedia.org/wiki/File:Coral_as_seen_from_below_in_aquarium.jpg) | CanopyFalls | CC BY-SA 3.0 |
 
 ## Generated on this machine (not pinned, rebuilt from the pinned files)
 

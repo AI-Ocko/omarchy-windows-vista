@@ -59,7 +59,7 @@ machine, pinned by sha256.
 
 ## Frutiger Aero wallpapers (Wikimedia Commons)
 
-Twelve photographs from Wikimedia Commons, downloaded by `fetch-assets.sh` on
+Twenty photographs from Wikimedia Commons, downloaded by `fetch-assets.sh` on
 your machine (pinned by sha256, not redistributed here) and shown as
 wallpapers; each scheme links a 2560 px wide copy made from the original,
 which stays under the original's licence. Credits:
@@ -76,6 +76,14 @@ which stays under the original's licence. Credits:
 - "Aurora borealis over Eielson Air Force Base, Alaska" by U.S. Air Force photo by Senior Airman Joshua Strang, Public domain (US Government work), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Aurora_borealis_over_Eielson_Air_Force_Base%2C_Alaska.jpg
 - "Water ripples in a swimming pool, Beirã, Portugal julesvernex2" by Jules Verne Times Two (julesvernex2.com), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Water_ripples_in_a_swimming_pool%2C_Beir%C3%A3%2C_Portugal_julesvernex2.jpg
 - "Blacktip reef shark (Carcharhinus melanopterus) Moorea 4" by Charles J. Sharp (Sharp Photography, sharpphotography.co.uk), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Blacktip_reef_shark_%28Carcharhinus_melanopterus%29_Moorea_4.jpg
+- "Drops Impact" by Marlon Felippe, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Drops_Impact.jpg
+- "Water drops on a leaf" by Boris Maric, [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Water_drops_on_a_leaf.jpg
+- "Bubble Bokeh (explored)" by Rob (koocbor on Flickr), [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Bubble_Bokeh_%28explored%29_-_Flickr_-_koocbor.jpg
+- "Bubble Ring in Sunlight" by Joe Burch, [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Bubble_Ring_in_Sunlight.JPG
+- "Splash (2302361580)" by Anderson Mancini, [CC BY 2.0](https://creativecommons.org/licenses/by/2.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Splash_%282302361580%29.jpg
+- "Water drop impact on a water-surface - (3)" by Davide Restivo, [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Water_drop_impact_on_a_water-surface_-_%283%29.jpg
+- "Bubbles in the Woods" by Gwoodak, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Bubbles_in_the_Woods.jpg
+- "Coral as seen from below in aquarium" by CanopyFalls, [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Coral_as_seen_from_below_in_aquarium.jpg
 
 ## Microsoft
 

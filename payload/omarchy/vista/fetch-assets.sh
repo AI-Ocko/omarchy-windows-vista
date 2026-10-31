@@ -576,6 +576,14 @@ wallpapers/aero/08-havelock-lagoon.jpg|56c484b28a49f1c66d0120321601717044cc42260
 wallpapers/aero/09-aurora-alaska.jpg|c39aadc0dbb53ef3955c38e8d3607314731732f972a76cc675eba49c713d0fb7|https://upload.wikimedia.org/wikipedia/commons/d/d3/Aurora_borealis_over_Eielson_Air_Force_Base%2C_Alaska.jpg
 wallpapers/aero/10-pool-ripples.jpg|843b330aec9d4b8263669a1ac856e50d93c96b0773efcf57fe3eb1497a95e2fd|https://upload.wikimedia.org/wikipedia/commons/0/07/Water_ripples_in_a_swimming_pool%2C_Beir%C3%A3%2C_Portugal_julesvernex2.jpg
 wallpapers/aero/11-reef-shark.jpg|386122fa7841a977c9aee86542fc45cd6e2fe344a1eb74314d815bd80a804c26|https://upload.wikimedia.org/wikipedia/commons/a/a7/Blacktip_reef_shark_%28Carcharhinus_melanopterus%29_Moorea_4.jpg
+wallpapers/aero/12-drops-impact.jpg|4b86f7e9e4cbd929314ee30b07c196e603fc0856982f06f9a333010940712506|https://upload.wikimedia.org/wikipedia/commons/1/11/Drops_Impact.jpg
+wallpapers/aero/13-leaf-drops.jpg|97d1a8e9474ba30b3ae66047a23f331ea13a8a4b6bb6fc27b14dba75b50f905c|https://upload.wikimedia.org/wikipedia/commons/4/48/Water_drops_on_a_leaf.jpg
+wallpapers/aero/14-bubble-bokeh.jpg|20022a0e461670a1124675c702f9c06858d3019021db13643859da69fd4f76e0|https://upload.wikimedia.org/wikipedia/commons/0/09/Bubble_Bokeh_%28explored%29_-_Flickr_-_koocbor.jpg
+wallpapers/aero/15-bubble-ring.jpg|7454beecef887a9f75faf562fd0860757fb09202c66e11b186e617e5d18125f0|https://upload.wikimedia.org/wikipedia/commons/6/68/Bubble_Ring_in_Sunlight.JPG
+wallpapers/aero/16-aqua-splash.jpg|f0ead9471fe27b8eb8fe24b69891f55356a98080ad348e2a3a423131ed581d6a|https://upload.wikimedia.org/wikipedia/commons/e/e2/Splash_%282302361580%29.jpg
+wallpapers/aero/17-drop-crown.jpg|2952b5a07d6071c924e890c6733d2f4db3b3a79d86ea8f59ad88ff88c9e44829|https://upload.wikimedia.org/wikipedia/commons/7/76/Water_drop_impact_on_a_water-surface_-_%283%29.jpg
+wallpapers/aero/18-bubble-woods.jpg|4328d25d24bd64a7a426cb5b6ae8b3a0384e721f426babf47acbd092a39e321e|https://upload.wikimedia.org/wikipedia/commons/7/7d/Bubbles_in_the_Woods.jpg
+wallpapers/aero/19-reef-light.jpg|a76efd68f26c140212e3980acf6e097162d0039e03db3aae72d80ad22be2e4bf|https://upload.wikimedia.org/wikipedia/commons/5/5b/Coral_as_seen_from_below_in_aquarium.jpg
 EOF
 )
 
@@ -726,7 +734,8 @@ for t in "$HERE"/../themes/windows-vista*/; do
         src=$ASSETS/$rel
         [[ -f $src ]] || continue
         base=${rel##*/}; base=${base#windows-ultimate-}
-        # The Aero group starts at 80, after Vista's own (as Hermes asked).
+        # The Aero group starts at 80, after Vista's own; two digits keep the
+        # names sorting: room for 20 (80-99), all used.
         [[ $group == aero ]] && ((n < 80)) && n=80
         if [[ $group == aero ]]; then base=${base#[0-9][0-9]-}; fi
         name=$(printf '%02d-%s-%s-%s' "$n" "$tag" "$group" "$base")
