@@ -418,19 +418,41 @@ tmux_restore() {
 }
 
 # -------------------------------------------------------------------- files
-# Files Vista swaps in place. On the first `on`, each pre-Vista file is moved
-# (mv, so bytes, inode and mtime survive) into $ORIG, or an .absent marker is
-# left if there was none; `off` moves it back or deletes what Vista put there.
-# Later `on`s only refresh the Vista side, so a Vista -> Vista switch never
-# stashes Vista's own files as "original". Kinds: none (absent under Vista),
-# copy <src>, link <target>.
+# Files Vista swaps in place. On the first `on`, each pre-Vista file is moved (mv,
+# so bytes, inode and mtime survive) into $ORIG, or an .absent marker is left
+# if there was none; `off` moves it back or deletes what Vista put there. Later
+# `on`s only refresh the Vista side, so a Vista -> Vista switch never stashes Vista's own
+# files as "original". Kinds: none (absent under Vista), copy <src>, link <target>.
 #   gtk-3.0/gtk.css   a user override would recolour the GTK3 Vista theme
 #   gtk-4.0/gtk.css   -> the scheme's libadwaita palette (theme gtk.css)
+#   Zen userChrome    -> scheme zen.css + omarchy/vista/zen/userChrome.css
+#   branding, fastfetch: the Vista About logo (the Start orb) (fastfetch's config inlines its own
+#                     logo and never reads about.txt, so it is swapped too)
 ORIG=$STATE_DIR/orig
+ZEN_CSS=$STATE_DIR/zen-userChrome.css
+
+# The live Zen profile is the install's locked Default=, not profiles.ini's.
+zen_profile() {
+  local line
+  [[ -r $HOME/.config/zen/installs.ini ]] || return 1
+  while IFS= read -r line; do
+    [[ $line == Default=* ]] && { echo "$HOME/.config/zen/${line#Default=}"; return 0; }
+  done <"$HOME/.config/zen/installs.ini"
+  return 1
+}
 
 files_list() {
+  local zp
   printf '%s\n' "$HOME/.config/gtk-3.0/gtk.css|none" \
-    "$HOME/.config/gtk-4.0/gtk.css|link|$THEME_DIR/gtk.css"
+    "$HOME/.config/gtk-4.0/gtk.css|link|$THEME_DIR/gtk.css" \
+    "$HOME/.config/omarchy/branding/about.txt|copy|$VISTA_DIR/assets/branding/about.txt" \
+    "$HOME/.config/omarchy/branding/screensaver.txt|copy|$VISTA_DIR/assets/branding/screensaver.txt" \
+    "$HOME/.config/fastfetch/config.jsonc|copy|$VISTA_DIR/fastfetch.jsonc"
+  if zp=$(zen_profile) && [[ -d $zp/chrome ]]; then
+    echo "$zp/chrome/userChrome.css|link|$ZEN_CSS"
+  else
+    log "no live Zen profile with a chrome/ dir; Zen stays unstyled"
+  fi
 }
 
 files_save() { echo null; }
@@ -438,6 +460,7 @@ files_save() { echo null; }
 files_apply() {
   local path kind src aside rc=0
   mkdir -p "$ORIG" || return 1
+  cat "$THEME_DIR/zen.css" "$VISTA_DIR/zen/userChrome.css" >"$ZEN_CSS.tmp" && mv "$ZEN_CSS.tmp" "$ZEN_CSS" || rc=1
   while IFS='|' read -r path kind src; do
     aside=$ORIG/${path//\//%}
     if [[ ! -e $aside && ! -L $aside && ! -e $aside.absent ]]; then
@@ -495,7 +518,7 @@ files_restore() {
       rm -f "$path" && mv -T "$aside" "$path" || { log "could not restore $path"; rc=1; }
     fi
   done
-  ((rc == 0)) && rmdir "$ORIG"
+  ((rc == 0)) && rm -f "$ZEN_CSS" && rmdir "$ORIG"
   return $rc
 }
 

@@ -13,6 +13,7 @@ bytes only: it never loads, links or runs anything it reads. Run with
                                                    image/<id>.png, stream/<id>.png,
                                                    parts/<class>/<part>.<state>.<prop>.png
    vistatool.py xcursor <cursors> <user32.dll> <outdir>
+   vistatool.py halfblock <in.ppm> <out.txt> color|mono   (terminal art)
                                                    the Windows Aero scheme as an Xcursor
                                                    theme (aero_*.cur/.ani; text select and
                                                    precision select are user32's, as in
@@ -573,6 +574,37 @@ def xcursor(cdir, user32, out):
                 "Comment=Windows Vista's Aero pointers, converted from aero_*.cur/.ani\nInherits=Adwaita\n")
 
 
+
+def halfblock(src, dst, mode):
+    """Binary PPM (P6, maxval 255) -> text, two pixel rows per line. color:
+    U+2580 with 24-bit fg = top pixel, bg = bottom pixel, black left to the
+    terminal (the logo is rendered on black). mono: pixels brighter than 96
+    become U+2580/U+2584/U+2588, for the stock screensaver's plain text."""
+    d = open(src, "rb").read()
+    head = d.split(maxsplit=4)
+    assert head[0] == b"P6" and head[3] == b"255", "need a binary P6 PPM"
+    w, h = int(head[1]), int(head[2])
+    px = d[len(d) - 3 * w * h:]
+    get = lambda x, y: tuple(px[3 * (y * w + x):3 * (y * w + x) + 3]) if y < h else (0, 0, 0)
+    lines = []
+    for y in range(0, h, 2):
+        out = ""
+        for x in range(w):
+            t, b = get(x, y), get(x, y + 1)
+            if mode == "mono":
+                on = (sum(t) > 288, sum(b) > 288)
+                out += {(0, 0): " ", (1, 0): "▀", (0, 1): "▄", (1, 1): "█"}[on]
+            elif t == b == (0, 0, 0):
+                out += "\x1b[0m "
+            elif b == (0, 0, 0):
+                out += "\x1b[0;38;2;%d;%d;%dm▀" % t
+            else:
+                out += "\x1b[38;2;%d;%d;%d;48;2;%d;%d;%dm▀" % (t + b)
+        lines.append(out.rstrip() + ("" if mode == "mono" else "\x1b[0m"))
+    while lines and not lines[-1].replace("\x1b[0m", "").strip():
+        lines.pop()
+    open(dst, "w", encoding="utf-8").write("\n".join(lines) + "\n")
+
 if __name__ == "__main__":
     cmd, a = sys.argv[1], sys.argv[2:]
     if cmd == "peres":
@@ -587,5 +619,7 @@ if __name__ == "__main__":
         msstyles(a[0], a[1])
     elif cmd == "xcursor":
         xcursor(a[0], a[1], a[2])
+    elif cmd == "halfblock":
+        halfblock(a[0], a[1], a[2])
     else:
         sys.exit(__doc__)

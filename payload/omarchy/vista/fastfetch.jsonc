@@ -1,0 +1,47 @@
+// Windows Vista — fastfetch, laid out like Vista's System page ("View basic
+// information about your computer": Windows edition, System, Computer name).
+//
+// vista-mode copies this over fastfetch/config.jsonc while a Vista theme is
+// active and moves the original back on revert (byte-for-byte). The logo is
+// the Start orb, rendered by vista-art into assets/branding/about.txt, which
+// vista-mode swaps into omarchy/branding/about.txt (raw truecolor
+// half-blocks, hence "file-raw"). Text colours are console palette slots
+// (97 bright white, 90 dark grey), so they follow the theme's colors.toml.
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  "logo": {
+    "type": "file-raw",
+    "source": "~/.config/omarchy/branding/about.txt",
+    "padding": {
+      "top": 1,
+      "left": 2,
+      "right": 4
+    }
+  },
+  "display": {
+    "separator": "",
+    "key": {
+      "width": 5
+    }
+  },
+  "modules": [
+    "break",
+    { "type": "custom", "format": "\u001b[97mWindows edition" },
+    { "type": "custom", "format": "    Windows Vista™ Business" },
+    { "type": "custom", "format": "    Copyright © 2006 Microsoft Corporation.  All rights reserved." },
+    { "type": "custom", "format": "    Service Pack 2" },
+    "break",
+    { "type": "custom", "format": "\u001b[97mSystem" },
+    { "type": "cpu", "key": "     ", "format": "Processor:          {name}  {freq-max}" },
+    { "type": "memory", "key": "     ", "format": "Memory (RAM):       {total}" },
+    { "type": "custom", "format": "    System type:        64-bit Operating System" },
+    "break",
+    { "type": "custom", "format": "\u001b[97mComputer name, domain, and workgroup settings" },
+    { "type": "title", "key": "     ", "format": "Computer name:      {host-name}" },
+    { "type": "title", "key": "     ", "format": "User name:          {user-name}" },
+    "break",
+    { "type": "custom", "format": "\u001b[90mActually running:" },
+    { "type": "os", "key": "     ", "format": "\u001b[90m{pretty-name}" },
+    { "type": "kernel", "key": "     ", "format": "\u001b[90m{sysname} {release}" }
+  ]
+}

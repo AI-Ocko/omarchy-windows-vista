@@ -288,3 +288,22 @@ if [[ -d $G/pnidui && ( ! -e $AL || $AL -ot $G/pnidui ) ]]; then
   : >"$AL"
   echo "icon aliases: done"
 fi
+
+# Terminal art (vista-mode swaps it in): the Start orb (StartBottom::Button,
+# as cut above) on black, as truecolor half-blocks for fastfetch's About logo (about.txt) and
+# as plain blocks for the stock screensaver (screensaver.txt).
+BR=${G%/graphics}/branding
+ORB=$G/taskbar/orb/192/0.png
+if [[ -r $ORB && ( ! -e $BR/.done || $BR/.done -ot $ORB ) ]]; then
+  mkdir -p "$BR"
+  tmp=$(mktemp -d)
+  for spec in about.txt:28:color screensaver.txt:40:mono; do
+    IFS=: read -r name cols mode <<<"$spec"
+    magick "$ORB" -trim +repage -background black -flatten \
+      -filter box -resize "${cols}x" -depth 8 "$tmp/logo.ppm" &&
+      python3 -I "$(dirname "$(readlink -f "$0")")/../vistatool.py" halfblock "$tmp/logo.ppm" "$BR/$name" "$mode"
+  done
+  rm -r "$tmp"
+  : >"$BR/.done"
+  echo "branding: $(ls "$BR" | wc -l) files in $BR"
+fi

@@ -1,0 +1,157 @@
+/* Windows Vista for Zen: the shared half of userChrome.css.
+ *
+ * Active only while a Vista theme is: vista-mode writes the scheme's zen.css
+ * (the --vista-* colours, from omarchy/themes/windows-vista*/zen.css) followed
+ * by this file into ~/.local/state/omarchy/vista/zen-userChrome.css, and links
+ * the live profile's chrome/userChrome.css to it. Revert removes the link. Zen
+ * reads userChrome.css only at startup, so a running Zen changes on its next
+ * start.
+ *
+ * The look is Internet Explorer 7 on Vista: the scheme's glass colour across
+ * the top band and toolbar, IE7's rounded tabs (white when selected), a Vista
+ * edit box (#ABADB3), Vista's hot-tracked buttons and menu highlight (light
+ * blue gradient, rounded), Segoe UI. */
+
+:root {
+  --zen-border-radius: 3px !important;
+  --zen-main-browser-background: var(--vista-face) !important;
+  --zen-main-browser-background-toolbar: var(--vista-face) !important;
+  --zen-themed-toolbar-bg-transparent: var(--vista-face) !important;
+  --zen-colors-border: #A0AFC3 !important;
+  --zen-dialog-background: var(--vista-face) !important;
+  --toolbar-bgcolor: var(--vista-face) !important;
+  --toolbar-color: #000000 !important;
+  --toolbar-field-background-color: #FFFFFF !important;
+  --toolbar-field-focus-background-color: #FFFFFF !important;
+  --toolbar-field-color: #000000 !important;
+  --toolbar-field-focus-color: #000000 !important;
+  --toolbarbutton-border-radius: 3px !important;
+  --tab-border-radius: 3px !important;
+  --panel-background: #F0F0F0 !important;
+  --panel-color: #000000 !important;
+  --panel-border-color: #979797 !important;
+  --panel-border-radius: 0px !important;
+  --arrowpanel-background: #FFFFFF !important;
+  --arrowpanel-color: #000000 !important;
+  --arrowpanel-border-color: #767676 !important;
+  --arrowpanel-border-radius: 3px !important;
+  font-family: "Segoe UI", sans-serif !important;
+  color: #000000 !important;
+}
+
+/* Zen sets its workspace gradient inline on these two; !important wins. */
+#zen-browser-background,
+#zen-toolbar-background {
+  --zen-main-browser-background: var(--vista-face) !important;
+  --zen-main-browser-background-toolbar: var(--vista-face) !important;
+  --zen-main-browser-background-old: var(--vista-face) !important;
+  --zen-main-browser-background-toolbar-old: var(--vista-face) !important;
+}
+.zen-browser-generic-background::before,
+.zen-browser-generic-background::after {
+  background: var(--vista-face) !important;
+}
+#zen-main-app-wrapper {
+  background: var(--vista-face) !important;
+}
+
+/* Top band and toolbar: the scheme's glass, as IE7's frame. */
+#zen-sidebar-top-buttons,
+#nav-bar {
+  background: var(--vista-glass) !important;
+  color: var(--vista-glass-text) !important;
+  border-bottom: 1px solid var(--vista-glass-edge) !important;
+  box-shadow: none !important;
+}
+#zen-sidebar-top-buttons toolbarbutton,
+#nav-bar toolbarbutton {
+  color: var(--vista-glass-text) !important;
+  fill: var(--vista-glass-text) !important;
+}
+
+/* Buttons: Vista's hot and pressed push-button faces. */
+toolbarbutton:not([disabled]):hover > :is(.toolbarbutton-icon, .toolbarbutton-badge-stack) {
+  background: linear-gradient(to bottom, #EAF6FD 0%, #D9F0FC 49%, #BEE6FD 50%, #A7D9F5 100%) !important;
+  outline: 1px solid #3C7FB1 !important;
+  border-radius: 3px !important;
+}
+toolbarbutton:not([disabled]):is([open], [checked], :hover:active) > :is(.toolbarbutton-icon, .toolbarbutton-badge-stack) {
+  background: linear-gradient(to bottom, #E5F4FC 0%, #C4E5F6 49%, #98D1EF 50%, #68B3DB 100%) !important;
+  outline: 1px solid #2C628B !important;
+  border-radius: 3px !important;
+}
+
+/* Address bar: a Vista edit box. */
+#urlbar .urlbar-background {
+  --zen-urlbar-background-base: #FFFFFF !important;
+  --zen-urlbar-background-transparent: #FFFFFF !important;
+  background: #FFFFFF !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  outline: 1px solid #ABADB3 !important;
+  outline-offset: 0 !important;
+}
+#urlbar[focused] .urlbar-background {
+  outline-color: #3D7BAD !important;
+}
+#urlbar,
+#urlbar-input {
+  color: #000000 !important;
+  font-family: "Segoe UI", sans-serif !important;
+}
+
+/* Tabs: IE7's, stacked down the sidebar: light blue-grey, white when chosen. */
+.tabbrowser-tab .tab-background {
+  border-radius: 3px 3px 0 0 !important;
+  border: 1px solid #8F9BAD !important;
+  background: linear-gradient(to bottom, #FBFCFE, #EDF2F9 50%, #DFE7F1 51%, #E7EDF5) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+.tabbrowser-tab:hover .tab-background {
+  border-color: #7DA2CE !important;
+  background: linear-gradient(to bottom, #F2F9FE, #E3F2FC 50%, #CDE8FA 51%, #DCEFFC) !important;
+}
+.tabbrowser-tab:is([selected], [visuallyselected], [multiselected]) .tab-background {
+  background: #FFFFFF !important;
+  border-color: #8F9BAD !important;
+}
+.tabbrowser-tab .tab-label {
+  color: #000000 !important;
+  font-family: "Segoe UI", sans-serif !important;
+}
+
+/* The page sits flush in a 1 px frame, not a rounded floating card. */
+#tabbrowser-tabpanels .browserSidebarContainer,
+#tabbrowser-tabbox,
+.browserContainer,
+browser[type="content"] {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+#tabbrowser-tabpanels .browserSidebarContainer {
+  outline: 1px solid #A0AFC3 !important;
+}
+
+/* Menus: Vista's (light grey, the rounded light-blue hot item). */
+menupopup,
+panel {
+  --panel-background: #F0F0F0 !important;
+  --panel-border-color: #979797 !important;
+  --panel-border-radius: 0px !important;
+}
+menupopup menuitem,
+menupopup menu {
+  border-radius: 3px !important;
+  font-family: "Segoe UI", sans-serif !important;
+}
+menupopup menuitem[_moz-menuactive],
+menupopup menu[_moz-menuactive] {
+  background: linear-gradient(to bottom, #F1F7FE, #E3EFFD) !important;
+  outline: 1px solid #A8D8EB !important;
+  color: #000000 !important;
+}
+menupopup menuitem[disabled],
+menupopup menu[disabled] {
+  color: var(--vista-gray-text) !important;
+}

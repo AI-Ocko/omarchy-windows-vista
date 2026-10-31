@@ -1,0 +1,11 @@
+/* Windows Vista (Aero, Frost): the scheme half of Zen's Vista userChrome.css.
+ * vista-mode concatenates this with omarchy/vista/zen/userChrome.css into the
+ * file the live Zen profile's chrome/userChrome.css links to. --vista-glass
+ * approximates the scheme's glass over a light backdrop (Zen cannot blur). */
+:root {
+  --vista-face: #F0F0F0;
+  --vista-glass: linear-gradient(to bottom, #F3F7F9 0%, #E6EDF1 49%, #D9E3E9 50%, #E3EBEF 100%);
+  --vista-glass-text: #000000;
+  --vista-glass-edge: #A9B8C1;
+  --vista-gray-text: #6D6D6D;
+}
