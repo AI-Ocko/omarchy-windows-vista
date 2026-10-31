@@ -997,6 +997,9 @@ Panel {
   property bool detailsOpen: false
   property bool propsOpen: false
   property bool wirelessOpen: false
+  // Vista: the tray click shows the network flyout first; its links open
+  // the connection windows below.
+  property bool vistaFlyout: true
   // Repair: stock's refresh, with the rotating phrase in the Status row for
   // as long as Vista's repair took to say anything.
   property bool repairing: false
@@ -1030,7 +1033,7 @@ Panel {
   // Stock owns onOpenedChanged; a second handler on root would not load.
   Connections {
     target: root
-    function onOpenedChanged() { if (!root.opened) root.vistaCloseOverlays() }
+    function onOpenedChanged() { if (!root.opened) root.vistaCloseOverlays(); else root.vistaFlyout = true }
   }
 
   Timer {
@@ -1200,8 +1203,8 @@ Panel {
     focusTarget: keyCatcher
     padding: 0
     borderSpec: Border.none()
-    contentWidth: statusWin.width
-    contentHeight: statusWin.height
+    contentWidth: root.vistaFlyout ? netFlyout.width : statusWin.width
+    contentHeight: root.vistaFlyout ? netFlyout.height : statusWin.height
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -1225,7 +1228,8 @@ Panel {
         if (net && root.canForgetNetwork(net)) root.forget(net)
       }
       onCloseRequested: {
-        if (root.passwordSsid !== "") root.cancelPasswordPrompt()
+        if (root.vistaFlyout) root.close()
+        else if (root.passwordSsid !== "") root.cancelPasswordPrompt()
         else if (root.detailsOpen) root.detailsOpen = false
         else if (root.propsOpen) root.propsOpen = false
         else if (root.wirelessOpen) root.wirelessOpen = false
@@ -1237,9 +1241,104 @@ Panel {
         else if (t === "w" || t === "W") root.toggleNetwork()
       }
 
+      // ---- the Vista network flyout ---------------------------------------
+      // "Currently connected to:" with the connection's pnidui icon, name and
+      // access, then the link area: "Connect or disconnect..." (the wireless
+      // window) and "Network and Sharing Center" (the status window).
+      Rectangle {
+        id: netFlyout
+        visible: root.vistaFlyout
+        width: root.s(260)
+        height: netBody.height + netLinks.height + 2
+        color: "#FFFFFF"
+        border.color: "#7A7A7A"
+        radius: root.s(3)
+
+        Column {
+          id: netBody
+          x: 1; y: 1
+          width: parent.width - 2
+          topPadding: root.s(14)
+          bottomPadding: root.s(14)
+          spacing: root.s(10)
+          Text {
+            x: root.s(14)
+            text: root.kind === "disconnected" ? "Not connected" : "Currently connected to:"
+            color: "#575757"
+            font.family: "Segoe UI"
+            font.pixelSize: root.s(12)
+          }
+          Row {
+            x: root.s(22)
+            spacing: root.s(10)
+            Image {
+              width: root.s(32); height: root.s(32)
+              source: VistaScheme.graphics + "/pnidui/32/" + (root.kind === "ethernet" ? 3048
+                : root.kind === "disconnected" ? 3020 : 3026) + ".png"
+              smooth: true; mipmap: true
+            }
+            Column {
+              anchors.verticalCenter: parent.verticalCenter
+              Text {
+                text: root.kind === "wifi" ? (root.info.ssid || (root.connectedWifiNetwork && root.connectedWifiNetwork.name) || "Wireless network")
+                  : root.kind === "ethernet" ? "Local Area Connection" : "No connections are available"
+                color: "#000000"
+                font.family: "Segoe UI"
+                font.pixelSize: root.s(12)
+                font.bold: root.kind !== "disconnected"
+              }
+              Text {
+                visible: root.kind !== "disconnected"
+                text: "Access:  Local and Internet"
+                color: "#575757"
+                font.family: "Segoe UI"
+                font.pixelSize: root.s(12)
+              }
+            }
+          }
+        }
+
+        Rectangle {
+          id: netLinks
+          x: 1; y: netBody.height + 1
+          width: parent.width - 2
+          height: netLinkCol.height + root.s(24)
+          color: "#F0F0F0"
+          Rectangle { width: parent.width; height: 1; color: "#DCDCDC" }
+          Column {
+            id: netLinkCol
+            anchors.centerIn: parent
+            spacing: root.s(6)
+            Repeater {
+              model: [["Connect or disconnect...", "wireless"], ["Network and Sharing Center", "status"]]
+              Text {
+                required property var modelData
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: modelData[0]
+                color: "#0066CC"
+                font.family: "Segoe UI"
+                font.pixelSize: root.s(12)
+                font.underline: netLinkMouse.containsMouse
+                MouseArea {
+                  id: netLinkMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    root.vistaFlyout = false
+                    if (parent.modelData[1] === "wireless") root.wirelessOpen = true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
       // ---- Local Area Connection Status (templates 1801, 1806) -----------
       VistaPropertySheet {
         id: statusWin
+        visible: !root.vistaFlyout
         title: root.info.type === "wifi" ? "Wireless Network Connection Status" : "Local Area Connection Status"
         titleIcon: VistaScheme.graphics + "/netshell/16/" + (root.kind === "disconnected" ? "195" : "193") + ".png"
         buttons: ["close"]
