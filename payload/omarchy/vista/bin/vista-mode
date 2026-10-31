@@ -297,7 +297,7 @@ compat_check() {
 # (verified 2026-10-28, see evidence/phaseC/task8/NOTES.md). A restart also
 # covers the two omarchy 4.0.6 bar-swap bugs (CLAUDE.md). Never restart
 # while the session is locked: then only the bar is selected live, the
-# Phase B way (enable + rescan), and the clones wait for the next unlocked
+# live way (enable + rescan), and the clones wait for the next unlocked
 # `vista-mode on`.
 shell_apply() {
   local locked orig=null cloned

@@ -97,8 +97,11 @@ while IFS= read -r f; do targets+=("$CFG/omarchy/${f#"$PAYLOAD"/omarchy/}"); don
 remove "${targets[@]}"
 # omarchy/vista last: it holds the marker, and Microsoft's downloaded files (assets/).
 remove "$VISTA"
-remove "$HOME/.local/state/omarchy/vista" \
+remove "$DATA/fonts/vista" "$DATA/themes/Windows Vista" "$DATA/icons/windows-vista" \
+  "$DATA/icons/windows-vista-cursors" "${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-windows-vista" \
+  "$HOME/.local/state/omarchy/vista" \
   "$HOME/.local/state/omarchy/toggles/hypr/windows-vista.lua"
+run fc-cache -f
 
 
 say "Left for you"

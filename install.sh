@@ -74,7 +74,7 @@ echo "Install targets: ${#targets[@]}, none foreign."
 
 # ------------------------------------------------------------------- packages
 say "Packages"
-PKGS=(jq python imagemagick)
+PKGS=(jq python imagemagick curl libarchive fontconfig)
 # sudo only for what is missing, so a re-run with everything present needs no
 # password (and works from a session without a terminal).
 mapfile -t missing < <(pacman -T "${PKGS[@]}")
@@ -114,6 +114,13 @@ for s in "${SCHEMES[@]}"; do
   run mkdir -p "$bg"
   run magick -size 1920x1200 gradient:'#1E5A9C'-'#0B2546' "$bg/placeholder.png"
 done
+
+# ------------------------------------------------------- assets and binaries
+say "Microsoft's files (downloaded here, never shipped) and derived art"
+# About 90 MB the first time (archive.org); reruns verify and skip. Also
+# installs the fonts, the GTK theme, the pointers and the icon theme under
+# ~/.local/share, and gives every scheme Vista's wallpapers.
+run "$VISTA/fetch-assets.sh" || die "fetch-assets.sh failed (see above); nothing switched to Vista yet. Re-run ./install.sh to retry."
 
 # ----------------------------------------------------------------- host edits
 # Three of your own files get one marked block each, after a .pre-vista

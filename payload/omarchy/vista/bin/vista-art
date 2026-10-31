@@ -1,0 +1,61 @@
+#!/bin/bash
+# vista-art -- derive PNGs from what fetch-assets.sh extracted (the sha-pinned
+# .ico trees), and build the "windows-vista" icon theme. Run by
+# fetch-assets.sh; safe to rerun (converts only what is new or changed).
+# Output is git-ignored like every other asset.
+#
+#   assets/graphics/<lib>/<size>/<id>.png   every icon group of imageres,
+#                                           shell32, user32, explorer, consent
+#   ~/.local/share/icons/windows-vista      Vista's own imageres icons under
+#                                           freedesktop names (16/32/48/256),
+#                                           inheriting Adwaita for the rest
+set -euo pipefail
+
+G=$(dirname "$(readlink -f "$0")")/../assets/graphics
+DATA=${XDG_DATA_HOME:-$HOME/.local/share}
+
+for lib in imageres shell32 user32 explorer consent; do
+  for ico in "$G/$lib-ico"/*/*.ico; do
+    [[ -f $ico ]] || continue
+    size=${ico%/*}
+    size=${size##*/}
+    png=$G/$lib/$size/$(basename "$ico" .ico).png
+    [[ $png -nt $ico ]] && continue
+    mkdir -p "${png%/*}"
+    magick "$ico" -define png:exclude-chunks=date,time "PNG32:$png"
+  done
+done
+echo "icons: $(find "$G"/{imageres,shell32,user32,explorer,consent} -name '*.png' 2>/dev/null | wc -l) PNGs"
+
+# imageres.dll group ids, identified on a contact sheet of the 48 px icons
+# (ASSETS.md). The first name of each entry is the icon, the rest are copies.
+MAP=(
+  3:folder,inode-directory 4:folder-open 2:application-x-generic,unknown 102:text-x-generic
+  90:x-office-document 131:audio-x-generic 132:image-x-generic 133:video-x-generic
+  15:application-x-executable 109:computer,user-desktop 120:network-workgroup 25:network-server
+  32:drive-harddisk 35:drive-removable-media 30:drive-optical 61:media-optical
+  54:user-trash 55:user-trash-full 51:printer 95:scanner 57:camera-photo 47:phone 182:input-keyboard
+  81:dialog-information 84:dialog-warning 98:dialog-error 99:dialog-question,help-browser
+  106:security-high 107:security-medium 105:security-low
+  59:system-lock-screen 177:system-search 88:system-users
+  112:folder-documents 113:folder-pictures 108:folder-music 189:folder-videos 184:folder-download
+)
+wrap=$(mktemp -d)
+trap 'rm -rf "$wrap"' EXIT
+printf '%s\n' '[Icon Theme]' 'Name=Windows Vista (Omarchy)' \
+  "Comment=Windows Vista's own imageres.dll icons" \
+  'Inherits=Adwaita,hicolor' 'Directories=16x16/vista,32x32/vista,48x48/vista,256x256/vista' >"$wrap/index.theme"
+for s in 16 32 48 256; do
+  printf '\n[%sx%s/vista]\nSize=%s\nType=Fixed\n' "$s" "$s" "$s" >>"$wrap/index.theme"
+  mkdir -p "$wrap/${s}x$s/vista"
+  for spec in "${MAP[@]}"; do
+    png=$G/imageres/$s/${spec%%:*}.png
+    [[ -f $png ]] || continue
+    names=${spec#*:}
+    for n in ${names//,/ }; do cp "$png" "$wrap/${s}x$s/vista/$n.png"; done
+  done
+done
+if ! diff -rq "$wrap" "$DATA/icons/windows-vista" >/dev/null 2>&1; then
+  rm -rf "$DATA/icons/windows-vista" && cp -r "$wrap" "$DATA/icons/windows-vista" &&
+    echo "installed: $DATA/icons/windows-vista"
+fi

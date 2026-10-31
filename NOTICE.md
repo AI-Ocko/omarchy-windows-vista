@@ -12,3 +12,14 @@ Heinemeier Hansson.
 
 The installer, `vista-mode`, `vista-compat-test` and `vista-state-dump` are
 adapted from the same author's omarchy-windows-xp (MIT, see `LICENSE`).
+
+## B00merang Windows Vista (GPL-3.0)
+
+The GTK theme "Windows Vista" is the B00merang Project's
+(https://github.com/B00merang-Project/Windows-Vista, commit 719b12bdb6f6),
+GPL-3.0. It is not redistributed here: `fetch-assets.sh` downloads it on your
+machine, pinned by sha256.
+
+## Microsoft
+
+Microsoft's files are not distributed here; see `ASSETS.md`.
