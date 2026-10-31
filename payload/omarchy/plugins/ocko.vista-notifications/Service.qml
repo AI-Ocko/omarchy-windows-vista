@@ -993,7 +993,7 @@ Item {
         anchors.rightMargin: Style.space(8)
         // The tail tip lands on the taskbar's top edge.
         anchors.bottomMargin: service.liveBarSize
-        width: Style.space(330)
+        width: Style.space(420)  // Vista balloons run wider than XP's: the 12 pt title fits
         height: Math.min(contentHeight, parent.height - service.liveBarSize)
         interactive: false
         verticalLayoutDirection: ListView.BottomToTop

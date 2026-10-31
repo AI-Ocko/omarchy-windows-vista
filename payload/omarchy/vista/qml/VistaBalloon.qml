@@ -2,8 +2,9 @@ import QtQuick
 import QtQuick.Shapes
 import qs.Commons
 
-// VistaBalloon: the Vista notification-area balloon tip. InfoWindow yellow
-// (#FFFFE1) with a 1 px black edge, rounded corners and a pointer tail. The
+// VistaBalloon: the Vista notification-area balloon tip (aero.msstyles
+// Tooltip BALLOON: white to #E4E5F0 top to bottom, a 1 px #767676 edge, 3 px
+// corners) with Vista's pointer tail (BALLOONSTEM). The
 // outline is one ShapePath (scene-graph geometry, not a Canvas), so it only
 // re-tessellates when the balloon's size changes.
 //
@@ -19,9 +20,9 @@ Item {
   property bool tailDown: true
   property bool showTail: true
   property int padding: Style.space(10)
-  readonly property int tailHeight: showTail ? Style.space(18) : 0
-  readonly property int tailBase: Style.space(18)
-  readonly property int radius: Style.space(7)
+  readonly property int tailHeight: showTail ? Style.space(14) : 0
+  readonly property int tailBase: Style.space(14)
+  readonly property int radius: Style.space(3)
   readonly property real bodyHeight: height - tailHeight
   default property alias content: inner.data
   readonly property alias contentArea: inner
@@ -46,8 +47,13 @@ Item {
       readonly property real tl: balloon.showTail ? balloon.tailHeight : 0
 
       strokeWidth: e
-      strokeColor: "#000000"
-      fillColor: VistaScheme.infoWindow
+      strokeColor: "#767676"
+      fillGradient: LinearGradient {
+        x1: 0; y1: sp.top
+        x2: 0; y2: sp.bot
+        GradientStop { position: 0.0; color: "#FFFFFF" }
+        GradientStop { position: 1.0; color: "#E4E5F0" }
+      }
       joinStyle: ShapePath.MiterJoin
       startX: o + r
       startY: top

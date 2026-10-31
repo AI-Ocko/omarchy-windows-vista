@@ -99,17 +99,17 @@ VistaBalloon {
         textFormat: Text.PlainText
         text: root.titleText
         elide: Text.ElideRight
-        color: VistaScheme.infoText
+        // Vista's balloon title: Segoe UI 12 pt in the main-instruction blue.
+        color: VistaScheme.sc.instruction
         font.family: "Segoe UI"
-        font.bold: true
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Style.space(16)
       }
       Item {
         id: closeButton
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        width: Style.space(18)
-        height: Style.space(18)
+        width: Style.space(17)
+        height: Style.space(16)
         Image {
           anchors.fill: parent
           source: VistaScheme.art("balloon-close-" + (closeMouse.pressed ? 2 : closeMouse.containsMouse ? 1 : 0))
