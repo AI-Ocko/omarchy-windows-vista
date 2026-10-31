@@ -126,7 +126,8 @@ that fails); on another Hyprland version the stock bars are used.
 `~/.config/omarchy/vista/fetch-assets.sh` (run by the installer) downloads
 them on your machine, for your personal use, into
 `~/.config/omarchy/vista/assets/`: individual files of a Windows Vista SP2
-DVD from **archive.org** (or, with `--iso PATH`, from a DVD image you have),
+DVD from **archive.org** (or, with `--iso PATH`, from a DVD image you have;
+that path has not been exercised in testing yet, the archive.org one has),
 and the B00merang Windows Vista GTK theme (GPL-3.0) from **GitHub**. They
 are Microsoft's copyrighted originals pulled from a third-party archive.
 Every download is pinned by sha256; a changed file fails the run instead of
