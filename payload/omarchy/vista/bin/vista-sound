@@ -65,6 +65,7 @@ play() {
 
   sink_muted && { log "skip $event muted"; return 0; }
   log "play $event"
+  # shellcheck disable=SC2086  # the player may carry its own arguments
   timeout "$CAP" ${VISTA_SOUND_PLAYER:-pw-play} --volume "$VOLUME" --media-role Notification "$file" 2>/dev/null
   return 0
 }

@@ -64,7 +64,7 @@ run systemctl --user daemon-reload
 say "Edits to your own files"
 strip_block() {
   local file=$1 tmp
-  [[ -e $file ]] && grep -qF "$BEGIN" "$file" || { echo "$file: no Vista block"; return 0; }
+  if [[ ! -e $file ]] || ! grep -qF "$BEGIN" "$file"; then echo "$file: no Vista block"; return 0; fi
   tmp=$(mktemp)
   # install.sh put exactly one blank line above the block; drop that too.
   awk -v b="$BEGIN" -v e="$END" '

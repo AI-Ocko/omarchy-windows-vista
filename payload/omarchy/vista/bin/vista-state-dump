@@ -20,12 +20,12 @@ for f in "$cfg/starship.toml" "$cfg/foot/foot.ini" "$cfg/tmux/tmux.conf" \
          "$cfg/omarchy/branding/about.txt" "$cfg/omarchy/branding/screensaver.txt" \
          "$cfg/gtk-3.0/settings.ini" "$cfg/gtk-3.0/gtk.css" "$cfg/gtk-4.0/settings.ini" "$cfg/gtk-4.0/gtk.css" \
          "$cfg/fastfetch/config.jsonc"; do
-  echo "file ${f#$cfg/}: $(sum "$f")"
+  echo "file ${f#"$cfg"/}: $(sum "$f")"
 done
 find "$cfg/zen" -maxdepth 3 -path '*/chrome/*' -name 'user*.css' -print0 2>/dev/null | sort -z |
-  while IFS= read -r -d '' f; do echo "zen ${f#$cfg/zen/}: $(sum "$f") $( [[ -L $f ]] && echo "-> $(readlink "$f")")"; done
+  while IFS= read -r -d '' f; do echo "zen ${f#"$cfg"/zen/}: $(sum "$f") $( [[ -L $f ]] && echo "-> $(readlink "$f")")"; done
 echo "file .bashrc: $(sum ~/.bashrc)"
 echo "dir gtk-4.0: $( [[ -d $cfg/gtk-4.0 ]] && echo present || echo absent)"
-echo "hypr toggles: $(ls "$state/toggles/hypr" 2>/dev/null | tr '\n' ' ')"
+echo "hypr toggles: $(find "$state/toggles/hypr" -mindepth 1 -maxdepth 1 -printf '%f ' 2>/dev/null)"
 echo "vista saved-state: $( [[ -e $state/vista/saved-state.json ]] && echo present || echo absent)"
 echo "git diff (tracked): $(git -C "$cfg" diff | sha256sum | cut -c1-16)"

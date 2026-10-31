@@ -88,7 +88,7 @@ hypr_cursor() {
   theme=${theme%\'}
   [[ $theme == default ]] && theme=
   size=$(gsettings get "$SCHEMA" cursor-size) || return 1
-  [[ $(hyprctl setcursor $theme "$size") == ok ]] || { log "hyprctl setcursor '$theme' $size failed"; return 1; }
+  [[ $(hyprctl setcursor "$theme" "$size") == ok ]] || { log "hyprctl setcursor '$theme' $size failed"; return 1; }
 }
 
 # Values are kept as gsettings' own GVariant text ('Adwaita Sans 11', 24), which
@@ -216,6 +216,7 @@ VISTA_WIDGET_CLONES='["ocko.vista-monitor", "ocko.vista-audio", "ocko.vista-netw
 # disabledPlugins[], unless it was disabled before Vista, per $orig, the saved
 # pre-Vista keys). A failed taskbar keeps bar.id on the stock bar and drops the
 # widget clones too, since only the Vista taskbar places them.
+# shellcheck disable=SC2016  # a jq program: its $vars are jq's, not the shell's
 VISTA_CONFIG='($failed | index($bar) | not) as $bar_ok
   | ([(.plugins // [])[] | if type == "object" then .id else . end]
      + [(.bar.layout // {})[]? | arrays | .[] | if type == "object" then .id else . end]) as $listed
@@ -379,6 +380,7 @@ shell_restart() {
   if [[ $(timeout 3 omarchy-shell lock isLocked 2>/dev/null) == false ]]; then
     flock "$SHELL_RESTART_LOCK" omarchy-restart-shell >/dev/null 2>&1 ||
       log "omarchy-restart-shell failed; run it by hand to load the right plugins"
+    # shellcheck disable=SC2016  # the script expands in the child bash
     setsid -f bash -c '
       count() { quickshell list -a -j 2>/dev/null | jq --arg d "$1" "[.[] | select(.config_path | startswith(\$d))] | length"; }
       seen=0
@@ -515,7 +517,7 @@ files_restore() {
       rm -f "$aside" || { log "could not remove $aside"; rc=1; }
     else
       path=${path//%//}
-      rm -f "$path" && mv -T "$aside" "$path" || { log "could not restore $path"; rc=1; }
+      if ! { rm -f "$path" && mv -T "$aside" "$path"; }; then log "could not restore $path"; rc=1; fi
     fi
   done
   ((rc == 0)) && rm -f "$ZEN_CSS" && rmdir "$ORIG"

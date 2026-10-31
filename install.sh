@@ -38,7 +38,7 @@ run() { printf '+ %s\n' "$*"; ((DRY)) || "$@"; }
 say "Pre-flight"
 ((EUID != 0)) || die "run this as yourself, not root; it asks for sudo itself"
 command -v omarchy >/dev/null && [[ -d ${OMARCHY_PATH:-/usr/share/omarchy} ]] || die "Omarchy not found"
-[[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] && command -v hyprctl >/dev/null || die "run this inside a Hyprland session"
+if [[ -z ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] || ! command -v hyprctl >/dev/null; then die "run this inside a Hyprland session"; fi
 command -v foot >/dev/null || die "foot (Omarchy's terminal) not found"
 echo "Omarchy $(omarchy version 2>/dev/null || echo '?'), $(hyprctl version -j | jq -r '"Hyprland " + .tag')"
 if [[ -e $CFG/omarchy/xp/.omarchy-windows-xp ]]; then

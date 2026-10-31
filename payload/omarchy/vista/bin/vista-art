@@ -30,6 +30,7 @@ echo "icons: $(find "$G"/{imageres,shell32,user32,explorer,consent,pnidui,sndvol
 
 # imageres.dll group ids, identified on a contact sheet of the 48 px icons
 # (ASSETS.md). The first name of each entry is the icon, the rest are copies.
+# shellcheck disable=SC2054  # id:name,name entries: the commas are data
 MAP=(
   3:folder,inode-directory 4:folder-open 2:application-x-generic,unknown 102:text-x-generic
   90:x-office-document 131:audio-x-generic 132:image-x-generic 133:video-x-generic
@@ -141,7 +142,7 @@ B=$G/taskbar/battery
 if [[ -f $G/batmeter/BITMAP/306.bmp && ( ! -e $B/0.png || $B/0.png -ot $G/batmeter/BITMAP/306.bmp ) ]]; then
   mkdir -p "$B"
   magick "$G/batmeter/BITMAP/306.bmp" -crop 32x32 +repage +adjoin -define png:exclude-chunks=date,time "PNG32:$B/%d.png"
-  echo "battery art: $(ls "$B" | wc -l) frames in $B"
+  echo "battery art: $(find "$B" -maxdepth 1 -type f | wc -l) frames in $B"
 fi
 
 # Start menu art for ocko.vista-taskbar's VistaStartMenu, per look, in
@@ -305,5 +306,5 @@ if [[ -r $ORB && ( ! -e $BR/.done || $BR/.done -ot $ORB ) ]]; then
   done
   rm -r "$tmp"
   : >"$BR/.done"
-  echo "branding: $(ls "$BR" | wc -l) files in $BR"
+  echo "branding: $(find "$BR" -maxdepth 1 -type f ! -name .done | wc -l) files in $BR"
 fi
