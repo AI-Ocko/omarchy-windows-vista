@@ -64,6 +64,19 @@ failures=() verified=0 fetched=0
 
 # ── Microsoft's files: dest (under assets/) | sha256 | path in install.wim ──
 FILES=$(cat <<'EOF'
+account-pictures/guest.bmp|40015814487b93a8372f33284d45586739a4a1e9d2b7961ab8c6d4d9561d10cb|ProgramData/Microsoft/User Account Pictures/guest.bmp
+account-pictures/user.bmp|492c966bd8984671ebf8a58bbb2358053e888e57ad7dbb9b54416105a6548c65|ProgramData/Microsoft/User Account Pictures/user.bmp
+account-pictures/usertile10.bmp|21bccb07ec38e463001a91cf8e9a580cc65c2744a7b111395456f3693b7339af|ProgramData/Microsoft/User Account Pictures/Default Pictures/usertile10.bmp
+account-pictures/usertile11.bmp|c970625155f463da15c38ccba5d6420b68b24b2fea042b37c06cf332a02420d3|ProgramData/Microsoft/User Account Pictures/Default Pictures/usertile11.bmp
+account-pictures/usertile12.bmp|24519419525cbc9f792b8448af6b9a9a885e154505518092959e1b2a90e14247|ProgramData/Microsoft/User Account Pictures/Default Pictures/usertile12.bmp
+account-pictures/usertile2.bmp|1a01d6c09311e1c1b12bc6fcefd998141f3a6c02ebd53859fd5d6d5a740739ab|ProgramData/Microsoft/User Account Pictures/Default Pictures/usertile2.bmp
+account-pictures/usertile3.bmp|d35c9f17a24620d016dade1399fa333021970b3a18a56d0b472f13a2c876324b|ProgramData/Microsoft/User Account Pictures/Default Pictures/usertile3.bmp
+account-pictures/usertile4.bmp|f0731d8a6ad81d11859133d7aba3761cb76a6daa0a097401730f058efdce6b31|ProgramData/Microsoft/User Account Pictures/Default Pictures/usertile4.bmp
+account-pictures/usertile5.bmp|c5e4352c70a26b50b60e498d97dd7959c44d9feec3e065079b883886b9590bf1|ProgramData/Microsoft/User Account Pictures/Default Pictures/usertile5.bmp
+account-pictures/usertile6.bmp|406343e5ca625d9c6c8630b62ee6e2028475e190c35f201cb83580e3692d7799|ProgramData/Microsoft/User Account Pictures/Default Pictures/usertile6.bmp
+account-pictures/usertile7.bmp|fbc800f7a8708ce3372e63b611ade28ae372c169f3328200bcbd0b5dc1f48bff|ProgramData/Microsoft/User Account Pictures/Default Pictures/usertile7.bmp
+account-pictures/usertile8.bmp|6bf1feb2b35feb0327ddc8c6f8b05c072a089be59e160f41da74aaf15d57d3eb|ProgramData/Microsoft/User Account Pictures/Default Pictures/usertile8.bmp
+account-pictures/usertile9.bmp|84d34f5b358f39f9ac856f14b615417cb9f420d6be9aa1f51cf8d59a41a03151|ProgramData/Microsoft/User Account Pictures/Default Pictures/usertile9.bmp
 binaries/aero.msstyles.mui|b8e9a93c06107637864af833a78230a43808d6f822f16e218bbe921e757012a7|Windows/Resources/Themes/Aero/en-US/aero.msstyles.mui
 binaries/aero.msstyles|ac25fdb203de823e36112296d34244122cdd433aa04d820d4ddd6556ac8578bd|Windows/Resources/Themes/Aero/aero.msstyles
 binaries/aero.theme|915ac95d45d3b8000609b8fbaecb9116e9bd95441863b736e5a55968180e1315|Windows/Resources/Themes/aero.theme

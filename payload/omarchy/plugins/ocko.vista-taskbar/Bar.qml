@@ -2700,7 +2700,9 @@ Item {
 
     function injectProps() {
       var target = activeItem
-      if (!target) return
+      // Qt.callLater can land after the slot is torn down (theme switch,
+      // shell restart), when root no longer resolves.
+      if (!target || !root) return
       if ("bar" in target) target.bar = firstParty
         ? root : root.pluginBarApiFor(pluginApiId, moduleName, registered)
       // A clone keeps its stock name: its settings writes (updateEntryInline)

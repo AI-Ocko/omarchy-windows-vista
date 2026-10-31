@@ -56,10 +56,10 @@ Scope {
   readonly property string stateDir: home + "/.local/state/omarchy/vista"
   readonly property string usagePath: stateDir + "/start-usage.json"
   readonly property string dryRunFlag: stateDir + "/dry-run"
-  readonly property string picturesDir: home + "/.config/omarchy/vista/assets/graphics/account-pictures"
+  readonly property string picturesDir: home + "/.config/omarchy/vista/assets/graphics/account-pictures"  // vista-art: User Account Pictures as PNG
   readonly property string userLogin: Quickshell.env("USER") || "user"
   property string userName: userLogin
-  property string pictureUrl: "file://" + picturesDir + "/chess.bmp"
+  property string pictureUrl: "file://" + picturesDir + "/usertile7.png"  // the chess picture
 
   function s(n) { return Style.space(n) }
 
@@ -154,8 +154,8 @@ Scope {
     onFileChanged: reload()
     onLoaded: {
       try {
-        var p = String(JSON.parse(text()).picture || "chess")
-        sm.pictureUrl = "file://" + (p.charAt(0) === "/" ? p : sm.picturesDir + "/" + p + ".bmp")
+        var p = String(JSON.parse(text()).picture || "usertile7")
+        sm.pictureUrl = "file://" + (p.charAt(0) === "/" ? p : sm.picturesDir + "/" + p + ".png")
       } catch (e) {
         console.warn("ocko.vista-taskbar: start-menu.json: " + e)
       }

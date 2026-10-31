@@ -179,3 +179,30 @@ if [[ -d $P/StartPanel && ( ! -e $SM/.done || $SM/.done -ot $P ) ]]; then
   : >"$SM/.done"
   echo "start menu art: $(find "$SM" -name '*.png' | wc -l) files in $SM"
 fi
+
+# Logon (lock screen) art and account pictures, as PNG for the shell:
+#   logon/<id>.png      authui.dll BITMAPs (Ease of Access 11118-11123, tile
+#                       frames 11137-11142, submit
+#                       arrow 11151-11156, power 11124-11136)
+#                       and logon/brand.png = basebrd 120 (the Vista
+#                       wordmark the logon screen centres at the bottom)
+#   logon/bg-<w>x<h>.jpg  imageres IMAGE 5031-5043, the logon background per
+#                       resolution (copied; the view picks the nearest aspect)
+#   account-pictures/<name>.png  User Account Pictures (usertile2-12, user, guest)
+LG=$G/logon AP=$G/account-pictures A=${G%/graphics}
+if [[ -d $G/authui/BITMAP && ( ! -e $LG/.done || $LG/.done -ot $G/authui/BITMAP ) ]]; then
+  mkdir -p "$LG" "$AP"
+  for id in {11118..11142} {11151..11156}; do
+    magick "$G/authui/BITMAP/$id.bmp" -define png:exclude-chunks=date,time "PNG32:$LG/$id.png"
+  done
+  magick "$G/basebrd/BITMAP/120.bmp" -define png:exclude-chunks=date,time "PNG32:$LG/brand.png"
+  for f in "$G"/imageres/IMAGE/50{31..43}.jpg; do
+    [[ -f $f ]] && cp "$f" "$LG/bg-$(magick identify -format '%wx%h' "$f").jpg"
+  done
+  for f in "$A"/account-pictures/*.bmp; do
+    [[ -f $f ]] || continue
+    n=${f##*/}; magick "$f" -define png:exclude-chunks=date,time "PNG32:$AP/${n%.bmp}.png"
+  done
+  : >"$LG/.done"
+  echo "logon art: $(find "$LG" "$AP" -type f ! -name .done | wc -l) files"
+fi
