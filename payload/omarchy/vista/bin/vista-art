@@ -265,3 +265,26 @@ if [[ -d $P/Button && -d $C && ( ! -e $W/.done || $W/.done -ot $P ) ]]; then
   : >"$W/.done"
   echo "widget art: $(find "$W" -name '*.png' | wc -l) files in $W"
 fi
+
+# XP icon names some ported windows still use (Bluetooth, the monitor and
+# agents windows, the network and mixer sub-windows), answered with Vista's
+# own icons so those windows need no XP files: <xp lib>/<id> = <vista lib>/<id>.
+AL=$G/.aliases-done
+if [[ -d $G/pnidui && ( ! -e $AL || $AL -ot $G/pnidui ) ]]; then
+  for pair in xpsp2res/300=bthprops/151 xpsp2res/144=bthprops/151 \
+              netshell/193=pnidui/3048 netshell/126=pnidui/3048 netshell/195=pnidui/3020 \
+              netshell/1913=pnidui/3026 netshell/1901=pnidui/3022 netshell/1902=pnidui/3024 \
+              desk/100=explorer/205 agentsvr/113=imageres/15 \
+              sndvol32/300=sndvolsso/124 sndvol32/301=sndvolsso/122 sndvol32/302=sndvolsso/120; do
+    xp=${pair%%=*} vi=${pair#*=}
+    for size in 16 32 48; do
+      src=$G/${vi%%/*}/$size/${vi#*/}.png
+      [[ -f $src ]] || continue
+      mkdir -p "$G/${xp%%/*}/$size"
+      cp "$src" "$G/${xp%%/*}/$size/${xp#*/}.png"
+    done
+  done
+  cp "$G/explorer/32/205.png" "$G/taskbar/desk-monitor.png"
+  : >"$AL"
+  echo "icon aliases: done"
+fi

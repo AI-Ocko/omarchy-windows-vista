@@ -197,7 +197,9 @@ VISTA_CLONES='[["ocko.vista-menu", "omarchy.menu"], ["ocko.vista-polkit", "omarc
 # enabled clone in its place (Bar.qml xpCloneEntry), and resolveEnabledId()
 # sends `omarchy-shell shell toggle omarchy.<id>` to the clone. A stock bar
 # (no Vista) never sees them, because restore puts plugins[] back.
-VISTA_WIDGET_CLONES='["ocko.vista-monitor", "ocko.vista-audio", "ocko.vista-network", "ocko.vista-clock", "ocko.vista-tray", "ocko.vista-power", "ocko.vista-weather", "ocko.vista-bluetooth", "ocko.vista-agents"]'
+VISTA_WIDGET_CLONES='["ocko.vista-monitor", "ocko.vista-audio", "ocko.vista-network", "ocko.vista-clock", "ocko.vista-tray", "ocko.vista-power", "ocko.vista-weather", "ocko.vista-bluetooth", "ocko.vista-agents", "ocko.vista-sidebar"]'
+# (ocko.vista-sidebar is no clone: it rides on this list because, like the
+# widget clones, it is enabled without disabling anything.)
 # Rivals: the user's own clones of the same stock plugin (manifest
 # omarchy.clonedFrom, e.g. a you.polkit cloned from omarchy.polkit).
 # One listed in plugins[] would stay enabled next to the Vista clone: two

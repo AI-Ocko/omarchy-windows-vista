@@ -314,6 +314,10 @@ Scope {
       var list = groups[name].sort(sm.byLabel)
       return { kind: "fly", label: name, icon: iconUrl("folder", "inode-directory"), flyout: function() { return list } }
     }).sort(byLabel)
+    // Vista listed Windows Sidebar at the top level of All Programs.
+    loose.push({ kind: "fly", label: "Windows Sidebar",
+                 icon: "file://" + sm.home + "/.config/omarchy/vista/assets/graphics/sidebar/RCDATA/5004.png",
+                 run: function() { Quickshell.execDetached(["omarchy-shell", "vistasidebar", "toggle"]) } })
     return loose.sort(byLabel).concat(out)
   }
 

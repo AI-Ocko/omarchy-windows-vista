@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "ocko.vista-sidebar",
+  "name": "Windows Vista Sidebar",
+  "version": "1.0.0",
+  "author": "ocko",
+  "description": "The Windows Vista Sidebar on the right edge of the desktop with the Clock, CPU Meter, Slide Show and Weather gadgets. Off until switched on (Start menu > All Programs > Windows Sidebar, or omarchy-shell vistasidebar toggle); no timers run while it is hidden. Enabled only while a Vista theme is active (omarchy/vista/bin/vista-mode).",
+  "kinds": [
+    "panel"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "panel": "Sidebar.qml"
+  }
+}
