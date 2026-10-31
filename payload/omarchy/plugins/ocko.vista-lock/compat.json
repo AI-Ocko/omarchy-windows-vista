@@ -5,7 +5,7 @@
     "plugins/lock/Service.qml": "661ce2b70e6deadb293b0a7a2c2f19d10086ab191913ceb6d716bcc9b24fc7c4"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "76ed4e77beccf489f70a26ee0a5a8dba68c1e842b6b76bc6244b60abfa285d69",
+  "self": "c0bb4fa0a7bb800eccfff0e962eef339f42902c3fe02ce4c3b7070a132946731",
   "external": [
     "AlignHCenter",
     "AlignVCenter",

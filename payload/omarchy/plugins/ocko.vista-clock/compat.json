@@ -6,7 +6,7 @@
     "plugins/panels/clock/Panel.qml": "ff6062b3a5714a727c345d239449d460c95e6087c99f4cda786942c33cdaa612"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "da58bb61fb46f7c488347f2456d119d33a634317fb4b47aecd0088feb91d6572",
+  "self": "2a92aee1264a01d6210c2c9609c4f2005b946516222b3e0358428a207d652069",
   "external": [
     "AlignHCenter",
     "AlignVCenter",

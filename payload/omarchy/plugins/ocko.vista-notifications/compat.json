@@ -6,7 +6,7 @@
     "plugins/notifications/components/NotificationCard.qml": "3620ab43732277ac7f1ae04c78544b9648c3b33e2b7a6b6465f02b7cfb70e769"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "6263ed5dfdf2fc4b8275a441b2f825e0d0505a0fb633f9a4b641985c3b7bd551",
+  "self": "ce65752e5670ecf8d4b97c47a5b4a05ebe6da0a32064f526c2837de0ac1091a0",
   "external": [
     "BottomToTop",
     "ElideRight",

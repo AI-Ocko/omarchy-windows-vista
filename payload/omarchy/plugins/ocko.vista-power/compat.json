@@ -5,7 +5,7 @@
     "plugins/panels/power/Panel.qml": "8e7b6c32c2bda2069a03a04d4d71d6a82aa8aa435bfba0b81782a51d3195a848"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "d3523c271797a49a96696c01507c0007cf7cd6c68b1ad101410aea63ec1f3e6f",
+  "self": "db1e17dffed3badc023ac84fe0923624d07bb929f2cb4d71b00b40f20ec560bf",
   "external": [
     "Color",
     "ElideRight",

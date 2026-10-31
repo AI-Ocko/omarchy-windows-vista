@@ -220,18 +220,22 @@ Item {
     }
   }
 
-  // ======================================================== Vista Run As dialog
+  // ===================================================== Vista User Account Control
   // ocko.vista-polkit: everything above this line is omarchy.polkit 4.0.6
   // unchanged (flow handling, PAM/fingerprint logic, cancel/submit). Only the
-  // window is Vista's "Run As" credential dialog, built from the shared chrome in
-  // omarchy/vista/qml. Security is the stock dialog's: a full-screen Overlay
-  // surface with exclusive keyboard focus, the request's exact message (not
-  // the shortened authorizationLabel), the action id, the identity being
-  // authenticated, any PAM info/error text, and a masked password field unless
-  // PAM asks for a visible response.
+  // window is Vista's UAC credential prompt (consent.exe, measured on
+  // ms-uac-credential-rtm.jpg): the secure desktop (the screen dimmed), the
+  // teal "Windows needs your permission to continue" banner, the program row,
+  // one account tile per polkit identity with the password box in the chosen
+  // one, Details, OK/Cancel and the UAC footer. Security is the stock dialog's:
+  // a full-screen Overlay surface with exclusive keyboard focus, the request's
+  // exact message, the action id, the identity being authenticated, any PAM
+  // info/error text, and a masked password field unless PAM asks otherwise.
   readonly property var flowIdentities: polkitAgent.flow && polkitAgent.flow.identities ? polkitAgent.flow.identities : []
   readonly property string actionId: polkitAgent.flow ? String(polkitAgent.flow.actionId || "") : ""
   readonly property bool supplementaryIsError: polkitAgent.flow ? !!polkitAgent.flow.supplementaryIsError : false
+  property bool detailsOpen: false
+  readonly property string graphics: "file://" + Quickshell.env("HOME") + "/.config/omarchy/vista/assets/graphics/"
 
   function identityLabel(identity) {
     if (!identity) return ""
@@ -247,6 +251,13 @@ Item {
     Qt.callLater(root.refocus)
   }
 
+  // The UAC sound, once per prompt (vista-sound gates it to Vista themes).
+  Process { id: uacSound; command: [Quickshell.env("HOME") + "/.config/omarchy/vista/bin/vista-sound", "uac"] }
+  onDialogVisibleChanged: {
+    detailsOpen = false
+    if (dialogVisible && !closing) uacSound.running = true
+  }
+
   PanelWindow {
     id: panel
     visible: root.dialogVisible
@@ -259,9 +270,10 @@ Item {
 
     function s(n) { return Style.space(n) }
 
+    // The secure desktop: Vista switched to a dimmed still of the desktop.
     Rectangle {
       anchors.fill: parent
-      color: root.scrim
+      color: "#99000000"
     }
 
     MouseArea {
@@ -271,12 +283,13 @@ Item {
 
     VistaWindow {
       id: card
-      width: panel.s(372)
-      height: card.captionHeight + body.implicitHeight + panel.s(12 + 12) + card.frameWidth
+      width: panel.s(439)
+      height: card.captionHeight + body.implicitHeight + card.frameWidth
       anchors.centerIn: parent
       anchors.horizontalCenterOffset: root.shakeOffset
-      title: "Run As"
+      title: "User Account Control"
       buttons: ["close"]
+      face: "#FFFFFF"
       onCloseClicked: root.cancelRequest()
 
       MouseArea { anchors.fill: parent; onClicked: root.refocus() }
@@ -298,141 +311,241 @@ Item {
         }
       }
 
+      component Label9: Text {
+        textFormat: Text.PlainText
+        color: "#000000"
+        font.family: "Segoe UI"
+        font.pixelSize: panel.s(12)
+      }
+
       Column {
         id: body
-        x: panel.s(12)
-        y: panel.s(12)
-        width: card.client.width - panel.s(24)
-        spacing: panel.s(8)
+        width: card.client.width
+        spacing: 0
 
-        Row {
-          spacing: panel.s(12)
+        // Banner: 40 px, the Windows-publisher teal, shield + headline.
+        Rectangle {
+          width: parent.width
+          height: panel.s(40)
+          gradient: Gradient {
+            GradientStop { position: 0.0; color: "#1B5674" }
+            GradientStop { position: 0.1; color: "#05618A" }
+            GradientStop { position: 1.0; color: "#0B5C84" }
+          }
           Image {
-            width: panel.s(32)
-            height: panel.s(32)
-            source: VistaScheme.icon(194, 32)
+            x: panel.s(10)
+            anchors.verticalCenter: parent.verticalCenter
+            width: panel.s(32); height: panel.s(32)
+            source: root.graphics + "imageres/32/78.png"
+            smooth: true
+          }
+          Text {
+            x: panel.s(50)
+            anchors.verticalCenter: parent.verticalCenter
+            text: "Windows needs your permission to continue"
+            color: "white"
+            font.family: "Segoe UI"
+            font.pixelSize: panel.s(16)
+          }
+        }
+
+        Item { width: 1; height: panel.s(12) }
+        Label9 { x: panel.s(20); text: "If you started this action, continue." }
+        Item { width: 1; height: panel.s(8) }
+
+        // The program row: what is asking (verbatim) and the action id.
+        Row {
+          x: panel.s(36)
+          spacing: panel.s(30)
+          Image {
+            width: panel.s(32); height: panel.s(32)
+            source: root.graphics + "consent/32/107.png"
             smooth: true
           }
           Column {
-            width: body.width - panel.s(44)
-            spacing: panel.s(4)
-            // The request, verbatim, as the authority sent it.
-            Text {
+            width: body.width - panel.s(36 + 32 + 30 + 20)
+            Label9 {
               width: parent.width
-              textFormat: Text.PlainText
               text: root.currentMessage
               wrapMode: Text.Wrap
-              color: "#000000"
-              font.family: "Segoe UI"
-              font.bold: true
-              font.pixelSize: Style.font.bodySmall
             }
-            Text {
+            Label9 {
               visible: root.actionId !== ""
               width: parent.width
-              textFormat: Text.PlainText
-              text: "Action: " + root.actionId
+              text: root.actionId
               wrapMode: Text.WrapAnywhere
-              color: "#404040"
-              font.family: "Segoe UI"
-              font.pixelSize: Style.font.bodySmall
             }
           }
         }
 
-        VistaGroupBox {
-          id: who
+        Item { width: 1; height: panel.s(10) }
+        Label9 {
+          x: panel.s(20)
+          width: body.width - panel.s(40)
+          wrapMode: Text.Wrap
+          text: root.fingerprintMode ? "To continue, touch the fingerprint reader."
+            : /^\s*password\s*:?\s*$/i.test(root.currentPrompt || "Password")
+              ? "To continue, type an administrator password, and then click OK."
+              : "To continue, type your " + root.currentPrompt.replace(/\s*:?\s*$/, "").toLowerCase() + ", and then click OK."
+        }
+        Item { width: 1; height: panel.s(12) }
+        Rectangle { x: panel.s(12); width: body.width - panel.s(24); height: 1; color: "#DFDFDF" }
+        Item { width: 1; height: panel.s(16) }
+
+        // One tile per identity; the chosen one is highlighted and holds the
+        // password box (one field: the stock flow addresses it as passwordInput).
+        Item {
+          id: tiles
           width: body.width
-          height: whoCol.implicitHeight + panel.s(24) + panel.s(6)
-          caption: "Authenticate as"
+          height: tileCol.height
+          readonly property int chosenIndex: {
+            var f = polkitAgent.flow, ids = root.flowIdentities
+            for (var i = 0; f && i < ids.length; i++) if (ids[i] === f.selectedIdentity) return i
+            return 0
+          }
 
           Column {
-            id: whoCol
+            id: tileCol
             width: parent.width
-            spacing: panel.s(6)
-
-            // One radio per identity polkit offers; choosing one restarts the
-            // conversation for that identity (AuthFlow.selectedIdentity).
             Repeater {
               model: root.flowIdentities.length
-              Row {
+              Item {
+                id: tile
                 required property int index
                 readonly property var identity: root.flowIdentities[index]
-                readonly property bool chosen: !!polkitAgent.flow && polkitAgent.flow.selectedIdentity === identity
-                spacing: panel.s(6)
-                Image {
-                  width: panel.s(13)
-                  height: panel.s(13)
-                  anchors.verticalCenter: parent.verticalCenter
-                  source: VistaScheme.art("radio-" + (parent.chosen ? 4 : 0))
+                readonly property bool chosen: index === tiles.chosenIndex
+                x: panel.s(26)
+                width: body.width - panel.s(52)
+                height: panel.s(70)
+
+                Rectangle {
+                  anchors.fill: parent
+                  visible: tile.chosen || tileMouse.containsMouse
+                  radius: panel.s(3)
+                  border.color: "#BED1D7"
+                  gradient: Gradient {
+                    GradientStop { position: 0.0; color: "#EDFFFF" }
+                    GradientStop { position: 1.0; color: "#DBF0F5" }
+                  }
+                }
+                MouseArea {
+                  id: tileMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  onClicked: root.selectIdentity(tile.identity)
+                }
+                // The account picture in its 60 px frame.
+                Rectangle {
+                  x: panel.s(5); y: panel.s(5)
+                  width: panel.s(60); height: panel.s(60)
+                  radius: panel.s(3)
+                  color: "white"
+                  border.color: "#7A8692"
+                  Image {
+                    anchors.fill: parent
+                    anchors.margins: panel.s(4)
+                    source: root.graphics + "account-pictures/usertile7.png"
+                    fillMode: Image.PreserveAspectCrop
+                    smooth: true
+                  }
                 }
                 Text {
-                  text: root.identityLabel(parent.identity)
+                  x: panel.s(81)
+                  y: tile.chosen && passwordField.visible ? panel.s(10) : (tile.height - height) / 2
+                  text: root.identityLabel(tile.identity)
                   textFormat: Text.PlainText
                   color: "#000000"
                   font.family: "Segoe UI"
-                  font.pixelSize: Style.font.bodySmall
-                  MouseArea { anchors.fill: parent; onClicked: root.selectIdentity(parent.parent.identity) }
+                  font.pixelSize: panel.s(16)
                 }
               }
             }
+          }
 
-            Row {
-              spacing: panel.s(8)
-              Text {
-                width: panel.s(70)
-                anchors.verticalCenter: parent.verticalCenter
-                text: root.fingerprintMode ? "Fingerprint:" : (root.currentPrompt ? root.currentPrompt.replace(/\s*:?\s*$/, ":") : "Password:")
-                textFormat: Text.PlainText
-                elide: Text.ElideRight
-                color: "#000000"
-                font.family: "Segoe UI"
-                font.pixelSize: Style.font.bodySmall
-              }
-              Item {
-                width: whoCol.width - panel.s(78)
-                height: panel.s(21)
-                Text {
-                  visible: root.fingerprintMode
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "Touch the fingerprint reader."
-                  color: "#000000"
-                  font.family: "Segoe UI"
-                  font.pixelSize: Style.font.bodySmall
-                }
-                VistaTextField {
-                  id: passwordField
-                  visible: !root.fingerprintMode
-                  anchors.fill: parent
-                  readOnly: root.submitted || root.errorFlash
-                  placeholder: root.submitted ? "Checking..." : ""
-                  echoMode: root.responseVisible ? TextInput.Normal : TextInput.Password
-                }
-              }
-            }
+          VistaTextField {
+            id: passwordField
+            visible: !root.fingerprintMode && root.flowIdentities.length > 0
+            x: panel.s(26 + 81)
+            y: tiles.chosenIndex * panel.s(70) + panel.s(37)
+            width: panel.s(193); height: panel.s(21)
+            readOnly: root.submitted || root.errorFlash
+            placeholder: root.submitted ? "Checking..." : (root.currentPrompt ? root.currentPrompt.replace(/\s*:?\s*$/, "") : "Password")
+            echoMode: root.responseVisible ? TextInput.Normal : TextInput.Password
           }
         }
 
         // PAM's own info or error line, then Vista's logon-failure text.
-        Text {
+        Item { width: 1; height: panel.s(8) }
+        Label9 {
           visible: text !== ""
-          width: body.width
-          textFormat: Text.PlainText
+          x: panel.s(26)
+          width: body.width - panel.s(52)
           wrapMode: Text.Wrap
-          text: root.errorFlash ? "Logon failure: unknown user name or bad password." : root.currentSupplementary
-          color: root.errorFlash || root.supplementaryIsError ? Commons.Color.polkit.textError : "#000000"
-          font.family: "Segoe UI"
-          font.pixelSize: Style.font.bodySmall
+          text: root.errorFlash ? "The user name or password is incorrect." : root.currentSupplementary
+          color: root.errorFlash || root.supplementaryIsError ? "#CC0000" : "#000000"
         }
 
+        // Details: the action id and identity in full.
+        Column {
+          visible: root.detailsOpen
+          x: panel.s(26)
+          width: body.width - panel.s(52)
+          topPadding: panel.s(8)
+          spacing: panel.s(2)
+          Label9 { width: parent.width; wrapMode: Text.WrapAnywhere; text: "Action:  " + (root.actionId || "(none)") }
+          Label9 {
+            width: parent.width; wrapMode: Text.Wrap
+            text: "Authenticating as:  " + root.identityLabel(polkitAgent.flow ? polkitAgent.flow.selectedIdentity : null)
+          }
+        }
+
+        Item { width: 1; height: panel.s(20) }
+
+        // Details expander and the buttons.
         Item {
           width: body.width
           height: panel.s(23)
           Row {
-            anchors.right: parent.right
+            x: panel.s(14)
+            anchors.verticalCenter: parent.verticalCenter
             spacing: panel.s(6)
+            Rectangle {
+              width: panel.s(19); height: panel.s(19)
+              radius: width / 2
+              anchors.verticalCenter: parent.verticalCenter
+              border.color: detMouse.containsMouse ? "#3C7FB1" : "#8E8F8F"
+              gradient: Gradient {
+                GradientStop { position: 0.0; color: "#FFFFFF" }
+                GradientStop { position: 1.0; color: detMouse.containsMouse ? "#D9F0FC" : "#E6E6E6" }
+              }
+              Text {
+                anchors.centerIn: parent
+                text: root.detailsOpen ? "⌃" : "⌄"
+                color: "#2B2B2B"
+                font.pixelSize: panel.s(11)
+                font.bold: true
+              }
+            }
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: (root.detailsOpen ? "Hide d" : "D") + "etails"
+              color: "#000000"
+              font.family: "Segoe UI"
+              font.pixelSize: panel.s(12)
+            }
+          }
+          MouseArea {
+            id: detMouse
+            width: panel.s(100); height: parent.height
+            hoverEnabled: true
+            onClicked: { root.detailsOpen = !root.detailsOpen; root.refocus() }
+          }
+          Row {
+            anchors.right: parent.right
+            anchors.rightMargin: panel.s(14)
+            spacing: panel.s(8)
             VistaButton {
-              text: "OK"
+              text: root.fingerprintMode ? "Continue" : "OK"
               isDefault: true
               enabled: root.responseRequired && !root.submitted && !root.errorFlash
               onClicked: root.submitResponse()
@@ -441,6 +554,21 @@ Item {
               text: "Cancel"
               onClicked: root.cancelRequest()
             }
+          }
+        }
+
+        Item { width: 1; height: panel.s(12) }
+
+        // Footer band.
+        Rectangle {
+          width: body.width
+          height: panel.s(40)
+          color: "#F0F0F0"
+          Rectangle { width: parent.width; height: 1; color: "#DFDFDF" }
+          Label9 {
+            x: panel.s(14)
+            anchors.verticalCenter: parent.verticalCenter
+            text: "User Account Control helps stop unauthorized changes to your computer."
           }
         }
       }
