@@ -1,0 +1,141 @@
+# Windows Vista boot screen for Plymouth (omarchy-windows-vista, vista-boot).
+# Vista's winload drew a 640x480 screen: black, the 122x11 progress bar
+# (1 px #727272 outline) at 257,353 with six 2x9 green blocks on a 4 px pitch
+# scrolling through it, and "(c) Microsoft Corporation" under it (measured on
+# commons-boot-screen-640.png). The images are that screen at 1x, pixel-doubled
+# by vista-boot, so every coordinate below is the 1x number times 2.
+
+W = Window.GetWidth();
+H = Window.GetHeight();
+mode = Plymouth.GetMode();
+
+fun background(r, g, b) {
+  Window.SetBackgroundTopColor(r, g, b);
+  Window.SetBackgroundBottomColor(r, g, b);
+}
+background(0, 0, 0);
+
+# ---- boot: the static screen, centred
+boot.image = Image("boot.png");                       # 1280x960
+boot.x = Math.Int(W / 2 - boot.image.GetWidth() / 2);
+boot.y = Math.Int(H / 2 - boot.image.GetHeight() / 2);
+boot.sprite = Sprite(boot.image);
+boot.sprite.SetPosition(boot.x, boot.y, 1);
+boot.sprite.SetOpacity(0);
+
+# The blocks scroll left to right through the bar's 120 px well, entering and
+# leaving at its edges.
+bar.left = boot.x + 516;
+bar.width = 240;
+bar.y = boot.y + 708;
+bar.image = Image("segment.png");                     # 44x18: six blocks
+bar.sprite = Sprite();
+bar.sprite.SetPosition(bar.left, bar.y, 2);
+bar.pos = -44;
+bar.tick = 0;
+
+fun show_boot(on) {
+  boot.sprite.SetOpacity(on);
+  bar.sprite.SetOpacity(on);
+}
+
+fun step_bar() {
+  bar.tick++;
+  if (bar.tick % 2) return;
+  bar.pos += 4;
+  if (bar.pos >= bar.width) bar.pos = -44;
+  left = bar.pos;
+  if (left < 0) left = 0;
+  right = bar.pos + 44;
+  if (right > bar.width) right = bar.width;
+  if (right <= left) {
+    bar.sprite.SetOpacity(0);
+    return;
+  }
+  bar.sprite.SetImage(bar.image.Crop(left - bar.pos, 0, right - left, 18));
+  bar.sprite.SetX(bar.left + left);
+  bar.sprite.SetOpacity(1);
+}
+
+# ---- disk password: Vista had no such screen (BitLocker's was text); this
+# keeps the boot screen's look: the prompt in white over a 1 px grey field.
+field.image = Image("field.png");                     # 400x32
+field.x = Math.Int(W / 2 - field.image.GetWidth() / 2);
+field.y = boot.y + 560;
+field.sprite = Sprite(field.image);
+field.sprite.SetPosition(field.x, field.y, 10);
+field.sprite.SetOpacity(0);
+prompt.sprite = Sprite();
+prompt.sprite.SetZ(11);
+bullet.image = Image("bullet.png");                   # 12x12
+bullet.sprites = [];
+bullet.max = 28;
+global.asking = 0;
+
+fun show_prompt(on) {
+  field.sprite.SetOpacity(on);
+  prompt.sprite.SetOpacity(on);
+  if (!on) {
+    for (i = 0; bullet.sprites[i]; i++) bullet.sprites[i].SetOpacity(0);
+  }
+}
+
+fun display_password_callback(text, bullets) {
+  global.asking = 1;
+  show_boot(0);
+  show_prompt(1);
+  img = Image.Text(text, 1, 1, 1);
+  prompt.sprite.SetImage(img);
+  prompt.sprite.SetPosition(Math.Int(W / 2 - img.GetWidth() / 2), field.y - img.GetHeight() - 16, 11);
+  n = bullets;
+  if (n > bullet.max) n = bullet.max;
+  for (i = 0; i < n; i++) {
+    if (!bullet.sprites[i]) {
+      bullet.sprites[i] = Sprite(bullet.image);
+      bullet.sprites[i].SetPosition(field.x + 10 + i * 14, field.y + 10, 12);
+    }
+    bullet.sprites[i].SetOpacity(1);
+  }
+  for (i = n; bullet.sprites[i]; i++) bullet.sprites[i].SetOpacity(0);
+}
+
+fun display_normal_callback() {
+  if (global.asking) {
+    global.asking = 0;
+    show_prompt(0);
+  }
+  if (mode == "boot" || mode == "resume" || mode == "updates" || mode == "system-upgrade") show_boot(1);
+}
+
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+
+message.sprite = Sprite();
+message.sprite.SetPosition(10, 10, 20);
+fun display_message_callback(text) {
+  message.sprite.SetImage(Image.Text(text, 0.6, 0.6, 0.6));
+  message.sprite.SetOpacity(1);
+}
+fun hide_message_callback(text) { message.sprite.SetOpacity(0); }
+Plymouth.SetDisplayMessageFunction(display_message_callback);
+Plymouth.SetHideMessageFunction(hide_message_callback);
+
+# ---- shutdown / reboot: the logon background with "Shutting down..."
+fun show_shutdown() {
+  global.down.bg = Sprite(Image("logon-bg.png").Scale(W, H));
+  global.down.bg.SetPosition(0, 0, 1);
+  t = Image("shutting-down.png");
+  global.down.text = Sprite(t);
+  global.down.text.SetPosition(Math.Int(W / 2 - t.GetWidth() / 2), Math.Int(H / 2 - t.GetHeight() / 2), 2);
+}
+
+if (mode == "shutdown" || mode == "reboot") {
+  show_shutdown();
+} else {
+  show_boot(1);
+}
+
+fun refresh_callback() {
+  if (!global.asking && mode != "shutdown" && mode != "reboot") step_bar();
+}
+Plymouth.SetRefreshFunction(refresh_callback);

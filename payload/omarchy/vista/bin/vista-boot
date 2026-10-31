@@ -1,0 +1,160 @@
+#!/bin/bash
+# vista-boot install|on|off|status|preview [boot|password|shutdown|reboot]
+#
+# The Windows Vista Plymouth theme: the Vista boot screen (black, the green
+# scrolling bar, "(c) Microsoft Corporation"), a disk-password prompt
+# for the disk password, and the shutdown screens. Run it yourself, as yourself;
+# it renders the images from omarchy/vista/assets as you and uses sudo only for:
+#   install  copy the theme into /usr/share/plymouth/themes/windows-vista (not the
+#            default yet; `preview` needs it there)
+#   on       install, make it the default, rebuild the boot images
+#   off      make `omarchy` the default again, rebuild, delete the theme files
+# Rebuilding is what omarchy-plymouth-set does: limine-mkinitcpio on this
+# Limine system, else mkinitcpio -P. /usr/share/plymouth/themes/omarchy is
+# never touched.
+#
+# Rollback if the Vista splash ever misbehaves at boot: press Esc for the text
+# prompt (typing the password blind also works), or pick a Limine
+# Snapshots entry, then run `vista-boot off`.
+set -euo pipefail
+
+VISTA=$HOME/.config/omarchy/vista
+ART=$VISTA/assets/graphics
+FONTS=$HOME/.local/share/fonts/vista
+SRC=$VISTA/plymouth/windows-vista
+DEST=/usr/share/plymouth/themes/windows-vista
+FILES=(windows-vista.plymouth windows-vista.script boot.png segment.png field.png bullet.png
+  logon-bg.png shutting-down.png)
+
+die() { echo "vista-boot: $*" >&2; exit 1; }
+(( EUID != 0 )) || die "run this as yourself, not root; it asks for sudo itself"
+
+# Render everything at 1x (Vista's 640x480 boot screen), then pixel-double (-filter
+# point): the script's coordinates are these 1x numbers times 2.
+render() {
+  local out=$1 F=$FONTS/segoeui.ttf
+  [[ -r $F ]] || die "missing $F (run install.sh)"
+  cp "$SRC/windows-vista.plymouth" "$SRC/windows-vista.script" "$out/"
+  # The boot screen at 1x: the bar outline and the footer, then doubled.
+  magick -size 640x480 xc:black -fill none -stroke '#727272' -strokewidth 1 \
+    -draw 'rectangle 257,353 378,363' -stroke none -fill white -font "$F" -density 96 -pointsize 9 \
+    -gravity north -annotate -2+389 '© Microsoft Corporation' \
+    -filter point -resize 200% -define png:exclude-chunks=date,time "PNG24:$out/boot.png"
+  # Six 2x9 blocks on a 4 px pitch; each block's rows top to bottom (sampled).
+  local rows=(F0F2E4 F5FADF A4AE76 A6B174 4C5619 505A20 4C5425 545A30 444A25) y draw=()
+  for y in "${!rows[@]}"; do
+    draw+=(-fill "#${rows[$y]}")
+    for x in 0 4 8 12 16 20; do draw+=(-draw "rectangle $x,$y $((x + 1)),$y"); done
+  done
+  magick -size 22x9 xc:black "${draw[@]}" -filter point -resize 200% \
+    -define png:exclude-chunks=date,time "PNG24:$out/segment.png"
+  # Password field (200x16 at 1x, 1 px #727272) and its 6 px white bullet.
+  magick -size 200x16 xc:black -fill none -stroke '#727272' -draw 'rectangle 0,0 199,15' \
+    -filter point -resize 200% -define png:exclude-chunks=date,time "PNG24:$out/field.png"
+  magick -size 6x6 xc:none -fill white -draw 'circle 2.5,2.5 2.5,0' -filter point -resize 200% \
+    -define png:exclude-chunks=date,time "PNG32:$out/bullet.png"
+  # Shutdown: the logon background (imageres 5038, 16:9) and Vista's
+  # "Shutting down..." (Segoe UI 18 pt, white, soft shadow).
+  magick "$ART/logon/bg-1360x768.jpg" -define png:exclude-chunks=date,time "PNG24:$out/logon-bg.png"
+  magick -background none -fill white -font "$F" -density 96 -pointsize 18 label:'Shutting down...' \
+    \( +clone -background black -shadow 60x3+1+1 \) +swap -background none -layers merge +repage \
+    -define png:exclude-chunks=date,time "PNG32:$out/shutting-down.png"
+}
+
+# x_root_access insert|delete: what `xhost +/-si:localuser:root` does (xhost
+# isn't installed): one X11 ChangeHosts request over this display's socket.
+x_root_access() {
+  python3 -I - "$1" "${DISPLAY:-:0}" <<'EOF'
+import socket, struct, sys
+mode = {"insert": 0, "delete": 1}[sys.argv[1]]
+num = sys.argv[2].lstrip(":").split(".")[0]
+s = socket.socket(socket.AF_UNIX)
+s.connect(f"/tmp/.X11-unix/X{num}")
+s.sendall(struct.pack("<BxHHHHxx", 0x6C, 11, 0, 0, 0))   # setup, no auth
+head = s.recv(8, socket.MSG_WAITALL)
+if head[0] != 1:
+    sys.exit("X connection refused")
+s.recv(struct.unpack("<H", head[6:8])[0] * 4, socket.MSG_WAITALL)
+addr = b"localuser\0root"                                   # family 5: server-interpreted
+pad = (4 - len(addr) % 4) % 4
+s.sendall(struct.pack("<BBHBxH", 109, mode, (8 + len(addr) + pad) // 4, 5, len(addr)) + addr + b"\0" * pad)
+s.sendall(struct.pack("<BxH", 43, 1))                       # GetInputFocus: syncs and surfaces errors
+reply = s.recv(32, socket.MSG_WAITALL)
+if reply[0] == 0:
+    sys.exit(f"ChangeHosts failed: X error {reply[1]}")
+EOF
+}
+
+rebuild() {
+  if command -v limine-mkinitcpio >/dev/null; then sudo limine-mkinitcpio; else sudo mkinitcpio -P; fi
+}
+
+install_theme() {
+  local stage f
+  stage=$(mktemp -d)
+  trap 'rm -rf "$stage"' RETURN
+  render "$stage"
+  for f in "${FILES[@]}"; do [[ -s $stage/$f ]] || die "render did not produce $f"; done
+  sudo install -d -o root -g root -m 755 "$DEST"
+  for f in "${FILES[@]}"; do sudo install -o root -g root -m 644 "$stage/$f" "$DEST/$f"; done
+  echo "installed $DEST (${#FILES[@]} files)"
+}
+
+preview() {
+  local what=${1:-boot} mode=boot
+  [[ -r $DEST/windows-vista.script ]] || die "run 'vista-boot install' first"
+  [[ $what == shutdown || $what == reboot ]] && mode=$what
+  # plymouthd insists on root. Its renderer order is X11, DRM, framebuffer;
+  # only X11 (a window on this session) is wanted, so refuse unless root can
+  # open this display. Xwayland admits this user by identity only, so root is
+  # added to its access list for the preview and removed again afterwards.
+  local display=${DISPLAY:-:0}
+  x_root_access insert
+  trap 'x_root_access delete' EXIT     # also on die
+  sudo env DISPLAY="$display" xprop -root _NET_SUPPORTING_WM_CHECK >/dev/null ||
+    die "root cannot open X display $display; not starting plymouthd"
+  # --debug traces go to this terminal (Plymouth script errors show up there).
+  sudo env DISPLAY="$display" plymouthd --no-daemon --debug \
+    --mode="$mode" --tty=/dev/tty63 --no-boot-log \
+    --kernel-command-line="splash plymouth.splash=windows-vista plymouth.ignore-udev" &
+  sleep 1
+  sudo plymouth show-splash
+  # Screenshots (as you, not root) while the preview window is up.
+  local shots=${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/vista/boot-preview n
+  mkdir -p "$shots"
+  if [[ $what == password ]]; then
+    ( for n in 1 2 3 4 5 6; do sleep 2; grim "$shots/preview-$what-$n.png"; done ) &
+    echo "Type a few junk characters (NOT your real disk password) into the preview window, then Enter."
+    sudo plymouth ask-for-password --prompt "Please enter passphrase for disk root:" >/dev/null || true
+  else
+    for n in 1 2 3 4; do sleep 2; grim "$shots/preview-$what-$n.png"; done
+  fi
+  sudo plymouth quit || true
+  wait || true
+}
+
+case ${1:-} in
+  install) install_theme ;;
+  on)
+    install_theme
+    sudo plymouth-set-default-theme windows-vista
+    rebuild
+    echo "default theme: $(plymouth-set-default-theme)"
+    ;;
+  off)
+    sudo plymouth-set-default-theme omarchy
+    rebuild
+    if [[ -d $DEST ]]; then
+      for f in "${FILES[@]}"; do sudo rm -f -- "$DEST/$f"; done
+      sudo rmdir -- "$DEST"
+    fi
+    echo "default theme: $(plymouth-set-default-theme)"
+    ;;
+  status)
+    echo "default theme: $(plymouth-set-default-theme)"
+    if [[ -d $DEST ]]; then ls -l "$DEST"; else echo "$DEST: not installed"; fi
+    ;;
+  preview) preview "${2:-boot}" ;;
+  render) mkdir -p "${2:?render <dir>}" && render "$2" ;;
+  *) die "usage: vista-boot install|on|off|status|preview [boot|password|shutdown|reboot]" ;;
+esac

@@ -1,0 +1,9 @@
+[Plymouth Theme]
+Name=Windows Vista
+Description=Windows Vista boot screen, a disk-password prompt, and the shutdown screen.
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/windows-vista
+ScriptFile=/usr/share/plymouth/themes/windows-vista/windows-vista.script
+ConsoleLogBackgroundColor=0x000000
