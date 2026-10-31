@@ -18,13 +18,17 @@ if [[ $_vista_theme == windows-vista || $_vista_theme == windows-vista-* ]]; the
       p=${p#/}
     fi
     export VISTA_PROMPT_PATH="C:\\${p//\//\\}"
+    # Re-asserted every prompt: ~/.bashrc lines after this hook (another
+    # rice's starship switcher, say) may export their own STARSHIP_CONFIG,
+    # and starship reads it per prompt, so the last export would win.
+    STARSHIP_CONFIG=$HOME/.config/omarchy/vista/starship.toml
   }
   # starship's bash init calls this before rendering each prompt.
   starship_precmd_user_func=_vista_prompt_path
   # The cmd.exe banner belongs to a new console window only: a shell foot
   # started directly. Not tmux panes, subshells or `bash -ic` (parent bash).
   if [[ -z ${TMUX-} ]] && read -r _vista_parent </proc/$PPID/comm && [[ $_vista_parent == foot ]]; then
-    printf 'Microsoft Windows [Version 6.0.6002]\nCopyright (c) 2006 Microsoft Corporation.  All rights reserved.\n\n'
+    printf 'Microsoft Windows [Version 6.0.6002]\nCopyright (c) 2006 Microsoft Corporation.  All rights reserved.\n'
   fi
 elif [[ ${STARSHIP_CONFIG-} == "$HOME/.config/omarchy/vista/starship.toml" ]]; then
   # Inherited from a shell opened while Vista was active; not ours to keep.
