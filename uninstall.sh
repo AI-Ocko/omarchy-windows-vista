@@ -91,6 +91,10 @@ strip_block "$CFG/tmux/tmux.conf"
 
 # 3. The payload (the same list install.sh writes) and the user-level installs.
 say "Files"
+# The directories install.sh created (its .created-dirs, read before
+# omarchy/vista goes), removed at the end, innermost first, while empty.
+created=()
+[[ -r $VISTA/.created-dirs ]] && mapfile -t created < "$VISTA/.created-dirs"
 targets=()
 for d in "$PAYLOAD"/omarchy/themes/* "$PAYLOAD"/omarchy/plugins/*; do targets+=("$CFG/omarchy/${d#"$PAYLOAD"/omarchy/}"); done
 while IFS= read -r f; do targets+=("$CFG/omarchy/${f#"$PAYLOAD"/omarchy/}"); done < <(find "$PAYLOAD/omarchy/hooks" -type f)
@@ -102,6 +106,9 @@ remove "$DATA/fonts/vista" "$DATA/themes/Windows Vista" "$DATA/icons/windows-vis
   "$HOME/.local/lib/hyprbars-vista" "$HOME/.local/state/omarchy/vista" \
   "$HOME/.local/state/omarchy/toggles/hypr/windows-vista.lua"
 run fc-cache -f
+while IFS= read -r d; do
+  [[ -n $d && -d $d && -z $(ls -A "$d") ]] && run rmdir "$d"
+done < <(printf '%s\n' "${created[@]}" | awk '{ print length "\t" $0 }' | sort -rn | cut -f2-)
 
 
 say "Left for you"

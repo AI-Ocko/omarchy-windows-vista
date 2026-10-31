@@ -186,7 +186,7 @@ fi
 #                       arrow 11151-11156, power 11124-11136)
 #                       and logon/brand.png = basebrd 120 (the Vista
 #                       wordmark the logon screen centres at the bottom)
-#   logon/bg-<w>x<h>.jpg  imageres IMAGE 5031-5043, the logon background per
+#   logon/bg-<w>x<h>.jpg  imageres IMAGE 5031-5043 (imageres-res/), the logon background per
 #                       resolution (copied; the view picks the nearest aspect)
 #   account-pictures/<name>.png  User Account Pictures (usertile2-12, user, guest)
 LG=$G/logon AP=$G/account-pictures A=${G%/graphics}
@@ -196,7 +196,7 @@ if [[ -d $G/authui/BITMAP && ( ! -e $LG/.done || $LG/.done -ot $G/authui/BITMAP 
     magick "$G/authui/BITMAP/$id.bmp" -define png:exclude-chunks=date,time "PNG32:$LG/$id.png"
   done
   magick "$G/basebrd/BITMAP/120.bmp" -define png:exclude-chunks=date,time "PNG32:$LG/brand.png"
-  for f in "$G"/imageres/IMAGE/50{31..43}.jpg; do
+  for f in "$G"/imageres-res/IMAGE/50{31..43}.jpg; do
     [[ -f $f ]] && cp "$f" "$LG/bg-$(magick identify -format '%wx%h' "$f").jpg"
   done
   for f in "$A"/account-pictures/*.bmp; do

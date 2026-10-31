@@ -63,7 +63,7 @@ Semibold first shipped with Windows 7) and Consolas. Sounds are renamed (e.g.
 |---|---|---|---|
 | `graphics/aero` | msstyles | `binaries/aero.msstyles` | the visual style, parsed: `props.json` (all 4364 properties), `parts.txt`, `image/<id>.png` (430 PNGs), `stream/850.png` (the DWM atlas), `parts/<class>/<part>.<state>.<prop>.png` (each image property, incl. the DWMWindow atlas rects cut out) |
 | `sounds/startup.wav` | wave | `binaries/imageres.dll` 5051 | the Windows Vista startup chime |
-| `graphics/explorer` | peres | `binaries/explorer.exe` BITMAP,PNGFILE | taskbar/notification-area previews, Start menu power/lock strips (7051-7056), arrows |
+| `graphics/explorer-res` | peres | `binaries/explorer.exe` BITMAP,PNGFILE | taskbar/notification-area previews, Start menu power/lock strips (7051-7056), arrows |
 | `graphics/authui` | peres | `binaries/authui.dll` BITMAP,IMAGE,UIFILE | logon screen: user tile frames (11137-11142, 11158-11163), arrow buttons (11151-11156), power buttons (11124-11136), Ease of Access (11118), boot-orb frames (IMAGE 17000-17004), its DirectUI layouts (UIFILE 11000, 14000) |
 | `graphics/authui-strings` | peres | `binaries/authui.dll.mui` STRING,DIALOG | logon screen strings and dialog |
 | `graphics/consent-strings` | peres | `binaries/consent.exe.mui` STRING | UAC prompt strings |
@@ -72,7 +72,7 @@ Semibold first shipped with Windows 7) and Consolas. Sounds are renamed (e.g.
 | `graphics/batmeter` | peres | `binaries/batmeter.dll` BITMAP | notification-area battery meter strips (BITMAP 301-303) |
 | `graphics/themecpl` | peres | `binaries/themecpl.dll` UIFILE,XML,BITMAP | Window Color and Appearance: its DirectUI layout (UIFILE 1002) and art |
 | `graphics/themecpl-strings` | peres | `binaries/themecpl.dll.mui` STRING | the swatch names (STRING 101-108: Default ... Frost) |
-| `graphics/imageres` | peres | `binaries/imageres.dll` IMAGE,PNG,BITMAP | logon background in 13 resolutions (IMAGE 5031-5043, JPEG), busy-ring strips (BITMAP 5000-5013) |
+| `graphics/imageres-res` | peres | `binaries/imageres.dll` IMAGE,PNG,BITMAP | logon background in 13 resolutions (IMAGE 5031-5043, JPEG), busy-ring strips (BITMAP 5000-5013) |
 | `graphics/imageres-ico` | icons | `binaries/imageres.dll` 16,32,48,256 | every imageres.dll icon group at 16/32/48/256 (256 = Vista PNG entries) |
 | `graphics/shell32-ico` | icons | `binaries/shell32.dll` 16,32,48,256 | shell32.dll icons, same sizes |
 | `graphics/user32-ico` | icons | `binaries/user32.dll` 16,32,48 | message-box icons |

@@ -91,8 +91,22 @@ say "Files"
 # omarchy/vista and the themes are overlaid, so what was generated there
 # (theme backgrounds/) survives an update. Plugin directories are replaced
 # whole, so a file dropped upstream goes too.
+# Directories this package creates (with any missing parents), noted before
+# the first one is made, so uninstall.sh removes exactly those again (only
+# while empty; a directory you had stays). Written on the first install only.
+DATA=${XDG_DATA_HOME:-$HOME/.local/share}
+created=()
+for d in "$CFG/omarchy/hooks/post-boot.d" "$CFG/omarchy/hooks/post-update.d" "$CFG/omarchy/hooks/theme-set.d" \
+  "$CFG/omarchy/plugins" "$CFG/omarchy/themes" "$CFG/systemd/user" "$DATA/fonts" "$DATA/icons" "$DATA/themes" \
+  "$HOME/.local/lib" "$HOME/.local/state/omarchy/toggles/hypr"; do
+  while [[ $d == "$HOME"/* && ! -d $d ]]; do
+    [[ " ${created[*]} " == *" $d "* ]] || created+=("$d")
+    d=${d%/*}
+  done
+done
 run mkdir -p "$CFG/omarchy/themes" "$CFG/omarchy/plugins" "$CFG/systemd/user"
 run cp -a "$PAYLOAD/omarchy/vista/." "$VISTA/"
+if ((!DRY)) && [[ ! -e $VISTA/.created-dirs ]]; then printf '%s\n' "${created[@]}" >"$VISTA/.created-dirs"; fi
 for d in "$PAYLOAD"/omarchy/themes/*; do run mkdir -p "$CFG/omarchy/themes/${d##*/}"; run cp -a "$d/." "$CFG/omarchy/themes/${d##*/}/"; done
 for d in "${plugins[@]}"; do run rm -rf "$CFG/omarchy/plugins/${d##*/}"; run cp -a "$d" "$CFG/omarchy/plugins/"; done
 while IFS= read -r f; do
