@@ -1085,7 +1085,10 @@ Panel {
     }
   }
 
-  // ---- 1. the "Volume" flyout (template 106) -------------------------------
+  // ---- 1. the volume flyout -------------------------------------------------
+  // Vista's (SndVolSSO): a narrow white flyout with the device's speaker icon,
+  // the vertical trackbar, the mute button (the speaker glyph, crossed when
+  // muted) and the link area with "Mixer".
   KeyboardPanel {
     id: flyoutPanel
     anchorItem: button
@@ -1096,8 +1099,8 @@ Panel {
     gap: 0
     padding: 0
     borderSpec: Border.none()
-    contentWidth: root.du(50) + root.s(6)
-    contentHeight: root.dv(80) + root.s(6)
+    contentWidth: root.s(80)
+    contentHeight: root.s(262)
 
     PanelKeyCatcher {
       id: flyoutKeys
@@ -1111,49 +1114,85 @@ Panel {
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onTextKey: function(t) { if (t === "m" || t === "M") root.toggleOutputMute() }
 
-      RaisedFrame {
+      Rectangle {
         anchors.fill: parent
+        color: "#FFFFFF"
+        border.color: "#7A7A7A"
+        radius: root.s(3)
 
-        Item {
-          anchors.fill: parent
-          anchors.margins: root.s(3)
-
-          VistaLabel {
-            y: root.dv(4)
-            width: parent.width
-            horizontalAlignment: Text.AlignHCenter
-            text: "Volume"
+        // The device: its speaker icon.
+        Image {
+          anchors.horizontalCenter: parent.horizontalCenter
+          y: root.s(14)
+          width: root.s(32); height: root.s(32)
+          source: VistaScheme.graphics + "/sndvolsso/32/" + (root.outputMuted ? 120 : 124) + ".png"
+          smooth: true; mipmap: true
+        }
+        VistaTrackbar {
+          id: flyTrack
+          anchors.horizontalCenter: parent.horizontalCenter
+          y: root.s(56)
+          height: root.s(130)
+          orientation: Qt.Vertical
+          thumbStyle: "both"
+          enabled: root.hasOutput
+          focused: true
+          value: root.outputVolume
+          onMoved: function(v) { root.setOutputVolume(v) }
+          HoverHandler { id: flyHover }
+        }
+        // Mute: a flat button holding the speaker glyph.
+        Rectangle {
+          id: muteBtn
+          anchors.horizontalCenter: parent.horizontalCenter
+          y: root.s(194)
+          width: root.s(28); height: root.s(24)
+          radius: root.s(2)
+          color: muteMouse.containsMouse ? "#E5F3FB" : "transparent"
+          border.color: muteMouse.containsMouse ? "#70C0E7" : "transparent"
+          Image {
+            anchors.centerIn: parent
+            width: root.s(16); height: root.s(16)
+            source: VistaScheme.graphics + "/sndvolsso/16/" + (root.outputMuted ? 120 : 124) + ".png"
+            smooth: true
           }
-          VistaTrackbar {
-            id: flyTrack
-            x: root.du(16) + (root.du(20) - width) / 2
-            y: root.dv(15)
-            height: root.dv(50)
-            orientation: Qt.Vertical
-            thumbStyle: "both"
+          MouseArea {
+            id: muteMouse
+            anchors.fill: parent
+            hoverEnabled: true
             enabled: root.hasOutput
-            focused: true
-            value: root.outputVolume
-            onMoved: function(v) { root.setOutputVolume(v) }
-            HoverHandler { id: flyHover }
+            onClicked: root.toggleOutputMute()
           }
-          VistaCheckBox {
-            x: root.du(4)
-            y: root.dv(70) + (root.dv(8) - height) / 2
-            text: "Mute"
-            enabled: root.hasOutput
-            checked: root.outputMuted
-            onToggled: root.toggleOutputMute()
+        }
+        Rectangle {
+          x: 1; y: parent.height - height - 1
+          width: parent.width - 2; height: root.s(32)
+          color: "#F0F0F0"
+          Rectangle { width: parent.width; height: 1; color: "#DCDCDC" }
+          Text {
+            anchors.centerIn: parent
+            text: "Mixer"
+            color: "#0066CC"
+            font.family: "Segoe UI"
+            font.pixelSize: root.s(12)
+            font.underline: mixMouse.containsMouse
+            MouseArea {
+              id: mixMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.openMixer(false)
+            }
           }
         }
       }
 
-      // Percentage and mood name: the value tip, above the flyout.
+      // The value tip: Vista showed the speaker's name and level on hover.
       VistaToolTip {
         visible: root.opened && (flyHover.hovered || flyTrack.pressed || root.tipFlash)
         x: parent.width - width
         y: -height - root.s(2)
-        text: Math.round(flyTrack.shown * 100) + "% (" + root.outputVolumeName(flyTrack.shown, root.outputMuted) + ")"
+        text: "Speakers: " + Math.round(flyTrack.shown * 100) + "%" + (root.outputMuted ? " (muted)" : "")
       }
     }
   }

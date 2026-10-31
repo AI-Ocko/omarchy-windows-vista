@@ -5,9 +5,8 @@
     "plugins/panels/audio/Panel.qml": "a683e771f495837170371da658e00cef1dacc89d0220d44d9e0e988ab2bbd2c0"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "00aa40ed867ecf4dcd6875d8def68e7994cf5c9be39c5bb2359debd6b130c07d",
+  "self": "21a8e5bca1dd37e11fd65e2464a1390727ca0ffa46a1e8c1850cc0decbe54d19",
   "external": [
-    "AlignHCenter",
     "Color",
     "ElideRight",
     "FrontLeft",
