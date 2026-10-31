@@ -151,8 +151,8 @@ fi
 #   proglist, placeslist, more (All Programs strip), openbox (search box),
 #   progsep, placesep; and, the same for both: userpic (USERPICTURE frame),
 #   more-arrow-{0,1} / back-arrow-{0,1} (normal, hot; 96 dpi),
-#   footer-{0,1}-{0,1,2} (LOGOFFBUTTONS normal/hot: undock, lock, power,
-#   24 px each), split-{0,1,2} + split-glyph (LOGOFFSPLITBUTTONDROPDOWN),
+#   split-{0,1,2} + split-glyph (LOGOFFSPLITBUTTONDROPDOWN: the footer's arrow;
+#   its power and lock segments are explorer.exe's, graphics/startmenu-power),
 #   places-hot (StartMenuPlaceListComposited LISTITEM hot), prog-hot
 #   (StartMenuHover::TreeView hot), prog-sel (StartMenu::ListView selected)
 SM=$G/startmenu
@@ -168,9 +168,6 @@ if [[ -d $P/StartPanel && ( ! -e $SM/.done || $SM/.done -ot $P ) ]]; then
     cp "$P/StartPanel/MOREPROGRAMSARROW.2.IMAGEFILE1.png" "$SM/$look/more-arrow-1.png"
     cp "$P/StartPanel/MOREPROGRAMSARROWBACK.0.IMAGEFILE1.png" "$SM/$look/back-arrow-0.png"
     cp "$P/StartPanel/MOREPROGRAMSARROWBACK.2.IMAGEFILE1.png" "$SM/$look/back-arrow-1.png"
-    for st in 0:0 2:1; do
-      magick "$P/StartPanel/LOGOFFBUTTONS.${st%%:*}.IMAGEFILE.png" -crop 3x1@ +repage +adjoin -define png:exclude-chunks=date,time "PNG32:$SM/$look/footer-${st#*:}-%d.png"
-    done
     magick "$P/StartPanel/LOGOFFSPLITBUTTONDROPDOWN.0.IMAGEFILE.png" -crop 1x3@ +repage +adjoin -define png:exclude-chunks=date,time "PNG32:$SM/$look/split-%d.png"
     cp "$P/StartPanel/LOGOFFSPLITBUTTONDROPDOWN.0.GLYPHIMAGEFILE.png" "$SM/$look/split-glyph.png"
     cp "$P/StartMenuPlaceListComposited__ListView/LISTITEM.3.IMAGEFILE.png" "$SM/$look/places-hot.png"

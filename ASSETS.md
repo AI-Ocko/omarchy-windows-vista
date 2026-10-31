@@ -87,6 +87,7 @@ Semibold first shipped with Windows 7) and Consolas. Sounds are renamed (e.g.
 | `graphics/sndvolsso-ico` | icons | `binaries/sndvolsso.dll` 16,32,48 | volume tray icons (120 muted, 122-124 levels) |
 | `graphics/bthprops-ico` | icons | `binaries/bthprops.cpl` 16,32,48 | Bluetooth icon (151) |
 | `graphics/timedate` | peres | `binaries/timedate.cpl` PNGFILE,UIFILE | clock flyout: analog clock face and glass (5000-5007), flyout layout (305) |
+| `graphics/startmenu-power` | rgbastrip | `binaries/explorer.exe` BITMAP 7051-7056 | Start-menu footer segments, 6 frames each (0 X, 1 shut down, 2 shut down + updates, 3 sleep, 4 busy, 5 lock): 24 px 7051 normal / 7053 hot / 7052 pressed, 30 px 7054 / 7056 / 7055 |
 | `graphics/shell32-strings` | peres | `binaries/shell32.dll.mui` STRING,DIALOG | Run dialog (DIALOG 1003) |
 | `graphics/mmsys-strings` | peres | `binaries/mmsys.cpl.mui` STRING,DIALOG | Sound: Playback 110, Recording 111 |
 | `graphics/mmsys-ico` | icons | `binaries/mmsys.cpl` 16,32,48 | device icons (3010 speakers, 3011 headphones, 3014 microphone, 3015 headset, 3017 display) |

@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
@@ -56,6 +57,7 @@ Scope {
   readonly property string stateDir: home + "/.local/state/omarchy/vista"
   readonly property string usagePath: stateDir + "/start-usage.json"
   readonly property string dryRunFlag: stateDir + "/dry-run"
+  readonly property string powerArt: "file://" + home + "/.config/omarchy/vista/assets/graphics/startmenu-power"
   readonly property string picturesDir: home + "/.config/omarchy/vista/assets/graphics/account-pictures"  // vista-art: User Account Pictures as PNG
   readonly property string userLogin: Quickshell.env("USER") || "user"
   property string userName: userLogin
@@ -375,8 +377,11 @@ Scope {
   }
   function buildFooter() {
     return [
-      { kind: "power", label: "Sleep", frame: 2, run: function() { sm.systemAction("suspend", "systemctl suspend") } },
-      { kind: "lock", label: "Lock this computer", frame: 1, run: function() { sm.systemAction("lock", "omarchy-system-lock") } },
+      // explorer.exe BITMAP frames: 3 = power (Sleep, Vista's default),
+      // 1 = Shut Down, 5 = lock. Tooltips: lock is explorer.exe.mui string
+      // 7034; the power button's is Vista's known wording.
+      { kind: "power", label: "Sleep", frame: 3, tip: "Puts the computer to sleep.", run: function() { sm.systemAction("suspend", "systemctl suspend") } },
+      { kind: "lock", label: "Lock this computer", frame: 5, tip: "Lock this computer.", run: function() { sm.systemAction("lock", "omarchy-system-lock") } },
       { kind: "arrow", label: "", flyout: powerItems }
     ]
   }
@@ -794,7 +799,8 @@ Scope {
       : kind === "big" ? sm.s(item.sub ? 40 : 36) : kind === "small" || kind === "folder" ? sm.s(22)
       : kind === "place" ? sm.s(24) : kind === "user" ? sm.s(28) : kind === "more" ? sm.s(28)
       : kind === "power" || kind === "lock" || kind === "arrow" ? sm.s(24) : sm.s(22)
-    implicitWidth: kind === "power" || kind === "lock" ? sm.s(36) : kind === "arrow" ? sm.s(22) : 0
+    // the footer's joined segments: 53 x 24 (power, lock) and 23 x 24 (arrow)
+    implicitWidth: kind === "power" || kind === "lock" ? sm.s(53) : kind === "arrow" ? sm.s(23) : 0
 
     Component.onCompleted: sm.registerRow(listId, index, row)
     Component.onDestruction: sm.unregisterRow(listId, index, row)
@@ -903,21 +909,27 @@ Scope {
       }
     }
 
-    // footer: one 24 px cell of LOGOFFBUTTONS (normal / hot), or the
-    // LOGOFFSPLITBUTTONDROPDOWN arrow
+    // footer: Vista's power and lock segments, explorer.exe BITMAP strips
+    // (startmenu-power/<24|30>/<id>-<frame>.png: 7051/7054 normal, 7053/7056
+    // hot, 7052/7055 pressed; matched on a genuine Vista capture), the 30 px
+    // set from an effective scale of 1.25 up; and the arrow segment, msstyles
+    // LOGOFFSPLITBUTTONDROPDOWN (3 frames, 9-slice 3 px) with its glyph.
+    readonly property real effScale: sm.s(24) * Screen.devicePixelRatio / 24
+    readonly property bool big: effScale >= 1.25
+    readonly property int strip: rowMouse.pressed ? (big ? 7055 : 7052) : row.hot ? (big ? 7056 : 7053) : (big ? 7054 : 7051)
     Image {
       visible: row.kind === "power" || row.kind === "lock"
-      anchors.centerIn: parent
-      width: sm.s(24)
-      height: sm.s(24)
-      source: visible ? sm.smArt + "/footer-" + (row.hot ? 1 : 0) + "-" + row.item.frame + ".png" : ""
+      anchors.fill: parent
+      smooth: true
+      source: visible ? sm.powerArt + "/" + (row.big ? 30 : 24) + "/" + row.strip + "-" + row.item.frame + ".png" : ""
     }
     Item {
       visible: row.kind === "arrow"
       anchors.fill: parent
-      Image {
+      VistaArt {
         anchors.fill: parent
-        source: sm.smArt + "/split-" + (row.hot ? 1 : 0) + ".png"
+        source: sm.smArt + "/split-" + (rowMouse.pressed ? 2 : row.hot ? 1 : 0) + ".png"
+        margins: [3, 3, 3, 3]
       }
       Image {
         anchors.centerIn: parent
@@ -926,6 +938,13 @@ Scope {
         sourceClipRect: Qt.rect(0, 0, 7, 9)
         source: sm.smArt + "/split-glyph.png"
       }
+    }
+    Timer { id: tipDelay; interval: 600; running: rowMouse.containsMouse && !!row.item.tip }
+    VistaToolTip {
+      visible: rowMouse.containsMouse && !!row.item.tip && !tipDelay.running && !rowMouse.pressed
+      y: -height - sm.s(4)
+      z: 50
+      text: row.item.tip || ""
     }
 
     // folder triangle (expanded / collapsed)
@@ -940,6 +959,7 @@ Scope {
     }
 
     MouseArea {
+      id: rowMouse
       enabled: !row.isSep
       anchors.fill: parent
       hoverEnabled: true
@@ -1142,7 +1162,7 @@ Scope {
             x: placesBg.x + sm.s(8)
             anchors.verticalCenter: searchArea.verticalCenter
             anchors.verticalCenterOffset: sm.s(2)
-            spacing: sm.s(2)
+            spacing: 0  // joined edge to edge, as Vista's
             Repeater {
               model: sm.mainLists[2].length
               MenuRow { listId: 2; width: implicitWidth }

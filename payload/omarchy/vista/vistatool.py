@@ -14,6 +14,7 @@ bytes only: it never loads, links or runs anything it reads. Run with
                                                    parts/<class>/<part>.<state>.<prop>.png
    vistatool.py xcursor <cursors> <user32.dll> <outdir>
    vistatool.py halfblock <in.ppm> <out.txt> color|mono   (terminal art)
+   vistatool.py rgbastrip <exe> <outdir> <id,id,...:frames>  (32-bit alpha strips)
    vistatool.py dialog <DIALOG.bin>                      (print a dialog template)
                                                    the Windows Aero scheme as an Xcursor
                                                    theme (aero_*.cur/.ani; text select and
@@ -241,6 +242,30 @@ def strip(path, out, spec):
     for n in range(w // fw):
         frame = [[(*px, 255) if px != key else (0, 0, 0, 0) for px in row[n * fw:(n + 1) * fw]] for row in rows]
         png(os.path.join(out, str(h), "%d.png" % n), fw, h, frame)
+
+
+def rgbastrip(path, out, spec):
+    """32-bit BITMAPs with straight alpha, each a horizontal strip of equal
+    frames: spec "id,id,...:frames" -> out/<height>/<id>-<n>.png."""
+    ids, count = spec.split(":")
+    want, count = set(ids.split(",")), int(count)
+    for _label, name, dib in resources(path, {"BITMAP"}):
+        if str(name) not in want:
+            continue
+        hsz, w, h, _pl, bpp, comp = struct.unpack_from("<IiiHHI", dib, 0)
+        assert bpp == 32 and comp in (0, 3), "%s: not a 32-bit RGB DIB" % name
+        bits = hsz + (12 if comp == 3 and hsz == 40 else 0)
+        topdown, h = h < 0, abs(h)
+        rows = []
+        for y in range(h):
+            r = dib[bits + y * w * 4:bits + (y + 1) * w * 4]
+            rows.append([(r[4 * x + 2], r[4 * x + 1], r[4 * x], r[4 * x + 3]) for x in range(w)])
+        if not topdown:
+            rows.reverse()
+        fw = w // count
+        os.makedirs(os.path.join(out, str(h)), exist_ok=True)
+        for n in range(count):
+            png(os.path.join(out, str(h), "%s-%d.png" % (name, n)), fw, h, [row[n * fw:(n + 1) * fw] for row in rows])
 
 
 # ---------------------------------------------------------------- msstyles
@@ -669,6 +694,8 @@ if __name__ == "__main__":
         wave(a[0], a[1], a[2])
     elif cmd == "strip":
         strip(a[0], a[1], a[2])
+    elif cmd == "rgbastrip":
+        rgbastrip(a[0], a[1], a[2])
     elif cmd == "msstyles":
         msstyles(a[0], a[1])
     elif cmd == "xcursor":

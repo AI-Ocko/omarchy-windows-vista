@@ -498,6 +498,7 @@ graphics/van-res|c1229983469c1b1fb0639d63db352b2303558e3872f835353d7c6cd2e96861a
 graphics/van-strings|be0095327581cd98b50d185a5754a8825334d76814536e157ea7b47dffdca0cd|peres|binaries/van.dll.mui|STRING,DIALOG,UIFILE
 graphics/van-ico|ac79a2e0588740d485f05a57befee17a279826bbda0112bd8fa65b41efddf69d|icons|binaries/van.dll|16,32,48
 graphics/wlanpref-strings|22b7c1ccd61ace1ed181b6090a4d7da78bbc1b16872b13a2627a7e7bdc313ff7|peres|binaries/wlanpref.dll.mui|STRING,DIALOG
+graphics/startmenu-power|06b46fb72eb97979fdcb743b38693790216df9e3c45350b2945f392533cecb69|rgbastrip|binaries/explorer.exe|7051,7052,7053,7054,7055,7056:6
 EOF
 )
 
@@ -579,6 +580,7 @@ build() {  # method input member -> produced path (inside $WORK)
         wave) "${VT[@]}" wave "$in" "$x/out.wav" "$member" || return 1; echo "$x/out.wav" ;;
         peres) "${VT[@]}" peres "$in" "$x/out" "$member" || return 1; echo "$x/out" ;;
         icons) "${VT[@]}" icons "$in" "$x/out" "$member" || return 1; echo "$x/out" ;;
+        rgbastrip) "${VT[@]}" rgbastrip "$in" "$x/out" "$member" || return 1; echo "$x/out" ;;
         xcursor) "${VT[@]}" xcursor "$in" "$ASSETS/binaries/user32.dll" "$x/out" || return 1; echo "$x/out" ;;
         gtk)
             curl -sfL -A "$UA" -o "$x/gtk.tgz" "$GTK_URL" || { err "GTK download failed"; return 1; }
