@@ -143,7 +143,8 @@ Item {
     if (k === "keyboard") return "Keyboard"
     return ""
   }
-  readonly property int vistaIcon: root.iconKey === "brightness" || root.iconKey === "display" ? 180 : 277
+  readonly property string vistaIconUrl: VistaScheme.graphics + (root.iconKey === "brightness" || root.iconKey === "display"
+    ? "/explorer/32/205.png" : "/sndvolsso/32/124.png")
 
   PanelWindow {
     id: panel
@@ -160,8 +161,10 @@ Item {
 
     function s(n) { return Style.space(n) }
 
-    // Progress card: 1 px DkShadow3d edge around a 1 px white highlight, as
-    // Vista's raised tray popups.
+    // Progress card: Vista had no OSD, so this is kept quiet: a white flyout
+    // card (1 px #A0A0A0 edge, 4 px corners) with the device's own Vista icon
+    // (SndVolSSO speaker, explorer's monitor) and the continuous Aero progress
+    // bar (Progress BAR 9,9,7,6 + FILL 25,25,7,6, both stretched).
     Rectangle {
       id: card
       visible: root.hasProgress
@@ -170,90 +173,81 @@ Item {
       anchors.rightMargin: panel.s(8)
       anchors.bottomMargin: root.barClearance + panel.s(4)
       width: panel.s(220)
-      height: panel.s(58)
-      color: "#716F64"
-      Rectangle {
-        anchors.fill: parent
-        anchors.margins: Math.max(1, panel.s(1))
-        color: "#FFFFFF"
-        Rectangle {
-          anchors.fill: parent
-          anchors.leftMargin: Math.max(1, panel.s(1))
-          anchors.topMargin: Math.max(1, panel.s(1))
-          color: VistaScheme.sc.face
+      height: panel.s(56)
+      radius: panel.s(4)
+      border.color: "#A0A0A0"
+      gradient: Gradient {
+        GradientStop { position: 0.0; color: "#FFFFFF" }
+        GradientStop { position: 1.0; color: "#F0F0F0" }
+      }
 
-          Image {
-            id: osdIcon
-            x: panel.s(10)
-            anchors.verticalCenter: parent.verticalCenter
-            width: panel.s(32)
-            height: panel.s(32)
-            source: VistaScheme.icon(root.vistaIcon, 32)
-            smooth: true
-          }
-          Text {
-            x: osdIcon.x + osdIcon.width + panel.s(10)
-            y: panel.s(9)
-            text: root.vistaLabel || root.message
-            textFormat: Text.PlainText
-            color: "#000000"
-            font.family: "Segoe UI"
-            font.pixelSize: Style.font.bodySmall
-          }
-          Text {
-            anchors.right: parent.right
-            anchors.rightMargin: panel.s(10)
-            y: panel.s(9)
-            text: root.message
-            textFormat: Text.PlainText
-            color: "#000000"
-            font.family: "Segoe UI"
-            font.pixelSize: Style.font.bodySmall
-          }
+      Image {
+        id: osdIcon
+        x: panel.s(12)
+        anchors.verticalCenter: parent.verticalCenter
+        width: panel.s(32)
+        height: panel.s(32)
+        source: root.vistaIconUrl
+        smooth: true
+        mipmap: true
+      }
+      Text {
+        x: osdIcon.x + osdIcon.width + panel.s(10)
+        y: panel.s(9)
+        text: root.vistaLabel || root.message
+        textFormat: Text.PlainText
+        color: "#000000"
+        font.family: "Segoe UI"
+        font.pixelSize: panel.s(12)
+      }
+      Text {
+        anchors.right: parent.right
+        anchors.rightMargin: panel.s(12)
+        y: panel.s(9)
+        text: root.message
+        textFormat: Text.PlainText
+        color: "#000000"
+        font.family: "Segoe UI"
+        font.pixelSize: panel.s(12)
+      }
 
-          // [Progress.Bar] track, 9-slice 4,4,3,3, and the chunks inside it.
-          VistaArt {
-            id: track
-            x: osdIcon.x + osdIcon.width + panel.s(10)
-            y: panel.s(28)
-            width: parent.width - x - panel.s(10)
-            height: panel.s(17)
-            source: VistaScheme.art("progress-track")
-            margins: [4, 4, 3, 3]
-            readonly property int inner: width - panel.s(6)
-            readonly property int pitch: panel.s(8)
-            Row {
-              x: panel.s(3)
-              y: panel.s(3)
-              spacing: panel.s(2)
-              Repeater {
-                model: root.hasProgress && root.maxValue > 0
-                  ? Math.round(Math.min(1, root.value / root.maxValue) * Math.floor((track.inner + panel.s(2)) / track.pitch)) : 0
-                Image {
-                  width: panel.s(6)
-                  height: track.height - panel.s(6)
-                  source: VistaScheme.art("progress-chunk")
-                  smooth: false
-                }
-              }
-            }
-          }
+      VistaArt {
+        id: track
+        x: osdIcon.x + osdIcon.width + panel.s(10)
+        y: panel.s(29)
+        width: parent.width - x - panel.s(12)
+        height: panel.s(14)
+        source: VistaScheme.art("progress-track")
+        margins: [9, 9, 7, 6]
+        VistaArt {
+          x: panel.s(1); y: panel.s(1)
+          height: parent.height - panel.s(2)
+          width: root.hasProgress && root.maxValue > 0
+            ? Math.round(Math.min(1, root.value / root.maxValue) * (parent.width - panel.s(2))) : 0
+          visible: width >= panel.s(4)
+          source: VistaScheme.art("progress-chunk")
+          margins: [25, 25, 7, 6]
         }
       }
     }
 
-    // Value-less messages (layout, power, media): an Vista tooltip.
+    // Value-less messages (layout, power, media): a Vista tooltip (Tooltip
+    // STANDARD: white to #E4E5F0, 1 px #767676, 2 px corners).
     Rectangle {
       visible: !root.hasProgress && root.message !== ""
       anchors.right: parent.right
       anchors.bottom: parent.bottom
       anchors.rightMargin: panel.s(8)
       anchors.bottomMargin: root.barClearance + panel.s(4)
-      width: tip.implicitWidth + panel.s(10)
-      height: tip.implicitHeight + panel.s(6)
-      color: VistaScheme.infoWindow
+      width: tip.implicitWidth + panel.s(12)
+      height: tip.implicitHeight + panel.s(8)
+      radius: panel.s(2)
       border.width: Math.max(1, panel.s(1))
-      border.color: "#000000"
+      border.color: "#767676"
+      gradient: Gradient {
+        GradientStop { position: 0.0; color: "#FFFFFF" }
+        GradientStop { position: 1.0; color: "#E4E5F0" }
+      }
       Text {
         id: tip
         anchors.centerIn: parent
@@ -261,9 +255,9 @@ Item {
         text: root.message
         textFormat: Text.PlainText
         elide: Text.ElideRight
-        color: VistaScheme.infoText
+        color: "#575757"
         font.family: "Segoe UI"
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: panel.s(12)
       }
     }
   }
