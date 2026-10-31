@@ -35,7 +35,7 @@ was implemented but not exercised, because it means a 3.2 GB download.)
   extracted here as `sounds/startup.wav` (880 684 bytes, 16-bit stereo 44.1 kHz).
 - 43 files were pinned twice, independently (research run and pin run): identical.
 
-## What is fetched (385 files)
+## What is fetched (385 files from the DVD, 14 by URL)
 
 | group | files |
 |---|---|
@@ -152,7 +152,8 @@ picker grouped them (the group is each JPEG's XMP `dc:subject`): Aurora
 (img36) first, then Black and White (img1-4), Light Auras (img25-29),
 Paintings (img12-15), Textures (img5-11), Vistas (img16-23). Frost puts
 Light Auras before Black and White. The two Windows Ultimate wallpapers
-(below) follow the official groups. The DVD's Widescreen group (img30-36)
+(below) follow the official groups; the Frutiger Aero photographs (below)
+start at 80. The DVD's Widescreen group (img30-36)
 holds 16:10 copies of img10, 23, 5, 21, 19, 22 and 24; each replaces its
 4:3 original in its group, so 29 unique wallpapers.
 
@@ -179,6 +180,34 @@ Looked for and not used: the archive.org item
 above with altered XMP, plus a watermarked third-party photo); DreamScene
 content (video only, no Microsoft stills); Microsoft launch or (PRODUCT)RED
 wallpaper downloads (none found on microsoft.com captures); OEM and fan packs.
+
+## Frutiger Aero wallpapers
+
+Twelve photographs from Wikimedia Commons, fetched from upload.wikimedia.org
+(the original files; licence checked on each file page) and pinned by sha256
+(the SHA-1 Commons lists matched too). Credits and licences: NOTICE.md. Each
+scheme links a 2560 px wide copy (`wallpapers/aero/2560/`, generated) as
+`80-<scheme>-aero-<name>.jpg` onwards, after Vista's own. Picked from 23
+candidates for the Vista/7 palette (aqua, lime, sky blue, white) at 1:1;
+dropped: an orange clownfish, a heavily compressed aurora, a busy dew
+photo with an odd licence template, two dark glass/prism abstracts, an
+autumn alpine meadow whose author adds terms, two small or soft files, a
+near-duplicate leaf drop, a grey frozen bubble and a 41 MB tea-field shot.
+
+| file | sha256 | source | author | licence |
+|---|---|---|---|---|
+| `wallpapers/aero/00-moorea-split.jpg` | 2c014311...97b2de | [Blacktip reef sharks (Carcharhinus melanopterus) Moorea.jpg](https://commons.wikimedia.org/wiki/File:Blacktip_reef_sharks_%28Carcharhinus_melanopterus%29_Moorea.jpg) | Charles J. Sharp (Sharp Photography, sharpphotography.co.uk) | CC BY-SA 4.0 |
+| `wallpapers/aero/01-water-droplet-leaf.jpg` | 4cb37a64...5f87f5 | [Water Droplet on Green Leaf.jpg](https://commons.wikimedia.org/wiki/File:Water_Droplet_on_Green_Leaf.jpg) | Navaneethpp | CC BY-SA 4.0 |
+| `wallpapers/aero/02-maldives-palm.jpg` | efee5c58...4cfddc | [Diamonds Thudufushi Beach and Water Villas, May 2017 -09.jpg](https://commons.wikimedia.org/wiki/File:Diamonds_Thudufushi_Beach_and_Water_Villas%2C_May_2017_-09.jpg) | Martin Falbisoner | CC BY-SA 4.0 |
+| `wallpapers/aero/03-spring-meadow.jpg` | a033a31c...c45b47 | [Liebenfels Rosenbichl Landschaft mit Bäumen und Feldern 27042020 7458.jpg](https://commons.wikimedia.org/wiki/File:Liebenfels_Rosenbichl_Landschaft_mit_B%C3%A4umen_und_Feldern_27042020_7458.jpg) | Johann Jaritz | CC BY-SA 4.0 |
+| `wallpapers/aero/04-dew-grass.jpg` | bc1b0835...e6ef5c | [Dew on grass Luc Viatour.jpg](https://commons.wikimedia.org/wiki/File:Dew_on_grass_Luc_Viatour.jpg) | Luc Viatour / www.lucnix.be | CC BY-SA 2.5 |
+| `wallpapers/aero/05-phi-phi.jpg` | 42921286...fe7586 | [Isla Phi Phi Lay, Tailandia, 2013-08-19, DD 04.JPG](https://commons.wikimedia.org/wiki/File:Isla_Phi_Phi_Lay%2C_Tailandia%2C_2013-08-19%2C_DD_04.JPG) | Diego Delso | CC BY-SA 3.0 |
+| `wallpapers/aero/06-water-drops.jpg` | 27992645...05350e | [Water Drops (29076462192).jpg](https://commons.wikimedia.org/wiki/File:Water_Drops_%2829076462192%29.jpg) | kuhnmi | CC BY 2.0 |
+| `wallpapers/aero/07-maldives-jetty.jpg` | c9c4c230...84a323 | [Diamonds Thudufushi Beach and Water Villas, May 2017 -08.jpg](https://commons.wikimedia.org/wiki/File:Diamonds_Thudufushi_Beach_and_Water_Villas%2C_May_2017_-08.jpg) | Martin Falbisoner | CC BY-SA 4.0 |
+| `wallpapers/aero/08-havelock-lagoon.jpg` | 56c484b2...48aad5 | [Havelock Island, Sandy lagoon, Andaman Islands.jpg](https://commons.wikimedia.org/wiki/File:Havelock_Island%2C_Sandy_lagoon%2C_Andaman_Islands.jpg) | Vyacheslav Argenberg | CC BY 4.0 |
+| `wallpapers/aero/09-aurora-alaska.jpg` | c39aadc0...3d0fb7 | [Aurora borealis over Eielson Air Force Base, Alaska.jpg](https://commons.wikimedia.org/wiki/File:Aurora_borealis_over_Eielson_Air_Force_Base%2C_Alaska.jpg) | U.S. Air Force photo by Senior Airman Joshua Strang | Public domain (US Government work) |
+| `wallpapers/aero/10-pool-ripples.jpg` | 843b330a...95e2fd | [Water ripples in a swimming pool, Beirã, Portugal julesvernex2.jpg](https://commons.wikimedia.org/wiki/File:Water_ripples_in_a_swimming_pool%2C_Beir%C3%A3%2C_Portugal_julesvernex2.jpg) | Jules Verne Times Two (julesvernex2.com) | CC BY-SA 4.0 |
+| `wallpapers/aero/11-reef-shark.jpg` | 386122fa...804c26 | [Blacktip reef shark (Carcharhinus melanopterus) Moorea 4.jpg](https://commons.wikimedia.org/wiki/File:Blacktip_reef_shark_%28Carcharhinus_melanopterus%29_Moorea_4.jpg) | Charles J. Sharp (Sharp Photography, sharpphotography.co.uk) | CC BY-SA 4.0 |
 
 ## Generated on this machine (not pinned, rebuilt from the pinned files)
 

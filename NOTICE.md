@@ -57,6 +57,26 @@ The GTK theme "Windows Vista" is the B00merang Project's
 GPL-3.0. It is not redistributed here: `fetch-assets.sh` downloads it on your
 machine, pinned by sha256.
 
+## Frutiger Aero wallpapers (Wikimedia Commons)
+
+Twelve photographs from Wikimedia Commons, downloaded by `fetch-assets.sh` on
+your machine (pinned by sha256, not redistributed here) and shown as
+wallpapers; each scheme links a 2560 px wide copy made from the original,
+which stays under the original's licence. Credits:
+
+- "Blacktip reef sharks (Carcharhinus melanopterus) Moorea" by Charles J. Sharp (Sharp Photography, sharpphotography.co.uk), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Blacktip_reef_sharks_%28Carcharhinus_melanopterus%29_Moorea.jpg
+- "Water Droplet on Green Leaf" by Navaneethpp, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Water_Droplet_on_Green_Leaf.jpg
+- "Diamonds Thudufushi Beach and Water Villas, May 2017 -09" by Martin Falbisoner, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Diamonds_Thudufushi_Beach_and_Water_Villas%2C_May_2017_-09.jpg
+- "Liebenfels Rosenbichl Landschaft mit Bäumen und Feldern 27042020 7458" by Johann Jaritz, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Liebenfels_Rosenbichl_Landschaft_mit_B%C3%A4umen_und_Feldern_27042020_7458.jpg
+- "Dew on grass Luc Viatour" by Luc Viatour / www.lucnix.be, [CC BY-SA 2.5](https://creativecommons.org/licenses/by-sa/2.5), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Dew_on_grass_Luc_Viatour.jpg
+- "Isla Phi Phi Lay, Tailandia, 2013-08-19, DD 04" by Diego Delso, [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Isla_Phi_Phi_Lay%2C_Tailandia%2C_2013-08-19%2C_DD_04.JPG
+- "Water Drops (29076462192)" by kuhnmi, [CC BY 2.0](https://creativecommons.org/licenses/by/2.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Water_Drops_%2829076462192%29.jpg
+- "Diamonds Thudufushi Beach and Water Villas, May 2017 -08" by Martin Falbisoner, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Diamonds_Thudufushi_Beach_and_Water_Villas%2C_May_2017_-08.jpg
+- "Havelock Island, Sandy lagoon, Andaman Islands" by Vyacheslav Argenberg, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Havelock_Island%2C_Sandy_lagoon%2C_Andaman_Islands.jpg
+- "Aurora borealis over Eielson Air Force Base, Alaska" by U.S. Air Force photo by Senior Airman Joshua Strang, Public domain (US Government work), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Aurora_borealis_over_Eielson_Air_Force_Base%2C_Alaska.jpg
+- "Water ripples in a swimming pool, Beirã, Portugal julesvernex2" by Jules Verne Times Two (julesvernex2.com), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Water_ripples_in_a_swimming_pool%2C_Beir%C3%A3%2C_Portugal_julesvernex2.jpg
+- "Blacktip reef shark (Carcharhinus melanopterus) Moorea 4" by Charles J. Sharp (Sharp Photography, sharpphotography.co.uk), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0), via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Blacktip_reef_shark_%28Carcharhinus_melanopterus%29_Moorea_4.jpg
+
 ## Microsoft
 
 Microsoft's files are not distributed here; see `ASSETS.md`.

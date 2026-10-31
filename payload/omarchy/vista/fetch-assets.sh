@@ -558,10 +558,24 @@ get() {  # path in install.wim -> local file
 
 # Files outside the DVD, each from its own URLs (tried in order) and pinned
 # by sha256 like everything else: dest|sha256|url [url ...]. ASSETS.md
-# gives each one's provenance.
+# gives each one's provenance; NOTICE.md the Frutiger Aero photos' licences.
+# upload.wikimedia.org rate-limits: requests to it are spaced 3 s apart, and
+# curl's retries honour Retry-After.
 URLFILES=$(cat <<'EOF'
 wallpapers/windows-ultimate-start-1920x1200.jpg|f5709f055f62e700fb566cfc6303b4e40af9a17d7c875a7c83ec173ad8c7c9e1|https://archive.org/download/windows-vista-ultimate-wallpaper/Windows%20Vista%20Ultimate%20Wallpaper.zip/UltimateStart_1920x1200.jpg https://web.archive.org/web/20070310162644id_/http://windowsultimate.com:80/files/folders/166/download.aspx
 wallpapers/windows-ultimate-strands-1920x1200.jpg|09610df42cef5c32c10b6a72b272f0ac4fe99725f4469d0898137327180e7ee3|https://archive.org/download/windows-vista-ultimate-wallpaper/Windows%20Vista%20Ultimate%20Wallpaper.zip/UltimateStrands_1920x1200.jpg https://web.archive.org/web/20070310162501id_/http://windowsultimate.com:80/files/folders/169/download.aspx
+wallpapers/aero/00-moorea-split.jpg|2c01431106bd46d5ed4004ad87714635ec838bb9fe1c3a08078f572d1a97b2de|https://upload.wikimedia.org/wikipedia/commons/6/66/Blacktip_reef_sharks_%28Carcharhinus_melanopterus%29_Moorea.jpg
+wallpapers/aero/01-water-droplet-leaf.jpg|4cb37a648b15d101e7ded9396b059c6868b5a9cd72da6f3f9dd68262895f87f5|https://upload.wikimedia.org/wikipedia/commons/b/be/Water_Droplet_on_Green_Leaf.jpg
+wallpapers/aero/02-maldives-palm.jpg|efee5c58c3f5a3ba33811bd6068e663879a46a045e8b636db26f2018304cfddc|https://upload.wikimedia.org/wikipedia/commons/2/22/Diamonds_Thudufushi_Beach_and_Water_Villas%2C_May_2017_-09.jpg
+wallpapers/aero/03-spring-meadow.jpg|a033a31c807674c90a3fb4eeaf49d119c8c40bb5ec8143466acc747944c45b47|https://upload.wikimedia.org/wikipedia/commons/c/c6/Liebenfels_Rosenbichl_Landschaft_mit_B%C3%A4umen_und_Feldern_27042020_7458.jpg
+wallpapers/aero/04-dew-grass.jpg|bc1b083505608380a56e6f011a1c88ef005de67bb2541555f6c4b52f0ce6ef5c|https://upload.wikimedia.org/wikipedia/commons/7/7b/Dew_on_grass_Luc_Viatour.jpg
+wallpapers/aero/05-phi-phi.jpg|429212862b8a3871ca141ce20ea7828c7490a7eebe0f9a0a8fbed1d902fe7586|https://upload.wikimedia.org/wikipedia/commons/0/09/Isla_Phi_Phi_Lay%2C_Tailandia%2C_2013-08-19%2C_DD_04.JPG
+wallpapers/aero/06-water-drops.jpg|2799264525c52f0f9cf241782388c8432791a626ae606b84c2d50caa0c05350e|https://upload.wikimedia.org/wikipedia/commons/c/c0/Water_Drops_%2829076462192%29.jpg
+wallpapers/aero/07-maldives-jetty.jpg|c9c4c230458f34a0ba6f64121375af224bae956afc29c6b1ee7bfaaf6f84a323|https://upload.wikimedia.org/wikipedia/commons/3/32/Diamonds_Thudufushi_Beach_and_Water_Villas%2C_May_2017_-08.jpg
+wallpapers/aero/08-havelock-lagoon.jpg|56c484b28a49f1c66d0120321601717044cc422604fc86e86ae7b2b11148aad5|https://upload.wikimedia.org/wikipedia/commons/1/19/Havelock_Island%2C_Sandy_lagoon%2C_Andaman_Islands.jpg
+wallpapers/aero/09-aurora-alaska.jpg|c39aadc0dbb53ef3955c38e8d3607314731732f972a76cc675eba49c713d0fb7|https://upload.wikimedia.org/wikipedia/commons/d/d3/Aurora_borealis_over_Eielson_Air_Force_Base%2C_Alaska.jpg
+wallpapers/aero/10-pool-ripples.jpg|843b330aec9d4b8263669a1ac856e50d93c96b0773efcf57fe3eb1497a95e2fd|https://upload.wikimedia.org/wikipedia/commons/0/07/Water_ripples_in_a_swimming_pool%2C_Beir%C3%A3%2C_Portugal_julesvernex2.jpg
+wallpapers/aero/11-reef-shark.jpg|386122fa7841a977c9aee86542fc45cd6e2fe344a1eb74314d815bd80a804c26|https://upload.wikimedia.org/wikipedia/commons/a/a7/Blacktip_reef_shark_%28Carcharhinus_melanopterus%29_Moorea_4.jpg
 EOF
 )
 
@@ -591,7 +605,8 @@ while IFS='|' read -r dest sha urls; do
     ok=0
     for url in $urls; do
         tmp=$WORK/url.part
-        curl -sfL --retry 3 -A "$UA" -o "$tmp" "$url" || continue
+        [[ $url == https://upload.wikimedia.org/* ]] && sleep 3
+        curl -sfL --retry 5 --retry-delay 10 -A "$UA" -o "$tmp" "$url" || continue
         [[ $(sha256sum "$tmp" | cut -d' ' -f1) == "$sha" ]] || { err "hash mismatch from $url"; continue; }
         mkdir -p "$(dirname "$target")" && mv "$tmp" "$target" && ok=1 && fetched=$((fetched + 1)) && break
     done
@@ -685,7 +700,21 @@ walls_for() {  # scheme -> "group:id" lines in picker order
     # Microsoft's own Windows Ultimate site downloads (ASSETS.md)
     echo "windows-ultimate:wallpapers/windows-ultimate-start-1920x1200.jpg"
     echo "windows-ultimate:wallpapers/windows-ultimate-strands-1920x1200.jpg"
+    # Frutiger Aero photographs (NOTICE.md), as their 2560 px copies
+    local f
+    for f in "$ASSETS"/wallpapers/aero/2560/*.jpg; do
+        [[ -f $f ]] && echo "aero:wallpapers/aero/2560/${f##*/}"
+    done
 }
+# The Aero photos' originals run to 9152 px; each scheme links a 2560 px
+# wide copy (same licence and attribution), made once from the pinned file.
+mkdir -p "$ASSETS/wallpapers/aero/2560"
+for f in "$ASSETS"/wallpapers/aero/*.jpg; do
+    [[ -f $f ]] || continue
+    out=$ASSETS/wallpapers/aero/2560/${f##*/}
+    [[ $out -nt $f ]] || magick "$f" -auto-orient -resize '2560x>' -quality 92 -strip "$out" ||
+        failures+=("aero copy: ${f##*/}")
+done
 for t in "$HERE"/../themes/windows-vista*/; do
     [[ -d $t ]] || continue
     scheme=$(basename "$t") tag=${scheme#windows-vista}; tag=${tag#-}; tag=${tag:-vista}
@@ -697,6 +726,9 @@ for t in "$HERE"/../themes/windows-vista*/; do
         src=$ASSETS/$rel
         [[ -f $src ]] || continue
         base=${rel##*/}; base=${base#windows-ultimate-}
+        # The Aero group starts at 80, after Vista's own (as Hermes asked).
+        [[ $group == aero ]] && ((n < 80)) && n=80
+        if [[ $group == aero ]]; then base=${base#[0-9][0-9]-}; fi
         name=$(printf '%02d-%s-%s-%s' "$n" "$tag" "$group" "$base")
         want+=("$name"); n=$((n + 1))
         [[ $(readlink "$bg/$name" 2>/dev/null) == "$src" ]] || ln -sfn "$src" "$bg/$name"

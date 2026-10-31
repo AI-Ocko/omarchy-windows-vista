@@ -29,6 +29,10 @@ see below):
   Windows Sidebar) with the Clock, CPU Meter, Slide Show and Weather gadgets.
 - **cmd.exe** console (`C:\Users\you>`), the Vista GTK theme, icons and
   pointers, Segoe UI, a Vista fastfetch, an IE7-style Zen.
+- **Wallpapers:** all of Vista's own in each scheme (Aurora first, then
+  Vista's picker groups), the two Windows Ultimate wallpapers Microsoft
+  published, and twelve Frutiger Aero photographs from Wikimedia Commons
+  (credits in `NOTICE.md`).
 - An optional **boot splash** (below).
 
 | | |
@@ -49,8 +53,10 @@ From a terminal in your Omarchy session, as yourself (not root):
 ```
 
 It asks for sudo only if a package it needs is missing, downloads
-Microsoft's files (below, about 100 MB the first time), builds the title-bar
-plugin, and ends on
+Microsoft's files (below, about 103 MB) and twelve Frutiger Aero
+photographs from Wikimedia Commons (about 127 MB), about 230 MB the first
+time, fetched one file at a time (Wikimedia requests 3 s apart), so allow
+several minutes; builds the title-bar plugin, and ends on
 `omarchy theme set windows-vista`. Open a new terminal afterwards.
 
 Switch schemes like any Omarchy theme: `windows-vista`,
