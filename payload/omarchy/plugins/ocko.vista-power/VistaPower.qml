@@ -1,208 +1,157 @@
 import QtQuick
+import Quickshell
+import Quickshell.Io
 import qs.Commons
 import "../../vista/qml"
 
-// VistaPower: Vista's Power Options Properties for ocko.vista-power. Geometry is the
-// pinned binaries' own templates, converted from dialog units at Tahoma 8 /
-// 96 dpi (1 DLU = 1.5 px across, 13/8 px down):
-//   powercfg.cpl 100  Power Schemes, 252 x 218
-//   stobject.dll 100  Power Meter (the tray's page), 252 x 218
-// Power Meter's "Power status" box is filled at runtime by batmeter.dll in Vista
-// (no template); its rows here hold stock's battery readout.
-// `host` is duck-typed (Panel.qml, or the harness's mock): batteryInfo,
-// discharging, charging, chargeThresholdActive, batteryFull, batteryFlowIdle,
-// batteryFraction, heroStatusText, rotatingPhrases, profiles, activeProfile,
-// profileIndex, cursorActive, showPercentage, vistaTab, setProfile(),
-// togglePercentage(), close().
-VistaPropertySheet {
-  id: sheet
+// VistaPower: Vista's battery meter flyout for ocko.vista-power: the battery
+// (batmeter.dll art, as in the notification area) with its status line,
+// "Select a power plan:" with one radio button per power profile (stock
+// applies a plan the moment it is picked, as Vista's flyout did), then the
+// link area with "Adjust screen brightness" (the monitor flyout) and "More
+// power options" (Omarchy's system menu). White Flyout window, #F0F0F0
+// link area, FlyoutStyle text (Segoe UI 9 pt; links #0066CC).
+// `host` is duck-typed (Panel.qml, or the harness's mock): discharging,
+// profiles, activeProfile, vistaBatteryFrame, vistaTooltip,
+// setProfile(), close().
+Rectangle {
+  id: flyout
 
   property var host
   property real statusOpacity: 1
-  readonly property bool comboOpen: schemeCombo.open
-  function closeCombo() { schemeCombo.open = false }
+  // Panel.qml's key handling asks after a combo box; the flyout has none.
+  readonly property bool comboOpen: false
+  function closeCombo() {}
 
   function s(n) { return Style.space(n) }
-  function du(x) { return Style.space(Math.round(x * 1.5)) }
-  function dv(y) { return Style.space(Math.round(y * 13 / 8)) }
-  // Stock's button label: first letter capitalised.
+
+  // power-profiles-daemon's names as Vista's plans.
   function profileLabel(p) {
+    var names = { "balanced": "Balanced", "power-saver": "Power saver", "performance": "High performance" }
     var t = String(p || "")
-    return t.charAt(0).toUpperCase() + t.slice(1)
-  }
-  function icon(id) { return VistaScheme.graphics + "/powercfg/32/" + id + ".png" }
-
-  readonly property int activeIndex: host.profiles.indexOf(host.activeProfile)
-  readonly property string sourceLabel: host.discharging ? "Running on batteries" : "Plugged in"
-
-  title: "Power Options Properties"
-  titleIcon: VistaScheme.graphics + "/powercfg/16/202.png"
-  buttons: ["help", "close"]
-  disabledButtons: ["help"]
-  onCloseClicked: host.close()
-  titles: ["Power Schemes", "Power Meter"]
-  tab: host.vistaTab
-  onTabClicked: function(i) { schemeCombo.open = false; host.vistaTab = i }
-  pageWidth: du(252)
-  pageHeight: dv(218)
-  // Stock applies a profile the moment it is picked, so there is nothing
-  // for Apply to do; OK and Cancel both close.
-  buttonLabels: ["OK", "Cancel", "<u>A</u>pply"]
-  disabledButtonIndices: [2]
-  onButtonClicked: host.close()
-
-  // -- Power Schemes (powercfg.cpl 100) --
-  Item {
-    parent: sheet.page
-    anchors.fill: parent
-    visible: sheet.tab === 0
-
-    Image {
-      x: sheet.du(7); y: sheet.dv(7)
-      width: sheet.s(32); height: sheet.s(32)
-      source: sheet.icon(202)
-    }
-    VistaLabel {
-      x: sheet.du(39); y: sheet.dv(7); width: sheet.du(206)
-      wrapMode: Text.WordWrap
-      text: "Select the power scheme with the most appropriate settings for this computer. The scheme you select takes effect at once."
-    }
-
-    VistaGroupBox { x: sheet.du(7); y: sheet.dv(38); width: sheet.du(238); height: sheet.dv(52); caption: "Power schemes" }
-    VistaButton {
-      x: sheet.du(134); y: sheet.dv(69); width: sheet.du(50); height: sheet.dv(14)
-      text: "<u>S</u>ave As..."
-      enabled: false
-    }
-    VistaButton {
-      x: sheet.du(188); y: sheet.dv(69); width: sheet.du(50); height: sheet.dv(14)
-      text: "<u>D</u>elete"
-      enabled: false
-    }
-
-    VistaGroupBox {
-      x: sheet.du(7); y: sheet.dv(97); width: sheet.du(238); height: sheet.dv(113)
-      caption: sheet.activeIndex >= 0 ? "Settings for " + sheet.profileLabel(host.activeProfile) + " power scheme" : "Settings"
-    }
-    VistaLabel { x: sheet.du(14); y: sheet.dv(111); text: "When computer is:" }
-    Image {
-      x: sheet.du(87); y: sheet.dv(106)
-      width: sheet.s(32); height: sheet.s(32)
-      source: sheet.icon(200)
-    }
-    VistaLabel { x: sheet.du(113); y: sheet.dv(111); text: "Plugged in" }
-    Image {
-      x: sheet.du(161); y: sheet.dv(106)
-      width: sheet.s(32); height: sheet.s(32)
-      source: sheet.icon(201)
-    }
-    VistaLabel {
-      x: sheet.du(184); y: sheet.dv(108); width: sheet.du(40)
-      wrapMode: Text.WordWrap
-      text: "Running on batteries"
-    }
-    VistaLabel { x: sheet.du(14); y: sheet.dv(131); text: "Power scheme:" }
-    // Omarchy keeps a profile per power source and reports only the
-    // current one, so only the current source's column has a value.
-    VistaLabel {
-      x: sheet.du(host.discharging ? 166 : 87); y: sheet.dv(131)
-      text: sheet.activeIndex >= 0 ? sheet.profileLabel(host.activeProfile) : "(none)"
-    }
-    VistaEtched { x: sheet.du(14); y: sheet.dv(166); width: sheet.du(224) }
-    VistaLabel {
-      x: sheet.du(14); y: sheet.dv(175); width: sheet.du(224)
-      wrapMode: Text.WordWrap
-      text: host.profiles.length > 0
-        ? "Choosing a scheme above sets it for the current power source (" + sheet.sourceLabel.toLowerCase() + ")."
-        : "No power profiles are available. power-profiles-daemon is not running."
-    }
-
-    // Declared last so its list opens over the groups below it.
-    VistaComboBox {
-      id: schemeCombo
-      x: sheet.du(14); y: sheet.dv(49); width: sheet.du(224)
-      z: 10
-      enabled: host.profiles.length > 0
-      model: host.profiles.map(function(p) { return sheet.profileLabel(p) })
-      currentIndex: host.cursorActive ? host.profileIndex : sheet.activeIndex
-      focused: host.cursorActive
-      onActivated: function(i) { host.setProfile(host.profiles[i]) }
-    }
+    return names[t] || (t.charAt(0).toUpperCase() + t.slice(1))
   }
 
-  // -- Power Meter (stobject.dll 100) --
-  Item {
-    parent: sheet.page
-    anchors.fill: parent
-    visible: sheet.tab === 1
+  width: s(260)
+  height: body.height + links.height + 2
+  color: "#FFFFFF"
+  border.color: "#7A7A7A"
+  radius: s(3)
 
-    // Vista's "Always show icon on the taskbar." holds stock's right-click
-    // toggle: the percentage beside the tray icon.
-    VistaCheckBox {
-      x: sheet.du(6); y: sheet.dv(6)
-      text: "Show <u>p</u>ercentage on the taskbar."
-      checked: host.showPercentage
-      onToggled: host.togglePercentage()
-    }
-    // One display device: nothing to break down per battery.
-    VistaCheckBox {
-      x: sheet.du(135); y: sheet.dv(6)
-      text: "Show details for each <u>b</u>attery."
-      enabled: false
-    }
+  Process { id: brightness; command: ["omarchy-shell", "shell", "toggle", "omarchy.monitor"] }
+  Process { id: moreOptions; command: ["omarchy", "menu", "summon", "system"] }
 
-    VistaGroupBox { x: sheet.du(9); y: sheet.dv(20); width: sheet.du(234); height: sheet.dv(189); caption: "Power status" }
-
-    VistaLabel { x: sheet.du(17); y: sheet.dv(33); text: "Current power source:" }
-    VistaLabel { x: sheet.du(130); y: sheet.dv(33); text: host.discharging ? "Batteries" : "AC power" }
-    VistaLabel { x: sheet.du(17); y: sheet.dv(45); text: "Total battery power remaining:" }
-    VistaLabel { x: sheet.du(130); y: sheet.dv(45); text: host.batteryInfo.percentage || "—" }
-
-    Image {
-      x: sheet.du(17); y: sheet.dv(62)
-      width: sheet.s(32); height: sheet.s(32)
-      source: sheet.icon(host.charging ? 202 : 201)
-    }
-    VistaProgress {
-      x: sheet.du(45); y: sheet.dv(63); width: sheet.du(188); height: sheet.s(18)
-      value: host.batteryFraction
-    }
-    // Stock's status line: "Fully charged", the rotating phrase while
-    // current flows, or the mode label.
-    VistaLabel {
-      x: sheet.du(45); y: sheet.dv(78); width: sheet.du(188)
-      textFormat: Text.PlainText
-      elide: Text.ElideRight
-      opacity: sheet.statusOpacity
-      text: host.heroStatusText + (host.rotatingPhrases ? "..." : "")
-    }
-
-    VistaEtched { x: sheet.du(17); y: sheet.dv(94); width: sheet.du(218) }
-
-    // Stock's stats, shown once data has ever loaded (stock's own guard).
-    Item {
+  component Link: Text {
+    id: link
+    signal clicked()
+    color: "#0066CC"
+    font.family: "Segoe UI"
+    font.pixelSize: flyout.s(12)
+    font.underline: linkMouse.containsMouse
+    MouseArea {
+      id: linkMouse
       anchors.fill: parent
-      visible: host.batteryInfo.percentage !== undefined
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: link.clicked()
+    }
+  }
 
-      VistaLabel { x: sheet.du(17); y: sheet.dv(103); text: "Battery size:" }
-      VistaLabel { x: sheet.du(130); y: sheet.dv(103); text: host.batteryInfo.size || "" }
-      VistaLabel { x: sheet.du(17); y: sheet.dv(115); text: "Charge cycles:" }
-      VistaLabel { x: sheet.du(130); y: sheet.dv(115); text: host.batteryInfo.cycles || "—" }
-      VistaLabel {
-        x: sheet.du(17); y: sheet.dv(127)
-        text: (host.chargeThresholdActive ? "Charge limit" : (host.discharging ? "Time left" : "Time to full")) + ":"
+  Column {
+    id: body
+    x: 1; y: 1
+    width: parent.width - 2
+    topPadding: flyout.s(14)
+    bottomPadding: flyout.s(12)
+    spacing: flyout.s(10)
+
+    // The battery and its status.
+    Row {
+      x: flyout.s(14)
+      spacing: flyout.s(10)
+      Image {
+        width: flyout.s(32); height: flyout.s(32)
+        source: VistaScheme.graphics + "/taskbar/battery/" + flyout.host.vistaBatteryFrame + ".png"
+        smooth: true; mipmap: true
       }
-      VistaLabel {
-        x: sheet.du(130); y: sheet.dv(127)
-        text: host.chargeThresholdActive ? (host.batteryInfo.threshold || "-") : (host.batteryFlowIdle ? "-" : (host.batteryInfo.time || "—"))
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        width: body.width - flyout.s(14 + 32 + 10 + 14)
+        text: flyout.host.vistaTooltip !== "" ? flyout.host.vistaTooltip : "No battery is detected"
+        wrapMode: Text.Wrap
+        color: "#000000"
+        font.family: "Segoe UI"
+        font.pixelSize: flyout.s(12)
       }
-      VistaLabel {
-        x: sheet.du(17); y: sheet.dv(139)
-        text: (host.chargeThresholdActive ? "Battery state" : (host.discharging ? "Discharging" : "Charging")) + ":"
+    }
+
+    Rectangle { x: flyout.s(14); width: body.width - flyout.s(28); height: 1; color: "#E3E3E3" }
+
+    Text {
+      x: flyout.s(14)
+      text: "Select a power plan:"
+      color: "#000000"
+      font.family: "Segoe UI"
+      font.pixelSize: flyout.s(12)
+    }
+
+    Column {
+      x: flyout.s(22)
+      spacing: flyout.s(6)
+      Repeater {
+        model: flyout.host.profiles
+        Item {
+          id: plan
+          required property var modelData
+          readonly property bool chosen: modelData === flyout.host.activeProfile
+          width: planRow.width; height: planRow.height
+          Row {
+            id: planRow
+            spacing: flyout.s(6)
+            Image {
+              anchors.verticalCenter: parent.verticalCenter
+              width: flyout.s(13); height: flyout.s(13)
+              source: VistaScheme.art("radio-" + (plan.chosen ? (planMouse.containsMouse ? 5 : 4) : (planMouse.containsMouse ? 1 : 0)))
+            }
+            Text {
+              text: flyout.profileLabel(plan.modelData)
+              color: "#000000"
+              font.family: "Segoe UI"
+              font.pixelSize: flyout.s(12)
+            }
+          }
+          MouseArea {
+            id: planMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            onClicked: flyout.host.setProfile(plan.modelData)
+          }
+        }
       }
-      VistaLabel {
-        x: sheet.du(130); y: sheet.dv(139)
-        text: host.chargeThresholdActive ? "Holding" : (host.batteryFull ? "-" : (host.batteryInfo.rate || ""))
+    }
+  }
+
+  // Link area.
+  Rectangle {
+    id: links
+    x: 1; y: body.height + 1
+    width: parent.width - 2
+    height: linkCol.height + flyout.s(24)
+    color: "#F0F0F0"
+    Rectangle { width: parent.width; height: 1; color: "#DCDCDC" }
+    Column {
+      id: linkCol
+      anchors.centerIn: parent
+      spacing: flyout.s(6)
+      Link {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: "Adjust screen brightness"
+        onClicked: { flyout.host.close(); brightness.running = true }
+      }
+      Link {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: "More power options"
+        onClicked: { flyout.host.close(); moreOptions.running = true }
       }
     }
   }
