@@ -35,12 +35,12 @@ was implemented but not exercised, because it means a 3.2 GB download.)
   extracted here as `sounds/startup.wav` (880 684 bytes, 16-bit stereo 44.1 kHz).
 - 43 files were pinned twice, independently (research run and pin run): identical.
 
-## What is fetched (372 files)
+## What is fetched (385 files)
 
 | group | files |
 |---|---|
 | `account-pictures/` | 13 |
-| `binaries/` | 21 |
+| `binaries/` | 34 |
 | `cursors/` | 39 |
 | `fonts/` | 8 |
 | `gadgets/` | 236 |
@@ -52,6 +52,11 @@ Pictures`: Default Pictures usertile2-12, user, guest; usertile7 is the chess pi
 used for the logon tile and the Start menu). Binaries added in Phase 4a: pnidui.dll
 (network tray icons), SndVolSSO.dll (volume tray icons), bthprops.cpl (Bluetooth),
 timedate.cpl (the clock flyout: clock face PNGFILE 5000-5007, layout UIFILE 305).
+Added in Phase 4c, for the dialogs' real layouts (DIALOG templates live in
+the .mui files): shell32.dll.mui (Run), mmsys.cpl + .mui (Sound),
+SndVol.exe + .mui (Volume Mixer), netshell.dll + .mui (connection Status and
+Details), bthprops.cpl.mui (Bluetooth), desk.cpl + .mui (Display), VAN.dll +
+.mui and wlanpref.dll.mui (Connect to a network).
 
 Fonts: Vista's four Segoe UI weights (regular, bold, italic, bold italic: Light and
 Semibold first shipped with Windows 7) and Consolas. Sounds are renamed (e.g.
@@ -82,6 +87,21 @@ Semibold first shipped with Windows 7) and Consolas. Sounds are renamed (e.g.
 | `graphics/sndvolsso-ico` | icons | `binaries/sndvolsso.dll` 16,32,48 | volume tray icons (120 muted, 122-124 levels) |
 | `graphics/bthprops-ico` | icons | `binaries/bthprops.cpl` 16,32,48 | Bluetooth icon (151) |
 | `graphics/timedate` | peres | `binaries/timedate.cpl` PNGFILE,UIFILE | clock flyout: analog clock face and glass (5000-5007), flyout layout (305) |
+| `graphics/shell32-strings` | peres | `binaries/shell32.dll.mui` STRING,DIALOG | Run dialog (DIALOG 1003) |
+| `graphics/mmsys-strings` | peres | `binaries/mmsys.cpl.mui` STRING,DIALOG | Sound: Playback 110, Recording 111 |
+| `graphics/mmsys-ico` | icons | `binaries/mmsys.cpl` 16,32,48 | device icons (3010 speakers, 3011 headphones, 3014 microphone, 3015 headset, 3017 display) |
+| `graphics/sndvol-strings` | peres | `binaries/sndvol.exe.mui` STRING,DIALOG | Volume Mixer (DIALOG 200) |
+| `graphics/sndvol-ico` | icons | `binaries/sndvol.exe` 16,32,48 | mixer window icon |
+| `graphics/netshell-strings` | peres | `binaries/netshell.dll.mui` STRING,DIALOG | Status 24050/24100, Details 24300 |
+| `graphics/netshell-ico` | icons | `binaries/netshell.dll` 16,32,48 | connection and activity icons |
+| `graphics/bthprops-strings` | peres | `binaries/bthprops.cpl.mui` STRING,DIALOG | Bluetooth Options (135) and pages |
+| `graphics/desk-strings` | peres | `binaries/desk.cpl.mui` STRING,DIALOG | Display (Background page only) |
+| `graphics/desk-ico` | icons | `binaries/desk.cpl` 16,32,48 | Display icon |
+| `graphics/desk-res` | peres | `binaries/desk.cpl` BITMAP,PNGFILE | desk.cpl bitmaps (reference; unused) |
+| `graphics/van-res` | peres | `binaries/van.dll` BITMAP,PNGFILE,UIFILE | VAN art (reference) |
+| `graphics/van-strings` | peres | `binaries/van.dll.mui` STRING,DIALOG,UIFILE | Connect to a network (DIALOG 7111) |
+| `graphics/van-ico` | icons | `binaries/van.dll` 16,32,48 | network icons |
+| `graphics/wlanpref-strings` | peres | `binaries/wlanpref.dll.mui` STRING,DIALOG | wireless profile dialogs |
 | `icons/windows-vista-cursors` | xcursor | `cursors` | Xcursor theme: the Aero scheme (aero_*.cur/.ani at 24/36/48 nominal from 32/48/64 px art, animations at Vista's frame rates) plus user32's I-beam and crosshair (GROUP_CURSOR 101, 103), as in Vista's own scheme |
 | `gtk/Windows-Vista` | gtk | `-` Windows-Vista-719b12bdb6f6dd352f7ca26ac2fd78ddc10efb8c | B00merang-Project/Windows-Vista @ 719b12bdb6f6 (GPL-3.0), tarball sha256 `6b08f59b9d39…`; installed as GTK theme "Windows Vista" |
 
@@ -124,7 +144,9 @@ DWMWindow (the Aero glass frame and caption buttons) uses a single PNG atlas
 
 ## Generated on this machine (not pinned, rebuilt from the pinned files)
 
-`bin/vista-art` (run by fetch-assets.sh) cuts the pinned art into what the shell and
+Resource extractions that vista-art also writes icons beside live in
+`graphics/<lib>-res` (explorer, imageres, desk, van), so the pinned trees stay
+unchanged. `bin/vista-art` (run by fetch-assets.sh) cuts the pinned art into what the shell and
 the title bars load: icon PNGs per library (`graphics/<lib>/<size>/<id>.png`), the
 icon theme, caption art (`captions/glass|basic`), taskbar, orb and battery frames,
 Start menu parts, the logon art (`logon/`: authui BITMAPs, basebrd 120 as

@@ -1111,6 +1111,12 @@ Scope {
             y: 0
             width: sm.s(55)
             height: sm.s(55)
+            // USERPICTURE is the white mat with its shadow: under the picture.
+            VistaArt {
+              anchors.fill: parent
+              source: sm.smArt + "/userpic.png"
+              margins: [10, 10, 12, 12]
+            }
             Image {
               x: sm.s(9)
               y: sm.s(8)
@@ -1119,11 +1125,6 @@ Scope {
               fillMode: Image.PreserveAspectCrop
               smooth: true
               source: sm.tileItem && sm.tileItem.tile ? sm.tileItem.tile : sm.pictureUrl
-            }
-            VistaArt {
-              anchors.fill: parent
-              source: sm.smArt + "/userpic.png"
-              margins: [10, 10, 12, 12]
             }
           }
           Column {
