@@ -1,0 +1,23 @@
+singleton VistaScheme 1.0 VistaScheme.qml
+VistaArt 1.0 VistaArt.qml
+VistaButton 1.0 VistaButton.qml
+VistaWindow 1.0 VistaWindow.qml
+VistaTextField 1.0 VistaTextField.qml
+VistaGroupBox 1.0 VistaGroupBox.qml
+VistaBalloon 1.0 VistaBalloon.qml
+VistaScrollBar 1.0 VistaScrollBar.qml
+VistaLanguageBox 1.0 VistaLanguageBox.qml
+VistaTrackbar 1.0 VistaTrackbar.qml
+VistaCheckBox 1.0 VistaCheckBox.qml
+VistaTabs 1.0 VistaTabs.qml
+VistaComboBox 1.0 VistaComboBox.qml
+VistaListView 1.0 VistaListView.qml
+VistaMenu 1.0 VistaMenu.qml
+VistaToolTip 1.0 VistaToolTip.qml
+VistaLabel 1.0 VistaLabel.qml
+VistaEtched 1.0 VistaEtched.qml
+VistaRadio 1.0 VistaRadio.qml
+VistaPaneLink 1.0 VistaPaneLink.qml
+VistaPaneGroup 1.0 VistaPaneGroup.qml
+VistaPropertySheet 1.0 VistaPropertySheet.qml
+VistaProgress 1.0 VistaProgress.qml

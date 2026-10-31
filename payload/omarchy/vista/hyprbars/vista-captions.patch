@@ -1,0 +1,536 @@
+diff --git c/hyprbars/barDeco.cpp w/hyprbars/barDeco.cpp
+index c27653d..4add99e 100644
+--- c/hyprbars/barDeco.cpp
++++ w/hyprbars/barDeco.cpp
+@@ -22,6 +22,10 @@
+ #include <hyprland/src/layout/LayoutManager.hpp>
+ #include <hyprland/src/render/OpenGL.hpp>
+ #include <hyprland/src/state/MonitorState.hpp>
++#include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
++
++#include <sstream>
++#include <cmath>
+ 
+ #include "globals.hpp"
+ #include "BarPassElement.hpp"
+@@ -34,6 +38,96 @@ static CHyprColor configColor(Config::INTEGER color) {
+     return CHyprColor{static_cast<uint64_t>(color)};
+ }
+ 
++// Where a button's top edge sits in a bar of height barH: hung from the top
++// (bar_button_top >= 0, Vista) or centred (XP, upstream).
++static double buttonTop(const SHyprButton& b, double barH) {
++    const auto TOP = g_pGlobalState->config.barButtonTop->value();
++    return TOP >= 0 ? (double)TOP : std::floor((barH - b.h()) / 2.0);
++}
++
++// ---- XP caption art (bg_image / fg_image / fg_image_alt)
++
++static SP<Render::ITexture> loadPng(const std::string& path, bool nearest = true) {
++    const auto SURFACE = cairo_image_surface_create_from_png(path.c_str());
++
++    if (cairo_surface_status(SURFACE) != CAIRO_STATUS_SUCCESS) {
++        Log::logger->log(Log::ERR, "[hyprbars] failed to load {}", path);
++        cairo_surface_destroy(SURFACE);
++        return nullptr;
++    }
++
++    auto tex = g_pHyprRenderer->createTexture(SURFACE);
++    cairo_surface_destroy(SURFACE);
++
++    // XP pixel art: never blur it. Vista's caption image and glass overlay are
++    // drawn at fractional scales, smoothly.
++    if (tex && nearest)
++        tex->magFilter = tex->minFilter = GL_NEAREST;
++
++    return tex;
++}
++
++static std::vector<SP<Render::ITexture>> loadFrames(const std::string& pattern, int count = 8, bool nearest = true) {
++    std::vector<SP<Render::ITexture>> frames;
++    const auto                        AT = pattern.find("%d");
++
++    if (pattern.empty() || AT == std::string::npos)
++        return frames;
++
++    for (int i = 0; i < count; ++i) {
++        std::string path = pattern;
++        frames.push_back(loadPng(path.replace(AT, 2, std::to_string(i)), nearest));
++    }
++
++    return frames;
++}
++
++// Loads once per config reload (the button list is rebuilt then). True when
++// every background frame loaded; otherwise the button keeps the upstream look.
++static bool imagesReady(SHyprButton& button) {
++    if (!button.imagesLoaded) {
++        button.imagesLoaded = true;
++        button.bgTex        = loadFrames(button.bgImage);
++        button.fgTex        = loadFrames(button.fgImage);
++        button.fgAltTex     = loadFrames(button.fgImageAlt);
++    }
++
++    return button.bgTex.size() == 8 && std::ranges::all_of(button.bgTex, [](const auto& t) { return t && t->m_texID != 0; });
++}
++
++// 9-slice with the image's SizingMargins (left, right, top, bottom; XP's are
++// 5,5,5,5), as the msstyles draw it.
++static void renderNineSlice(SP<Render::ITexture> tex, const CBox& box, const float scale, const float a, const int* m = nullptr) {
++    static constexpr int XP[4] = {5, 5, 5, 5};
++    if (!m)
++        m = XP;
++    const Vector2D TS = tex->m_size;
++    const double   L = std::min<double>(std::round(m[0] * scale), std::floor(box.w / 2.0));
++    const double   R = std::min<double>(std::round(m[1] * scale), std::floor(box.w / 2.0));
++    const double   T = std::min<double>(std::round(m[2] * scale), std::floor(box.h / 2.0));
++    const double   B = std::min<double>(std::round(m[3] * scale), std::floor(box.h / 2.0));
++
++    const double   sx[4] = {0, m[0] / TS.x, (TS.x - m[1]) / TS.x, 1};
++    const double   sy[4] = {0, m[2] / TS.y, (TS.y - m[3]) / TS.y, 1};
++    const double   dx[4] = {box.x, box.x + L, box.x + box.w - R, box.x + box.w};
++    const double   dy[4] = {box.y, box.y + T, box.y + box.h - B, box.y + box.h};
++
++    for (int r = 0; r < 3; ++r) {
++        for (int c = 0; c < 3; ++c) {
++            const CBox DST = {dx[c], dy[r], dx[c + 1] - dx[c], dy[r + 1] - dy[r]};
++
++            if (DST.w <= 0 || DST.h <= 0)
++                continue;
++
++            g_pHyprOpenGL->renderTexture(tex, DST,
++                                         {.a                           = a,
++                                          .allowCustomUV               = true,
++                                          .primarySurfaceUVTopLeft     = {sx[c], sy[r]},
++                                          .primarySurfaceUVBottomRight = {sx[c + 1], sy[r + 1]}});
++        }
++    }
++}
++
+ CHyprBar::CHyprBar(PHLWINDOW pWindow) : IHyprWindowDecoration(pWindow) {
+     m_pWindow = pWindow;
+ 
+@@ -123,6 +217,21 @@ bool CHyprBar::inputIsValid() {
+ }
+ 
+ void CHyprBar::onMouseButton(Event::SCallbackInfo& info, IPointer::SButtonEvent e) {
++    // a pressed image button finishes on release wherever the pointer is, and
++    // only acts if the pointer is still on it (Windows behaviour)
++    if (e.state != WL_POINTER_BUTTON_STATE_PRESSED && m_iPressedButton >= 0) {
++        const int PRESSED = m_iPressedButton;
++        m_iPressedButton  = -1;
++        m_bCancelledDown  = false;
++        m_bDragPending    = false;
++        info.cancelled    = true;
++        damageEntire();
++
++        if (inputIsValid() && buttonAt(cursorRelativeToBar()) == PRESSED)
++            g_pKeybindManager->m_dispatchers["exec"](g_pGlobalState->buttons[PRESSED].cmd);
++        return;
++    }
++
+     if (!inputIsValid())
+         return;
+ 
+@@ -151,7 +260,7 @@ void CHyprBar::onTouchUp(Event::SCallbackInfo& info, ITouch::SUpEvent e) {
+ 
+ void CHyprBar::onMouseMove(Vector2D coords) {
+     // ensure proper redraws of button icons on hover when using hardware cursors
+-    if (g_pGlobalState->config.iconOnHover->value())
++    if (g_pGlobalState->config.iconOnHover->value() || std::ranges::any_of(g_pGlobalState->buttons, [](const auto& b) { return b.hasImages(); }))
+         damageOnButtonHover();
+ 
+     if (!m_bDragPending || m_bTouchEv || !validMapped(m_pWindow) || m_touchId != 0)
+@@ -282,19 +391,69 @@ bool CHyprBar::doButtonPress(Config::INTEGER barPadding, Config::INTEGER barButt
+ 
+     for (auto& b : g_pGlobalState->buttons) {
+         const auto BARBUF     = Vector2D{(int)assignedBoxGlobal().w, barHeight};
+-        Vector2D   currentPos = Vector2D{(BUTTONSRIGHT ? BARBUF.x - barButtonPadding - b.size - offset : offset), (BARBUF.y - b.size) / 2.0}.floor();
++        Vector2D   currentPos = Vector2D{(BUTTONSRIGHT ? BARBUF.x - barButtonPadding - b.w() - offset : offset), buttonTop(b, BARBUF.y)}.floor();
++
++        if (VECINRECT(COORDS, currentPos.x, currentPos.y, currentPos.x + b.w() + barButtonPadding, currentPos.y + b.h())) {
++            if (b.hasImages()) {
++                // drawn pressed now, acts on release (onMouseButton)
++                m_iPressedButton = &b - g_pGlobalState->buttons.data();
++                damageEntire();
++                return true;
++            }
+ 
+-        if (VECINRECT(COORDS, currentPos.x, currentPos.y, currentPos.x + b.size + barButtonPadding, currentPos.y + b.size)) {
+             // hit on close
+             g_pKeybindManager->m_dispatchers["exec"](b.cmd);
+             return true;
+         }
+ 
+-        offset += barButtonPadding + b.size;
++        offset += barButtonPadding + b.w();
+     }
+     return false;
+ }
+ 
++int CHyprBar::buttonAt(Vector2D coords) {
++    const auto HEIGHT           = g_pGlobalState->config.barHeight->value();
++    const auto BARBUTTONPADDING = g_pGlobalState->config.barButtonPadding->value();
++    const auto BARPADDING       = g_pGlobalState->config.barPadding->value();
++    const bool BUTTONSRIGHT     = g_pGlobalState->config.barButtonsAlignment->value() != "left";
++    const auto BARBUF           = Vector2D{(int)assignedBoxGlobal().w, HEIGHT};
++
++    float      offset = BARPADDING;
++    for (size_t i = 0; i < g_pGlobalState->buttons.size(); ++i) {
++        const auto& b          = g_pGlobalState->buttons[i];
++        Vector2D    currentPos = Vector2D{(BUTTONSRIGHT ? BARBUF.x - BARBUTTONPADDING - b.w() - offset : offset), buttonTop(b, BARBUF.y)}.floor();
++
++        if (VECINRECT(coords, currentPos.x, currentPos.y, currentPos.x + b.w() + BARBUTTONPADDING, currentPos.y + b.h()))
++            return i;
++
++        offset += BARBUTTONPADDING + b.w();
++    }
++    return -1;
++}
++
++bool CHyprBar::renderImageButton(SHyprButton& button, size_t i, bool hovering, CBox box, const float scale, const float a) {
++    if (!imagesReady(button))
++        return false;
++
++    const auto PWINDOW = m_pWindow.lock();
++    const int  STATE   = hovering ? (m_iPressedButton == (int)i ? 2 : 1) : 0;
++    const int  FRAME   = STATE + (PWINDOW == Desktop::focusState()->window() ? 0 : 4);
++
++    box.round();
++    renderNineSlice(button.bgTex[FRAME], box, scale, a, button.margins);
++
++    const bool  ALT    = !button.fgAltTex.empty() && Fullscreen::controller()->isFullscreen(PWINDOW);
++    const auto& GLYPHS = ALT ? button.fgAltTex : button.fgTex;
++
++    if (GLYPHS.size() == 8 && GLYPHS[FRAME] && GLYPHS[FRAME]->m_texID != 0) {
++        const auto SIZE  = (GLYPHS[FRAME]->m_size * scale).round();
++        CBox       glyph = {box.x + std::floor((box.w - SIZE.x) / 2.0), box.y + std::floor((box.h - SIZE.y) / 2.0), SIZE.x, SIZE.y};
++        g_pHyprOpenGL->renderTexture(GLYPHS[FRAME], glyph, {.a = a});
++    }
++
++    return true;
++}
++
+ void CHyprBar::renderBarTitle(const Vector2D& bufferSize, const float scale) {
+     const auto COLORVAL         = g_pGlobalState->config.textColor->value();
+     const auto SIZE             = g_pGlobalState->config.barTextSize->value();
+@@ -306,7 +465,7 @@ void CHyprBar::renderBarTitle(const Vector2D& bufferSize, const float scale) {
+ 
+     float      buttonSizes = BARBUTTONPADDING;
+     for (auto& b : g_pGlobalState->buttons) {
+-        buttonSizes += b.size + BARBUTTONPADDING;
++        buttonSizes += b.w() + BARBUTTONPADDING;
+     }
+ 
+     const int  scaledSize        = std::round(SIZE * scale);
+@@ -322,6 +481,11 @@ void CHyprBar::renderBarTitle(const Vector2D& bufferSize, const float scale) {
+ 
+     const CHyprColor COLOR = m_bForcedTitleColor.value_or(configColor(COLORVAL));
+     m_pTextTex             = g_pHyprRenderer->renderText(m_szLastTitle, COLOR, scaledSize, false, FONT, maxWidth, WEIGHT.m_value);
++
++    const auto GLOW = configColor(g_pGlobalState->config.textGlowColor->value());
++    m_pGlowTex      = GLOW.a > 0 && g_pGlobalState->config.textGlowSize->value() > 0 ?
++             g_pHyprRenderer->renderText(m_szLastTitle, GLOW, scaledSize, false, FONT, maxWidth, WEIGHT.m_value) :
++             nullptr;
+ }
+ 
+ size_t CHyprBar::getVisibleButtonCount(Config::INTEGER barButtonPadding, Config::INTEGER barPadding, const Vector2D& bufferSize, const float scale) {
+@@ -329,7 +493,7 @@ size_t CHyprBar::getVisibleButtonCount(Config::INTEGER barButtonPadding, Config:
+     size_t count          = 0;
+ 
+     for (const auto& button : g_pGlobalState->buttons) {
+-        const float buttonSpace = (button.size + barButtonPadding) * scale;
++        const float buttonSpace = (button.w() + barButtonPadding) * scale;
+         if (availableSpace >= buttonSpace) {
+             count++;
+             availableSpace -= buttonSpace;
+@@ -353,9 +517,15 @@ void CHyprBar::renderBarButtons(CBox* barBox, const float scale, const float a)
+     int        offset = BARPADDING * scale;
+     for (size_t i = 0; i < visibleCount; ++i) {
+         auto&      button           = g_pGlobalState->buttons[i];
+-        const auto scaledButtonSize = button.size * scale;
++        const auto scaledButtonSize = button.w() * scale;
+         const auto scaledButtonsPad = BARBUTTONPADDING * scale;
+ 
++        // image buttons are drawn whole in renderBarButtonsText
++        if (button.hasImages() && imagesReady(button)) {
++            offset += scaledButtonsPad + scaledButtonSize;
++            continue;
++        }
++
+         auto       color = button.bgcol;
+ 
+         if (INACTIVECOLOR > 0) {
+@@ -392,14 +562,24 @@ void CHyprBar::renderBarButtonsText(CBox* barBox, const float scale, const float
+ 
+     for (size_t i = 0; i < visibleCount; ++i) {
+         auto&      button           = g_pGlobalState->buttons[i];
+-        const auto scaledButtonSize = button.size * scale;
++        const auto scaledButtonSize = button.w() * scale;
+         const auto scaledButtonsPad = BARBUTTONPADDING * scale;
+ 
+         // check if hovering here
+         const auto BARBUF     = Vector2D{(int)assignedBoxGlobal().w, HEIGHT};
+-        Vector2D   currentPos = Vector2D{(BUTTONSRIGHT ? BARBUF.x - BARBUTTONPADDING - button.size - noScaleOffset : noScaleOffset), (BARBUF.y - button.size) / 2.0}.floor();
+-        bool       hovering   = VECINRECT(COORDS, currentPos.x, currentPos.y, currentPos.x + button.size + BARBUTTONPADDING, currentPos.y + button.size);
+-        noScaleOffset += BARBUTTONPADDING + button.size;
++        Vector2D   currentPos = Vector2D{(BUTTONSRIGHT ? BARBUF.x - BARBUTTONPADDING - button.w() - noScaleOffset : noScaleOffset), buttonTop(button, BARBUF.y)}.floor();
++        bool       hovering   = VECINRECT(COORDS, currentPos.x, currentPos.y, currentPos.x + button.w() + BARBUTTONPADDING, currentPos.y + button.h());
++        noScaleOffset += BARBUTTONPADDING + button.w();
++
++        if (button.hasImages()) {
++            const double sh        = button.h() * scale;
++            CBox         buttonBox = {barBox->x + (BUTTONSRIGHT ? barBox->w - offset - scaledButtonSize : offset), barBox->y + buttonTop(button, barBox->h / scale) * scale,
++                                      scaledButtonSize, sh};
++            if (renderImageButton(button, i, hovering, buttonBox, scale, a)) {
++                offset += scaledButtonsPad + scaledButtonSize;
++                continue;
++            }
++        }
+ 
+         if ((!button.iconTex || button.iconTex->m_texID == 0) && !button.icon.empty()) {
+             // render icon
+@@ -538,6 +718,50 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
+     else
+         g_pHyprOpenGL->renderRect(titleBarBox, color, {.round = scaledRounding, .roundingPower = m_pWindow->roundingPower()});
+ 
++    // Vista: the caption image (9-slice, frame 0 active / 1 inactive) and the
++    // glass reflection, over the fill and inside the rounded-corner stencil.
++    {
++        // The fill above marked every bar pixel in the stencil (REPLACE), so
++        // draw exactly there: where the bar is, never over the window.
++        if (ROUNDING) {
++            glStencilFunc(GL_EQUAL, 1, -1);
++            glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
++        }
++        const CBox BARONLY = {titleBarBox.x, titleBarBox.y, titleBarBox.w, std::round(BARBUF.y)};
++        const bool FOCUSED = PWINDOW == Desktop::focusState()->window();
++        const auto BGIMG   = g_pGlobalState->config.barBgImage->value();
++        if (BGIMG != g_pGlobalState->bgLoaded) {
++            g_pGlobalState->bgLoaded = BGIMG;
++            g_pGlobalState->bgTex    = loadFrames(BGIMG, 2, false);
++        }
++        const auto& BG = g_pGlobalState->bgTex;
++        if (BG.size() == 2 && BG[FOCUSED ? 0 : 1] && BG[FOCUSED ? 0 : 1]->m_texID != 0) {
++            int m[4] = {0, 0, 0, 0};
++            std::istringstream(g_pGlobalState->config.barBgMargins->value()) >> m[0] >> m[1] >> m[2] >> m[3];
++            renderNineSlice(BG[FOCUSED ? 0 : 1], BARONLY, pMonitor->m_scale, a, m);
++        }
++
++        const auto OVIMG = g_pGlobalState->config.barOverlayImage->value();
++        if (OVIMG != g_pGlobalState->overlayLoaded) {
++            g_pGlobalState->overlayLoaded = OVIMG;
++            g_pGlobalState->overlayTex    = OVIMG.empty() ? nullptr : loadPng(OVIMG, false);
++        }
++        const auto& OV = g_pGlobalState->overlayTex;
++        if (OV && OV->m_texID != 0) {
++            // native size from the bar's top left, cropped to the bar
++            const Vector2D TS = OV->m_size * pMonitor->m_scale;
++            g_pHyprOpenGL->renderTexture(OV, BARONLY,
++                                         {.a                           = a * std::clamp(g_pGlobalState->config.barOverlayOpacity->value(), (Config::INTEGER)0, (Config::INTEGER)100) / 100.F,
++                                          .allowCustomUV               = true,
++                                          .primarySurfaceUVTopLeft     = {0, 0},
++                                          .primarySurfaceUVBottomRight = {std::min(1.0, BARONLY.w / TS.x), std::min(1.0, BARONLY.h / TS.y)}});
++        }
++        if (ROUNDING) {
++            glStencilFunc(GL_NOTEQUAL, 1, -1);
++            glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
++        }
++    }
++
+     // render title
+     if (ENABLETITLE && (m_szLastTitle != PWINDOW->m_title || m_bWindowSizeChanged || !m_pTextTex || m_pTextTex->m_texID == 0 || m_bTitleColorChanged)) {
+         m_szLastTitle = PWINDOW->m_title;
+@@ -561,7 +785,7 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
+ 
+         float      buttonSizes = BARBUTTONPADDING;
+         for (auto& b : g_pGlobalState->buttons) {
+-            buttonSizes += b.size + BARBUTTONPADDING;
++            buttonSizes += b.w() + BARBUTTONPADDING;
+         }
+ 
+         const auto scaledBorderSize  = PWINDOW->getRealBorderSize() * pMonitor->m_scale;
+@@ -572,6 +796,19 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
+         const auto yOffset           = std::round((BARBUF.y - m_pTextTex->m_size.y) / 2.0);
+         CBox       titleBox          = {textBox.x + xOffset, textBox.y + yOffset, m_pTextTex->m_size.x, m_pTextTex->m_size.y};
+ 
++        // Vista's caption glow: the title in the glow colour, spread around the
++        // text in three rings (Aero draws a blurred white halo behind it)
++        if (m_pGlowTex && m_pGlowTex->m_texID != 0) {
++            const double R = g_pGlobalState->config.textGlowSize->value() * pMonitor->m_scale;
++            for (int ring = 1; ring <= 3; ++ring) {
++                for (int k = 0; k < 8; ++k) {
++                    const double ang = k * M_PI / 4 + ring * 0.4;
++                    CBox         g   = titleBox;
++                    g.translate({std::round(std::cos(ang) * R * ring / 3), std::round(std::sin(ang) * R * ring / 3)});
++                    g_pHyprOpenGL->renderTexture(m_pGlowTex, g, {.a = a * (0.34F - ring * 0.08F)});
++                }
++            }
++        }
+         g_pHyprOpenGL->renderTexture(m_pTextTex, titleBox, {.a = a});
+     }
+ 
+@@ -677,15 +914,15 @@ void CHyprBar::damageOnButtonHover() {
+ 
+     for (auto& b : g_pGlobalState->buttons) {
+         const auto BARBUF     = Vector2D{(int)assignedBoxGlobal().w, HEIGHT};
+-        Vector2D   currentPos = Vector2D{(BUTTONSRIGHT ? BARBUF.x - BARBUTTONPADDING - b.size - offset : offset), (BARBUF.y - b.size) / 2.0}.floor();
++        Vector2D   currentPos = Vector2D{(BUTTONSRIGHT ? BARBUF.x - BARBUTTONPADDING - b.w() - offset : offset), buttonTop(b, BARBUF.y)}.floor();
+ 
+-        bool       hover = VECINRECT(COORDS, currentPos.x, currentPos.y, currentPos.x + b.size + BARBUTTONPADDING, currentPos.y + b.size);
++        bool       hover = VECINRECT(COORDS, currentPos.x, currentPos.y, currentPos.x + b.w() + BARBUTTONPADDING, currentPos.y + b.h());
+ 
+         if (hover != m_bButtonHovered) {
+             m_bButtonHovered = hover;
+             damageEntire();
+         }
+ 
+-        offset += BARBUTTONPADDING + b.size;
++        offset += BARBUTTONPADDING + b.w();
+     }
+ }
+diff --git c/hyprbars/barDeco.hpp w/hyprbars/barDeco.hpp
+index a3b4e2d..8e9af96 100644
+--- c/hyprbars/barDeco.hpp
++++ w/hyprbars/barDeco.hpp
+@@ -115,6 +115,13 @@ class CHyprBar : public IHyprWindowDecoration {
+     // store hover state for buttons as a bitfield
+     unsigned int m_iButtonHoverState = 0;
+ 
++    // XP caption buttons act on release, like Windows: the pressed image button, or -1
++    int  m_iPressedButton = -1;
++    // Vista: the title in the glow colour, drawn around the text
++    SP<Render::ITexture> m_pGlowTex;
++    int  buttonAt(Vector2D coords);
++    bool renderImageButton(SHyprButton& button, size_t i, bool hovering, CBox box, const float scale, const float a);
++
+     // for dynamic updates
+     int    m_iLastHeight = 0;
+ 
+diff --git c/hyprbars/globals.hpp w/hyprbars/globals.hpp
+index 0ef19ae..c8edc14 100644
+--- c/hyprbars/globals.hpp
++++ w/hyprbars/globals.hpp
+@@ -18,6 +18,28 @@ struct SHyprButton {
+     float                size    = 10;
+     std::string          icon    = "";
+     SP<Render::ITexture> iconTex;
++
++    // XP caption art: "%d" path patterns for 8 frames (normal, hot, pressed,
++    // disabled, then the same four for an unfocused window). Loaded on first
++    // draw; the button list (and so these) is rebuilt on every config reload.
++    std::string                       bgImage, fgImage, fgImageAlt;
++    bool                              imagesLoaded = false;
++    std::vector<SP<Render::ITexture>> bgTex, fgTex, fgAltTex;
++
++    bool                              hasImages() const {
++        return !bgImage.empty();
++    }
++
++    // Vista caption art: buttons are not square and have their own 9-slice
++    // margins (left, right, top, bottom, in image px). 0 = use `size`.
++    float width = 0, height = 0;
++    int   margins[4] = {5, 5, 5, 5};
++    float w() const {
++        return width > 0 ? width : size;
++    }
++    float h() const {
++        return height > 0 ? height : size;
++    }
+ };
+ 
+ class CHyprBar;
+@@ -38,7 +60,17 @@ struct SGlobalState {
+         SP<Config::Values::CIntValue>        barButtonPadding;
+         SP<Config::Values::CBoolValue>       barBlur, barTitleEnabled, barPartOfWindow, barPrecedenceOverBorder, enabled, iconOnHover;
+         SP<Config::Values::CStringValue>     barTextFont, barTextAlign, barButtonsAlignment, onDoubleClick;
++        // Vista: buttons hung from the top, a 9-slice caption image (frame 0
++        // active, 1 inactive), a glass reflection overlay, a glow behind the title
++        SP<Config::Values::CIntValue>        barButtonTop, barOverlayOpacity, textGlowSize;
++        SP<Config::Values::CStringValue>     barBgImage, barBgMargins, barOverlayImage;
++        SP<Config::Values::CColorValue>      textGlowColor;
+     } config;
++
++    // textures for the Vista caption image and overlay, reloaded when the path changes
++    std::string                       bgLoaded, overlayLoaded;
++    std::vector<SP<Render::ITexture>> bgTex;
++    SP<Render::ITexture>              overlayTex;
+ };
+ 
+ inline UP<SGlobalState> g_pGlobalState;
+diff --git c/hyprbars/main.cpp w/hyprbars/main.cpp
+index ae9c90b..a97ae1f 100644
+--- c/hyprbars/main.cpp
++++ w/hyprbars/main.cpp
+@@ -182,6 +182,45 @@ int newLuaButton(lua_State* L) {
+         button.cmd = lua_tostring(L, -1);
+     }
+ 
++    // optional XP caption art: bg_image, fg_image, fg_image_alt ("%d" frame patterns)
++    for (auto [key, field] : {std::pair{"bg_image", &button.bgImage}, std::pair{"fg_image", &button.fgImage}, std::pair{"fg_image_alt", &button.fgImageAlt}}) {
++        Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
++
++        lua_getfield(L, 1, key);
++
++        if (lua_isnil(L, -1))
++            continue;
++
++        if (!lua_isstring(L, -1))
++            return Config::Lua::Bindings::Internal::configError(L, "add_button: {} must be a string", key);
++
++        *field = lua_tostring(L, -1);
++    }
++
++    // optional Vista geometry: width, height (numbers), margins {l, r, t, b}
++    for (auto [key, field] : {std::pair{"width", &button.width}, std::pair{"height", &button.height}}) {
++        Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
++        lua_getfield(L, 1, key);
++        if (lua_isnil(L, -1))
++            continue;
++        if (!lua_isnumber(L, -1))
++            return Config::Lua::Bindings::Internal::configError(L, "add_button: {} must be a number", key);
++        *field = lua_tonumber(L, -1);
++    }
++    {
++        Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
++        lua_getfield(L, 1, "margins");
++        if (lua_istable(L, -1)) {
++            for (int k = 0; k < 4; ++k) {
++                lua_rawgeti(L, -1, k + 1);
++                if (lua_isnumber(L, -1))
++                    button.margins[k] = lua_tointeger(L, -1);
++                lua_pop(L, 1);
++            }
++        } else if (!lua_isnil(L, -1))
++            return Config::Lua::Bindings::Internal::configError(L, "add_button: margins must be a table of 4 numbers");
++    }
++
+     g_pGlobalState->buttons.push_back(std::move(button));
+ 
+     for (auto& b : g_pGlobalState->bars) {
+@@ -232,6 +271,13 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
+     g_pGlobalState->config.enabled             = makeShared<Config::Values::CBoolValue>("plugin:hyprbars:enabled", "Whether bars are enabled", true);
+     g_pGlobalState->config.iconOnHover         = makeShared<Config::Values::CBoolValue>("plugin:hyprbars:icon_on_hover", "Whether to use an icon on hover of the buttons", false);
+     g_pGlobalState->config.onDoubleClick       = makeShared<Config::Values::CStringValue>("plugin:hyprbars:on_double_click", "Action to execute on double click of the bar", "");
++    g_pGlobalState->config.barButtonTop      = makeShared<Config::Values::CIntValue>("plugin:hyprbars:bar_button_top", "Buttons' distance from the bar top (-1: centred)", -1);
++    g_pGlobalState->config.barBgImage        = makeShared<Config::Values::CStringValue>("plugin:hyprbars:bar_bg_image", "9-slice caption image, \"%d\" = 0 active / 1 inactive", "");
++    g_pGlobalState->config.barBgMargins      = makeShared<Config::Values::CStringValue>("plugin:hyprbars:bar_bg_margins", "bar_bg_image sizing margins: left right top bottom", "0 0 0 0");
++    g_pGlobalState->config.barOverlayImage   = makeShared<Config::Values::CStringValue>("plugin:hyprbars:bar_overlay_image", "Image drawn over the bar at native size", "");
++    g_pGlobalState->config.barOverlayOpacity = makeShared<Config::Values::CIntValue>("plugin:hyprbars:bar_overlay_opacity", "bar_overlay_image opacity in percent", 100);
++    g_pGlobalState->config.textGlowColor     = makeShared<Config::Values::CColorValue>("plugin:hyprbars:col.text_glow", "Glow behind the title (0: none)", 0);
++    g_pGlobalState->config.textGlowSize      = makeShared<Config::Values::CIntValue>("plugin:hyprbars:bar_text_glow_size", "Glow radius in px", 0);
+ 
+     HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barColor);
+     HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.textColor);
+@@ -251,6 +297,11 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
+     HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.enabled);
+     HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.iconOnHover);
+     HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.onDoubleClick);
++    for (auto v : {g_pGlobalState->config.barButtonTop, g_pGlobalState->config.barOverlayOpacity, g_pGlobalState->config.textGlowSize})
++        HyprlandAPI::addConfigValueV2(PHANDLE, v);
++    for (auto v : {g_pGlobalState->config.barBgImage, g_pGlobalState->config.barBgMargins, g_pGlobalState->config.barOverlayImage})
++        HyprlandAPI::addConfigValueV2(PHANDLE, v);
++    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.textGlowColor);
+ 
+     if (Config::mgr()->type() == Config::CONFIG_LEGACY)
+         HyprlandAPI::addConfigKeyword(PHANDLE, "plugin:hyprbars:hyprbars-button", onNewButton, Hyprlang::SHandlerOptions{});

@@ -1,0 +1,48 @@
+#!/bin/bash
+# vista-hyprbars-heal -- rebuild the Vista caption-button hyprbars when its version
+# stamp no longer matches the running Hyprland. Run in the background by
+# hooks/post-update.d/windows-vista, hooks/post-boot.d/windows-vista-hyprbars and
+# `vista-mode on`; quick and silent when there is nothing to do.
+#
+# User-level, never sudo. omarchy/vista/hyprbars/build itself refuses headers
+# that are not the running Hyprland, so right after a Hyprland update (new
+# headers, old Hyprland still running) this waits quietly for the next login,
+# where the post-boot hook runs it again. Hyprland is reloaded only after a
+# successful build under an Vista theme (late.lua then picks the new .so). A
+# failed build sends one notification per Hyprland version.
+#
+# Undo: nothing to undo; it only (re)writes ~/.local/lib/hyprbars-vista.
+OUT=$HOME/.local/lib/hyprbars-vista
+STATE=$HOME/.local/state/omarchy/vista
+LOG=$STATE/hyprbars-build.log
+NOTIFIED=$STATE/hyprbars-notified
+VISTA=$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)
+
+running=$(hyprctl version -j 2>/dev/null | jq -r '.tag // empty')
+running=${running#v}
+[[ -n $running ]] || exit 0
+[[ $(cat "$OUT/hyprland-version" 2>/dev/null) == "$running" && -e $OUT/libhyprbars.so ]] && exit 0
+# The patch targets 0.56.x; another Hyprland gets the stock bars until the Vista
+# package is updated (install.sh says so; nothing to rebuild here).
+[[ $running == 0.56.* ]] || exit 0
+
+mkdir -p "$STATE"
+exec 8>"${XDG_RUNTIME_DIR:-/tmp}/vista-hyprbars.lock"
+flock -n 8 || exit 0
+
+hdr=$(pkg-config --modversion hyprland 2>/dev/null)
+[[ $hdr == "$running" ]] || exit 0  # headers are newer: wait for the re-login
+
+if "$VISTA/hyprbars/build" >"$LOG" 2>&1; then
+  rm -f "$NOTIFIED"
+  theme=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null)
+  [[ $theme == windows-vista || $theme == windows-vista-* ]] && hyprctl reload >/dev/null
+  exit 0
+fi
+
+[[ $(cat "$NOTIFIED" 2>/dev/null) == "$running" ]] && exit 1
+echo "$running" >"$NOTIFIED"
+omarchy-notification-send -u normal "Windows Vista title bars: rebuild failed" \
+  "The Vista caption buttons could not be rebuilt for Hyprland $running, so windows have plain title bars. See $LOG, fix the cause, then run ~/.config/omarchy/vista/hyprbars/build && hyprctl reload" \
+  >/dev/null 2>&1
+exit 1

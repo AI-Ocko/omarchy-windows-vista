@@ -1,0 +1,11 @@
+#!/bin/bash
+# After `omarchy-update`: under a Windows Vista theme, re-run vista-mode on so
+# its compatibility check drops any Vista plugin the new Omarchy broke, and
+# rebuild the Vista caption-button hyprbars for a new Hyprland in the
+# background (vista-hyprbars-heal; a no-op when it still matches).
+theme=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null)
+case $theme in
+  windows-vista | windows-vista-*) "$HOME/.config/omarchy/vista/bin/vista-mode" on ;;
+esac
+setsid -f "$HOME/.config/omarchy/vista/bin/vista-hyprbars-heal" </dev/null >/dev/null 2>&1
+exit 0

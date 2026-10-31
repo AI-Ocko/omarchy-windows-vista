@@ -1,0 +1,55 @@
+#!/bin/bash
+# Builds hyprbars with the Vista caption art (vista-captions.patch: image
+# caption buttons as in omarchy-windows-xp, plus per-button geometry, a 9-slice
+# caption image, the glass overlay and the title glow) into
+# ~/.local/lib/hyprbars-vista/libhyprbars.so. User-level: no sudo, nothing
+# outside ~/.local/lib/hyprbars-vista is written.
+#
+# RERUN THIS AFTER EVERY HYPRLAND UPDATE. The plugin is ABI-locked to the
+# Hyprland it was built against. omarchy/vista/hypr/late.lua loads it only while
+# the version stamp beside it matches the running Hyprland, and otherwise
+# falls back to the packaged /usr/lib/libhyprbars.so with plain buttons.
+#
+# Source: hyprwm/hyprland-plugins at the commit the AUR package
+# hyprland-plugin-hyprbars 0.56.2-3.1 pins, cloned to a temp dir from yay's
+# cache when present (never modified), else from GitHub.
+#
+# Undo: rm -r ~/.local/lib/hyprbars-vista && hyprctl reload
+set -euo pipefail
+
+COMMIT=7644cecdb947060682891a0db2a0cdc5c0b9e704
+HERE=$(cd "$(dirname "$0")" && pwd)
+OUT=$HOME/.local/lib/hyprbars-vista
+CACHE=$HOME/.cache/yay/hyprland-plugins/hyprland-plugins
+
+# 1. The running Hyprland must be 0.56.x, and the installed headers must be
+#    that exact build, or the plugin refuses to load (API hash mismatch).
+run_tag=$(hyprctl version -j | jq -r .tag)
+run_commit=$(hyprctl version -j | jq -r .commit)
+hdr_ver=$(pkg-config --modversion hyprland)
+hdr_commit=$(sed -n 's/^#define GIT_COMMIT_HASH *"\(.*\)"/\1/p' /usr/include/hyprland/src/version.h)
+echo "running Hyprland: $run_tag ($run_commit)"
+echo "headers:          v$hdr_ver ($hdr_commit)"
+[[ $run_tag == v0.56.* ]] || { echo "refusing: hyprbars at $COMMIT targets Hyprland 0.56.x" >&2; exit 1; }
+[[ "v$hdr_ver" == "$run_tag" && "$hdr_commit" == "$run_commit" ]] ||
+  { echo "refusing: headers do not match the running Hyprland (update, then re-login)" >&2; exit 1; }
+echo "version checks: ok"
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+src=https://github.com/hyprwm/hyprland-plugins.git
+[[ -d $CACHE ]] && git -C "$CACHE" cat-file -e "$COMMIT^{commit}" 2>/dev/null && src=$CACHE
+git -c advice.detachedHead=false clone -q --no-checkout "$src" "$tmp/hp" 2>/dev/null ||
+  git -C "$tmp" init -q hp
+git -C "$tmp/hp" cat-file -e "$COMMIT^{commit}" 2>/dev/null ||
+  git -C "$tmp/hp" fetch -q --depth 1 https://github.com/hyprwm/hyprland-plugins.git "$COMMIT"
+git -C "$tmp/hp" -c advice.detachedHead=false checkout -q "$COMMIT"
+git -C "$tmp/hp" apply "$HERE/vista-captions.patch"
+make -s -C "$tmp/hp/hyprbars" all
+
+mkdir -p "$OUT"
+install -m 755 "$tmp/hp/hyprbars/hyprbars.so" "$OUT/libhyprbars.so.new"
+mv -f "$OUT/libhyprbars.so.new" "$OUT/libhyprbars.so"
+# late.lua compares this with hl.version()
+echo "${run_tag#v}" > "$OUT/hyprland-version"
+echo "built $OUT/libhyprbars.so for Hyprland ${run_tag#v}"

@@ -1,0 +1,43 @@
+{
+  "verified": "omarchy 4.0.6-1",
+  "stock": {
+    "plugins/panels/power/Model.js": "5ed21781bcd315742b8eda1aa72f415f72217a38e03c659fe40095ed939f7ed2",
+    "plugins/panels/power/Panel.qml": "8e7b6c32c2bda2069a03a04d4d71d6a82aa8aa435bfba0b81782a51d3195a848"
+  },
+  "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
+  "self": "621b6ebd7ae5cc14daa8d83f598d21e2c96ec54b70863ba0b9241603b627aea2",
+  "external": [
+    "Color",
+    "ElideRight",
+    "InQuad",
+    "OutQuad",
+    "PlainText",
+    "RightButton",
+    "WordWrap",
+    "assign",
+    "ceil",
+    "changeRate",
+    "charAt",
+    "cycles",
+    "displayDevice",
+    "indexOf",
+    "isArray",
+    "isPresent",
+    "map",
+    "onBattery",
+    "push",
+    "rate",
+    "restart",
+    "round",
+    "slice",
+    "split",
+    "stop",
+    "substring",
+    "time",
+    "timeToEmpty",
+    "timeToFull",
+    "toLowerCase",
+    "toUpperCase",
+    "trim"
+  ]
+}

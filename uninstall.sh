@@ -99,7 +99,7 @@ remove "${targets[@]}"
 remove "$VISTA"
 remove "$DATA/fonts/vista" "$DATA/themes/Windows Vista" "$DATA/icons/windows-vista" \
   "$DATA/icons/windows-vista-cursors" "${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-windows-vista" \
-  "$HOME/.local/state/omarchy/vista" \
+  "$HOME/.local/lib/hyprbars-vista" "$HOME/.local/state/omarchy/vista" \
   "$HOME/.local/state/omarchy/toggles/hypr/windows-vista.lua"
 run fc-cache -f
 

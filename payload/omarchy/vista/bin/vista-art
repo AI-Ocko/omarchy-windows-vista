@@ -13,8 +13,9 @@ set -euo pipefail
 
 G=$(dirname "$(readlink -f "$0")")/../assets/graphics
 DATA=${XDG_DATA_HOME:-$HOME/.local/share}
+[[ -d $G ]] || { echo "vista-art: no $G (run fetch-assets.sh first)" >&2; exit 1; }
 
-for lib in imageres shell32 user32 explorer consent; do
+for lib in imageres shell32 user32 explorer consent pnidui sndvolsso bthprops; do
   for ico in "$G/$lib-ico"/*/*.ico; do
     [[ -f $ico ]] || continue
     size=${ico%/*}
@@ -25,7 +26,7 @@ for lib in imageres shell32 user32 explorer consent; do
     magick "$ico" -define png:exclude-chunks=date,time "PNG32:$png"
   done
 done
-echo "icons: $(find "$G"/{imageres,shell32,user32,explorer,consent} -name '*.png' 2>/dev/null | wc -l) PNGs"
+echo "icons: $(find "$G"/{imageres,shell32,user32,explorer,consent,pnidui,sndvolsso,bthprops} -name '*.png' 2>/dev/null | wc -l) PNGs"
 
 # imageres.dll group ids, identified on a contact sheet of the 48 px icons
 # (ASSETS.md). The first name of each entry is the icon, the rest are copies.
@@ -58,4 +59,123 @@ done
 if ! diff -rq "$wrap" "$DATA/icons/windows-vista" >/dev/null 2>&1; then
   rm -rf "$DATA/icons/windows-vista" && cp -r "$wrap" "$DATA/icons/windows-vista" &&
     echo "installed: $DATA/icons/windows-vista"
+fi
+
+# Caption art for the patched hyprbars (hyprbars/vista-captions.patch), as
+# "%d" frame sets: 0-3 normal/hot/pressed/disabled of a focused window, 4-7
+# the same unfocused. assets/graphics/captions/{glass,basic}/.
+#   glass  DWMWindow atlas parts (aero.msstyles): backgrounds 3/4 (left
+#          button: minimize), 5/6 (middle: maximize), 7/8 (right: close),
+#          each 4 frames of 20 px, the odd part focused and the even one not;
+#          glyphs at 96 dpi: 25 minimize, 21 maximize, 29 restore, 12 close
+#          (4 frames each, the same for an unfocused window)
+#   basic  Window class (Vista Basic): MIN/MAX/CLOSEBUTTON backgrounds, 8
+#          frames of 15 px, and their 96-dpi glyphs (IMAGEFILE1, 8 x 13 px);
+#          caption-0/1 = CAPTION (66 x 29, focused / unfocused)
+P=$G/aero/parts
+C=$G/captions
+if [[ -d $P/DWMWindow && ( ! -e $C/.done || $C/.done -ot $P/DWMWindow ) ]]; then
+  mkdir -p "$C/glass" "$C/basic"
+  # split <png> <frames> <outpattern> <first index>
+  split() { magick "$1" -crop "1x$2@" +repage +adjoin -define png:exclude-chunks=date,time "PNG32:$C/split-%d.png" &&
+    for ((k = 0; k < $2; k++)); do mv "$C/split-$k.png" "${3//%d/$((k + $4))}"; done; }
+  for b in min:3:4 max:5:6 close:7:8; do
+    IFS=: read -r n on off <<<"$b"
+    split "$P/DWMWindow/$on.0.ATLAS.png" 4 "$C/glass/$n-bg-%d.png" 0
+    split "$P/DWMWindow/$off.0.ATLAS.png" 4 "$C/glass/$n-bg-%d.png" 4
+  done
+  for g in min:25 max:21 restore:29 close:12; do
+    IFS=: read -r n part <<<"$g"
+    split "$P/DWMWindow/$part.0.ATLAS.png" 4 "$C/glass/$n-g-%d.png" 0
+    for k in 0 1 2 3; do cp "$C/glass/$n-g-$k.png" "$C/glass/$n-g-$((k + 4)).png"; done
+  done
+  for b in min:MINBUTTON max:MAXBUTTON restore:RESTOREBUTTON close:CLOSEBUTTON; do
+    IFS=: read -r n part <<<"$b"
+    [[ $n == restore ]] || split "$P/Window/$part.0.IMAGEFILE.png" 8 "$C/basic/$n-bg-%d.png" 0
+    split "$P/Window/$part.0.IMAGEFILE1.png" 8 "$C/basic/$n-g-%d.png" 0
+  done
+  split "$P/Window/CAPTION.0.IMAGEFILE.png" 2 "$C/basic/caption-%d.png" 0
+  : >"$C/.done"
+  echo "caption art: $(find "$C" -name '*.png' | wc -l) files in $C"
+fi
+
+# Taskbar art for ocko.vista-taskbar, per look, in assets/graphics/taskbar/
+# {glass,basic}/ (aero.msstyles parts; glass = the *Composited classes Aero
+# uses, basic = the plain ones Vista Basic uses):
+#   taskbar.png       TaskBar[Composited]::TaskBar BACKGROUNDBOTTOM (0 0 15 14)
+#   task-{0..5}.png   TaskBand::Toolbar BUTTON: normal, hot, pressed,
+#                     disabled, checked, hot+checked (5 5 15 13)
+#   ql-{0..5}.png     TaskBar::Toolbar BUTTON (Quick Launch; 6 6 15 13)
+#   tray.png          TrayNotifyHoriz::TrayNotify BACKGROUND (1 1 14 15)
+#   chevron-{0,1,2}.png / chevron-open-*  TrayNotifyHoriz[Open]::Button,
+#                     normal, hot, pressed (96 dpi)
+# and the Start orb, assets/graphics/taskbar/orb/<dpi>/{0,1,2}.png:
+# StartBottom::Button at 96/120/144/192 dpi, normal, hot, pressed.
+T=$G/taskbar
+if [[ -d $P && ( ! -e $T/.done || $T/.done -ot $P ) ]]; then
+  mkdir -p "$T/glass" "$T/basic"
+  cut() { magick "$1" -crop "1x$2@" +repage +adjoin -define png:exclude-chunks=date,time "PNG32:$3"; }
+  cp "$P/TaskBarComposited__TaskBar/BACKGROUNDBOTTOM.0.IMAGEFILE.png" "$T/glass/taskbar.png"
+  cp "$P/TaskBar/BACKGROUNDBOTTOM.0.IMAGEFILE.png" "$T/basic/taskbar.png"
+  for look in glass basic; do
+    cut "$P/TaskBand__Toolbar/BUTTON.0.IMAGEFILE.png" 6 "$T/$look/task-%d.png"
+    cut "$P/TaskBar__Toolbar/BUTTON.0.IMAGEFILE.png" 6 "$T/$look/ql-%d.png"
+    cp "$P/TrayNotifyHoriz__TrayNotify/BACKGROUND.0.IMAGEFILE.png" "$T/$look/tray.png"
+    cut "$P/TrayNotifyHoriz__Button/0.0.IMAGEFILE1.png" 3 "$T/$look/chevron-%d.png"
+    cut "$P/TrayNotifyHorizOpen__Button/0.0.IMAGEFILE1.png" 3 "$T/$look/chevron-open-%d.png"
+  done
+  for f in 1:96 2:120 3:144 4:192; do
+    mkdir -p "$T/orb/${f#*:}"
+    cut "$P/StartBottom__Button/0.0.IMAGEFILE${f%%:*}.png" 3 "$T/orb/${f#*:}/%d.png"
+  done
+  : >"$T/.done"
+  echo "taskbar art: $(find "$T" -name '*.png' | wc -l) files in $T"
+fi
+
+# The notification-area battery: batmeter.dll BITMAP 306, 43 frames of 32 px,
+# as assets/graphics/taskbar/battery/<n>.png. Frames (identified by their green
+# fill on a contact sheet): 0-9 on battery, 10% steps; 16 warning; 17
+# critical; 19-28 on AC, 10% steps; 29 no battery; 30 no battery (X); 42 on
+# AC, full. ocko.vista-power picks the frame (vistaBatteryFrame).
+B=$G/taskbar/battery
+if [[ -f $G/batmeter/BITMAP/306.bmp && ( ! -e $B/0.png || $B/0.png -ot $G/batmeter/BITMAP/306.bmp ) ]]; then
+  mkdir -p "$B"
+  magick "$G/batmeter/BITMAP/306.bmp" -crop 32x32 +repage +adjoin -define png:exclude-chunks=date,time "PNG32:$B/%d.png"
+  echo "battery art: $(ls "$B" | wc -l) frames in $B"
+fi
+
+# Start menu art for ocko.vista-taskbar's VistaStartMenu, per look, in
+# assets/graphics/startmenu/{glass,basic}/ (aero.msstyles StartPanel parts:
+# glass = StartPanelComposited, basic = StartPanel):
+#   proglist, placeslist, more (All Programs strip), openbox (search box),
+#   progsep, placesep; and, the same for both: userpic (USERPICTURE frame),
+#   more-arrow-{0,1} / back-arrow-{0,1} (normal, hot; 96 dpi),
+#   footer-{0,1}-{0,1,2} (LOGOFFBUTTONS normal/hot: undock, lock, power,
+#   24 px each), split-{0,1,2} + split-glyph (LOGOFFSPLITBUTTONDROPDOWN),
+#   places-hot (StartMenuPlaceListComposited LISTITEM hot), prog-hot
+#   (StartMenuHover::TreeView hot), prog-sel (StartMenu::ListView selected)
+SM=$G/startmenu
+if [[ -d $P/StartPanel && ( ! -e $SM/.done || $SM/.done -ot $P ) ]]; then
+  for look in glass basic; do
+    mkdir -p "$SM/$look"
+    src=$P/StartPanel; [[ $look == glass ]] && src=$P/StartPanelComposited__StartPanel
+    for part in proglist:PROGLIST placeslist:PLACESLIST more:MOREPROGRAMS openbox:OPENBOX progsep:PROGLISTSEPARATOR placesep:PLACESLISTSEPARATOR; do
+      cp "$src/${part#*:}.0.IMAGEFILE.png" "$SM/$look/${part%%:*}.png"
+    done
+    cp "$P/StartPanel/USERPICTURE.0.IMAGEFILE.png" "$SM/$look/userpic.png"
+    cp "$P/StartPanel/MOREPROGRAMSARROW.0.IMAGEFILE1.png" "$SM/$look/more-arrow-0.png"
+    cp "$P/StartPanel/MOREPROGRAMSARROW.2.IMAGEFILE1.png" "$SM/$look/more-arrow-1.png"
+    cp "$P/StartPanel/MOREPROGRAMSARROWBACK.0.IMAGEFILE1.png" "$SM/$look/back-arrow-0.png"
+    cp "$P/StartPanel/MOREPROGRAMSARROWBACK.2.IMAGEFILE1.png" "$SM/$look/back-arrow-1.png"
+    for st in 0:0 2:1; do
+      magick "$P/StartPanel/LOGOFFBUTTONS.${st%%:*}.IMAGEFILE.png" -crop 3x1@ +repage +adjoin -define png:exclude-chunks=date,time "PNG32:$SM/$look/footer-${st#*:}-%d.png"
+    done
+    magick "$P/StartPanel/LOGOFFSPLITBUTTONDROPDOWN.0.IMAGEFILE.png" -crop 1x3@ +repage +adjoin -define png:exclude-chunks=date,time "PNG32:$SM/$look/split-%d.png"
+    cp "$P/StartPanel/LOGOFFSPLITBUTTONDROPDOWN.0.GLYPHIMAGEFILE.png" "$SM/$look/split-glyph.png"
+    cp "$P/StartMenuPlaceListComposited__ListView/LISTITEM.3.IMAGEFILE.png" "$SM/$look/places-hot.png"
+    cp "$P/StartMenuHover__TreeView/1.2.IMAGEFILE.png" "$SM/$look/prog-hot.png"
+    cp "$P/StartMenu__ListView/LISTITEM.5.IMAGEFILE.png" "$SM/$look/prog-sel.png"
+  done
+  : >"$SM/.done"
+  echo "start menu art: $(find "$SM" -name '*.png' | wc -l) files in $SM"
 fi

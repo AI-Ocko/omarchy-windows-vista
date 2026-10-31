@@ -74,7 +74,7 @@ echo "Install targets: ${#targets[@]}, none foreign."
 
 # ------------------------------------------------------------------- packages
 say "Packages"
-PKGS=(jq python imagemagick curl libarchive fontconfig)
+PKGS=(jq python imagemagick curl libarchive fontconfig cmake gcc make pkgconf git)
 # sudo only for what is missing, so a re-run with everything present needs no
 # password (and works from a session without a terminal).
 mapfile -t missing < <(pacman -T "${PKGS[@]}")
@@ -121,6 +121,32 @@ say "Microsoft's files (downloaded here, never shipped) and derived art"
 # installs the fonts, the GTK theme, the pointers and the icon theme under
 # ~/.local/share, and gives every scheme Vista's wallpapers.
 run "$VISTA/fetch-assets.sh" || die "fetch-assets.sh failed (see above); nothing switched to Vista yet. Re-run ./install.sh to retry."
+
+# ------------------------------------------------------------- title bars
+# hyprbars with Vista's caption art, built in your account for the running
+# Hyprland (vista/hyprbars/build: needs its headers, nothing from the AUR).
+say "Vista title bars (patched hyprbars, user-level)"
+hv=$(hyprctl version -j | jq -r .tag)
+hc=$(hyprctl version -j | jq -r .commit)
+hdr=$(pkg-config --modversion hyprland 2>/dev/null)
+hdr_commit=$(sed -n 's/^#define GIT_COMMIT_HASH *"\(.*\)"/\1/p' /usr/include/hyprland/src/version.h 2>/dev/null)
+BARS_LOG=$HOME/.local/state/omarchy/vista/hyprbars-build.log
+if [[ $hv != v0.56.* ]]; then
+  warn "Hyprland is $hv: the Vista caption patch targets 0.56.x, so windows get no Vista title bars."
+elif [[ "v$hdr" != "$hv" || $hdr_commit != "$hc" ]]; then
+  warn "the Hyprland headers (v${hdr:-none}) are not the running Hyprland ($hv): log out and back in after the update, then re-run (the next login also rebuilds by itself)."
+else
+  printf '+ %s >%s 2>&1\n' "$VISTA/hyprbars/build" "$BARS_LOG"
+  if ((!DRY)); then
+    mkdir -p "${BARS_LOG%/*}"
+    if "$VISTA/hyprbars/build" >"$BARS_LOG" 2>&1; then
+      tail -n 1 "$BARS_LOG"
+    else
+      warn "THE VISTA CAPTION BUILD FAILED; windows get no title bars. Last lines of $BARS_LOG:"
+      tail -n 15 "$BARS_LOG" | sed 's/^/    /' >&2
+    fi
+  fi
+fi
 
 # ----------------------------------------------------------------- host edits
 # Three of your own files get one marked block each, after a .pre-vista

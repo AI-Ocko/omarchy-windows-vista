@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "ocko.vista-tray",
+  "name": "Windows Vista System Tray",
+  "version": "1.0.0",
+  "author": "ocko",
+  "description": "omarchy.tray for the Windows Vista notification area: Vista context menus and Customize Notifications. Enabled only while an Vista theme is active (omarchy/vista/bin/vista-mode); the stock widget stays enabled for other bars.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Tray.qml"
+  },
+  "barWidget": {
+    "displayName": "System tray",
+    "description": "Status notifier items",
+    "category": "Status",
+    "allowMultiple": false
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.tray"
+  }
+}
