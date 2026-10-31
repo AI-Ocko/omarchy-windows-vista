@@ -61,7 +61,7 @@ Rectangle {
           verticalAlignment: Text.AlignVCenter
           elide: Text.ElideRight
           text: String(lv.columns[parent.index].title || "")
-          font.family: "Tahoma"
+          font.family: "Segoe UI"
           font.pixelSize: Style.font.bodySmall
         }
         MouseArea { id: hMouse; anchors.fill: parent; hoverEnabled: true }
@@ -96,7 +96,7 @@ Rectangle {
         verticalAlignment: Text.AlignVCenter
         text: row.group || ""
         color: "#215DC6"
-        font.family: "Tahoma"
+        font.family: "Segoe UI"
         font.bold: true
         font.pixelSize: Style.font.bodySmall
       }
@@ -143,7 +143,7 @@ Rectangle {
               elide: Text.ElideRight
               text: { var r = lv.rows[row.index]; if (!Array.isArray(r)) return ""; return String(r[parent.index] === undefined ? "" : r[parent.index]) }
               color: row.selected && parent.index === 0 && lv.focused ? VistaScheme.sc.highlightText : "#000000"
-              font.family: "Tahoma"
+              font.family: "Segoe UI"
               font.pixelSize: Style.font.bodySmall
             }
           }

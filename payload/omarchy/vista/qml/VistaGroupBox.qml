@@ -38,7 +38,7 @@ Item {
     x: box.gapX + Style.space(2)
     text: box.caption
     color: VistaScheme.sc.groupText
-    font.family: "Tahoma"
+    font.family: "Segoe UI"
     font.pixelSize: Style.font.bodySmall
   }
   Item {

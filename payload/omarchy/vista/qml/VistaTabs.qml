@@ -66,7 +66,7 @@ Item {
           anchors.verticalCenterOffset: tab.selected ? -Style.space(1) : 0
           text: String(tab.modelData)
           color: tabs.enabled ? "#000000" : "#A1A192"
-          font.family: "Tahoma"
+          font.family: "Segoe UI"
           font.pixelSize: Style.font.bodySmall
         }
 

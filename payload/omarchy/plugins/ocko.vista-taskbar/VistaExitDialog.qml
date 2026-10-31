@@ -95,7 +95,7 @@ Scope {
       anchors.verticalCenterOffset: area.pressed ? dlg.s(1) : 0
       text: cb.text
       color: "#000000"
-      font.family: "Tahoma"
+      font.family: "Segoe UI"
       font.pixelSize: Style.font.bodySmall
     }
     Rectangle {
@@ -236,7 +236,7 @@ Scope {
                 text: cell.b.label
                 textFormat: Text.StyledText
                 color: cell.ok ? "#FFFFFF" : "#A6B8E8"
-                font.family: "Tahoma"
+                font.family: "Segoe UI"
                 font.pixelSize: Style.font.bodySmall
               }
 

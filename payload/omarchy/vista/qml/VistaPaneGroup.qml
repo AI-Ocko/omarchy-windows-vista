@@ -24,7 +24,7 @@ Column {
       anchors.verticalCenterOffset: Style.space(1)
       text: group.title
       color: group.special ? VistaScheme.sc.specialHead : VistaScheme.sc.normalHead
-      font.family: "Tahoma"
+      font.family: "Segoe UI"
       font.bold: true
       font.pixelSize: Style.font.bodySmall
     }

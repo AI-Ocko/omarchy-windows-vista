@@ -103,7 +103,7 @@ Item {
             // Marlett's check, or its bullet for a radio item.
             text: entry.item.radio === true ? "\u25CF" : "✓"
             color: label.color
-            font.family: "Tahoma"
+            font.family: "Segoe UI"
             font.pixelSize: Style.font.bodySmall
           }
 
@@ -128,7 +128,7 @@ Item {
             text: String(entry.item.text || "")
             textFormat: Text.StyledText
             color: entry.item.enabled === false ? "#ACA899" : entry.lit ? VistaScheme.sc.highlightText : "#000000"
-            font.family: "Tahoma"
+            font.family: "Segoe UI"
             font.bold: entry.item.bold === true
             font.pixelSize: Style.font.bodySmall
             onImplicitWidthChanged: if (implicitWidth > column.widest) column.widest = implicitWidth

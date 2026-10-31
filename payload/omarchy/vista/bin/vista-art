@@ -206,3 +206,62 @@ if [[ -d $G/authui/BITMAP && ( ! -e $LG/.done || $LG/.done -ot $G/authui/BITMAP 
   : >"$LG/.done"
   echo "logon art: $(find "$LG" "$AP" -type f ! -name .done | wc -l) files"
 fi
+
+# Control art for the shell's dialogs and flyouts (omarchy/vista/qml), under the
+# names the widget library shares with omarchy-windows-xp, cut from the Aero
+# msstyles parts (aero/parts/<Class>/<PART>.<state>.<prop>.png; frame counts
+# from parts.txt). Vista bakes some glyphs into the button images (scroll
+# arrows, spin buttons); those glyph slots get a transparent pixel.
+W=$G/taskbar/widgets C=$G/captions/basic
+if [[ -d $P/Button && -d $C && ( ! -e $W/.done || $W/.done -ot $P ) ]]; then
+  mkdir -p "$W"
+  split() { # <png> <count> <prefix>
+    magick "$1" -crop "1x$2@" +repage +adjoin -define png:exclude-chunks=date,time "PNG32:$3-tmp-%d.png"
+    for ((i = 0; i < $2; i++)); do mv "$3-tmp-$i.png" "$3-$i.png"; done
+  }
+  none() { # <prefix> <count>: transparent glyph slots
+    for ((i = 0; i < $2; i++)); do magick -size 1x1 xc:none "PNG32:$1-$i.png"; done
+  }
+  split "$P/Button/PUSHBUTTON.0.IMAGEFILE.png" 6 "$W/btn"
+  split "$P/Button/CHECKBOX.0.IMAGEFILE1.png" 20 "$W/check"
+  split "$P/Button/RADIOBUTTON.0.IMAGEFILE1.png" 8 "$W/radio"
+  cp "$P/Button/GROUPBOX.0.IMAGEFILE.png" "$W/groupbox.png"
+  split "$P/Combobox/1.0.IMAGEFILE.png" 4 "$W/combo"
+  split "$P/Combobox/1.0.GLYPHIMAGEFILE.png" 4 "$W/combog"
+  split "$P/Header/1.0.IMAGEFILE.png" 12 "$W/header"
+  cp "$P/Progress/BAR.0.IMAGEFILE.png" "$W/progress-track.png"
+  cp "$P/Progress/FILL.0.IMAGEFILE.png" "$W/progress-chunk.png"
+  split "$P/ScrollBar/ARROWBTN.0.IMAGEFILE.png" 20 "$W/scroll-arrow"; none "$W/scroll-glyph" 20
+  split "$P/ScrollBar/THUMBBTNVERT.0.IMAGEFILE.png" 4 "$W/scroll-thumb"
+  cp "$P/ScrollBar/LOWERTRACKVERT.0.IMAGEFILE.png" "$W/scroll-shaft-0.png"
+  split "$P/Spin/1.0.IMAGEFILE.png" 4 "$W/spin-up"; none "$W/spin-upg" 4
+  split "$P/Spin/2.0.IMAGEFILE.png" 4 "$W/spin-down"; none "$W/spin-downg" 4
+  cp "$P/TrackBar/1.0.IMAGEFILE.png" "$W/trk-track.png"
+  split "$P/TrackBar/3.0.IMAGEFILE.png" 5 "$W/trk-thumb-h"
+  split "$P/TrackBar/6.0.IMAGEFILE.png" 5 "$W/trk-thumb-v"
+  split "$P/TrackBar/4.0.IMAGEFILE1.png" 5 "$W/trk-thumb-down"
+  split "$P/TrackBar/5.0.IMAGEFILE1.png" 5 "$W/trk-thumb-up"
+  split "$P/TrackBar/7.0.IMAGEFILE1.png" 5 "$W/trk-thumb-left"
+  split "$P/TrackBar/8.0.IMAGEFILE1.png" 5 "$W/trk-thumb-right"
+  for t in :TABITEM -left:TABITEMLEFTEDGE -right:TABITEMRIGHTEDGE -both:TABITEMBOTHEDGE \
+           -top:TOPTABITEM -topleft:TOPTABITEMLEFTEDGE -topright:TOPTABITEMRIGHTEDGE -topboth:TOPTABITEMBOTHEDGE; do
+    split "$P/Tab/${t#*:}.0.IMAGEFILE.png" 5 "$W/tab${t%%:*}"
+  done
+  cp "$P/Tab/PANE.0.IMAGEFILE.png" "$W/tab-pane.png"
+  split "$P/Tooltip/CLOSE.0.IMAGEFILE1.png" 3 "$W/balloon-close"
+  # Dialog chrome: the Vista Basic frame (Window class; caption and button
+  # backgrounds and glyphs as cut for the title bars above).
+  for i in 0 1; do cp "$C/caption-$i.png" "$W/win-cap-$i.png"; done
+  split "$P/Window/FRAMELEFT.0.IMAGEFILE.png" 2 "$W/win-left"
+  split "$P/Window/FRAMERIGHT.0.IMAGEFILE.png" 2 "$W/win-right"
+  split "$P/Window/FRAMEBOTTOM.0.IMAGEFILE.png" 2 "$W/win-bottom"
+  split "$P/Window/HELPBUTTON.0.IMAGEFILE1.png" 8 "$W/win-helpg"
+  for i in {0..7}; do
+    cp "$C/close-bg-$i.png" "$W/win-close-$i.png"; cp "$C/close-g-$i.png" "$W/win-closeg-$i.png"
+    cp "$C/max-bg-$i.png" "$W/win-help-$i.png"
+    cp "$C/min-g-$i.png" "$W/win-ming-$i.png"; cp "$C/max-g-$i.png" "$W/win-maxg-$i.png"
+    cp "$C/restore-g-$i.png" "$W/win-restg-$i.png"
+  done
+  : >"$W/.done"
+  echo "widget art: $(find "$W" -name '*.png' | wc -l) files in $W"
+fi

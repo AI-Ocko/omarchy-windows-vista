@@ -1,0 +1,40 @@
+{
+  "verified": "omarchy 4.0.6-1",
+  "stock": {
+    "plugins/polkit/PolkitAgent.qml": "33b31505ec127294eb906944bd2a15a97453229e78e22f816b4363ccb7d3e74c",
+    "plugins/polkit/PolkitModel.js": "29c0b96b25fea18d8dcc1e61912f8906ff75c599b07f9bf8b0f8cc4f6fb985c9"
+  },
+  "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
+  "self": "57be5937867faacacb7178b4e3ea29e02bf75f26f14451368870512be6a1d4ae",
+  "external": [
+    "BeforeItem",
+    "Color",
+    "ElideRight",
+    "InOutQuad",
+    "Key_Enter",
+    "Key_Escape",
+    "Key_Return",
+    "OutQuad",
+    "Overlay",
+    "PlainText",
+    "Wrap",
+    "WrapAnywhere",
+    "callLater",
+    "cancelAuthenticationRequest",
+    "charAt",
+    "forceActiveFocus",
+    "indexOf",
+    "inputPrompt",
+    "isGroup",
+    "isResponseRequired",
+    "log",
+    "replace",
+    "restart",
+    "split",
+    "stop",
+    "supplementaryMessage",
+    "toLowerCase",
+    "trim",
+    "warn"
+  ]
+}

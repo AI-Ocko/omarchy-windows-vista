@@ -6,6 +6,6 @@ import qs.Commons
 Text {
   color: enabled ? "#000000" : "#ACA899"
   textFormat: Text.StyledText
-  font.family: "Tahoma"
+  font.family: "Segoe UI"
   font.pixelSize: Style.font.bodySmall
 }

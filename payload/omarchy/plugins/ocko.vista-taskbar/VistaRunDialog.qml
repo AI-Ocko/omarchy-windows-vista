@@ -127,7 +127,7 @@ Scope {
           wrapMode: Text.WordWrap
           text: "Type the name of a program, folder, document, or Internet resource, and Windows will open it for you."
           color: "#000000"
-          font.family: "Tahoma"
+          font.family: "Segoe UI"
           font.pixelSize: Style.font.bodySmall
         }
         Text {
@@ -136,7 +136,7 @@ Scope {
           text: "<u>O</u>pen:"
           textFormat: Text.StyledText
           color: "#000000"
-          font.family: "Tahoma"
+          font.family: "Segoe UI"
           font.pixelSize: Style.font.bodySmall
         }
 
@@ -162,7 +162,7 @@ Scope {
             color: "#000000"
             selectionColor: "#316AC5"
             selectedTextColor: "#FFFFFF"
-            font.family: "Tahoma"
+            font.family: "Segoe UI"
             font.pixelSize: Style.font.bodySmall
             // Vista pre-fills the most recent command, selected.
             Component.onCompleted: {
@@ -272,7 +272,7 @@ Scope {
                 elide: Text.ElideRight
                 text: run.menu.usage.run[index] || ""
                 color: run.listIndex === index ? "#FFFFFF" : "#000000"
-                font.family: "Tahoma"
+                font.family: "Segoe UI"
                 font.pixelSize: Style.font.bodySmall
               }
               MouseArea {

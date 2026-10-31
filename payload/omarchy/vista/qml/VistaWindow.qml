@@ -1,15 +1,12 @@
 import QtQuick
 import qs.Commons
 
-// VistaWindow: an Vista top-level window drawn from the active scheme's msstyles
-// art, for the layer-shell dialogs that stand in for windows (Run, the
-// Control Panel / Search Results menu, Run As, ...). Geometry is Vista's own at
-// 96 dpi through Style.space(): Window.Caption 29 px tall (SizingMargins
-// 28,35,9,17), caption buttons 21x21 at y 5 and Offset -25 / -49 / -73 from
-// the right ([Window.CloseButton/MaxButton/MinButton]), frame 3 px on a fixed
-// dialog and 4 px on a sizable window (measured on a 1:1 Vista dialog capture,
-// reference/dialog-automatic-updates.png). Caption text is Trebuchet MS 10
-// bold (Style.font.subtitle) with the scheme's 1,1 TextShadowColor.
+// VistaWindow: a Vista window frame for the layer-shell dialogs that stand in
+// for windows (Run, Run As, properties ...), drawn in the Vista Basic look
+// (aero.msstyles Window class, the frame Vista gives windows it cannot
+// compose): caption 29 px (SizingMargins 28,35,9,17), caption buttons 26x18
+// hung from y 1 like the title bars (late.lua), frame 4 px. Caption text is
+// Segoe UI 9 in black.
 //
 // Put the client area's content inside: it fills the face-coloured client
 // rectangle (`client`). Buttons are listed left to right in `buttons`:
@@ -28,7 +25,7 @@ Item {
   property color face: VistaScheme.sc.face
   default property alias content: client.data
   readonly property alias client: client
-  readonly property int frameWidth: Style.space(sizable ? 4 : 3)
+  readonly property int frameWidth: Style.space(4)
   readonly property int captionHeight: Style.space(29)
 
   signal closeClicked()
@@ -46,14 +43,14 @@ Item {
     property string kind: "close"
     property bool enabledState: true
     signal clicked()
-    width: win.s(21)
-    height: win.s(21)
+    width: win.s(26)
+    height: win.s(18)
     readonly property int state4: !enabledState ? 3 : m.pressed ? 2 : m.containsMouse ? 1 : 0
     readonly property int cell: state4 + (win.active ? 0 : 4)
     VistaArt {
       anchors.fill: parent
       source: VistaScheme.art((cbtn.kind === "close" ? "win-close-" : "win-help-") + cbtn.cell)
-      margins: [5, 5, 5, 5]
+      margins: [2, 2, 7, 7]
     }
     Image {
       anchors.centerIn: parent
@@ -122,17 +119,16 @@ Item {
     text: win.title
     elide: Text.ElideRight
     color: VistaScheme.sc.capText
-    font.family: "Trebuchet MS"
-    font.bold: true
-    font.pixelSize: Style.font.subtitle
+    font.family: "Segoe UI"
+    font.pixelSize: Style.space(12)
   }
 
-  // Right-aligned so the last button sits at Offset -25; neighbours 3 px apart.
+  // Right-aligned, joined, hung from the top edge as Basic's are.
   Row {
     id: btnRow
-    x: parent.width - win.s(4) - width
-    y: win.s(5)
-    spacing: win.s(3)
+    x: parent.width - win.s(6) - width
+    y: win.s(1)
+    spacing: 0
     Repeater {
       model: win.buttons
       CaptionButton {

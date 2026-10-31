@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "ocko.vista-monitor",
+  "name": "Windows Vista Display",
+  "version": "1.0.0",
+  "author": "ocko",
+  "description": "omarchy.monitor for the Windows Vista notification area. Enabled only while an Vista theme is active (omarchy/vista/bin/vista-mode); the stock widget stays enabled for other bars.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Display",
+    "description": "Brightness slider and laptop display controls",
+    "category": "System",
+    "allowMultiple": false
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.monitor"
+  }
+}

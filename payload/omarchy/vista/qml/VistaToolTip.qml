@@ -19,7 +19,7 @@ Rectangle {
     id: label
     anchors.centerIn: parent
     color: VistaScheme.infoText
-    font.family: "Tahoma"
+    font.family: "Segoe UI"
     font.pixelSize: Style.font.bodySmall
   }
 }

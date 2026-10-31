@@ -30,7 +30,7 @@ Item {
     text: link.text
     elide: Text.ElideRight
     color: link.enabled ? VistaScheme.sc.normalText : VistaScheme.sc.gray
-    font.family: "Tahoma"
+    font.family: "Segoe UI"
     font.pixelSize: Style.font.bodySmall
     font.underline: link.enabled && linkMouse.containsMouse
   }

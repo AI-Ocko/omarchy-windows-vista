@@ -26,7 +26,8 @@ Singleton {
   readonly property string slug: schemes[themeName] ? themeName : "windows-vista"
   readonly property var sc: schemes[slug]
   readonly property string artRoot: graphics + "/taskbar"
-  readonly property string artDir: artRoot + "/" + slug
+  // Control art is the same in every scheme (vista-art: taskbar/widgets).
+  readonly property string artDir: artRoot + "/widgets"
 
   // InfoWindow / InfoText (hivedef.inf); the same in every scheme.
   readonly property color infoWindow: "#FFFFE1"
@@ -43,39 +44,26 @@ Singleton {
     return graphics + "/user32/" + (size || 32) + "/" + (ids[kind] || 104) + ".png"
   }
 
-  // face = Btnface, highlight/highlightText = Highlight(Text), gray = GrayText,
-  // capText/capShadow = CaptionText / [Window] TextShadowColor, frameL/frameB =
-  // Window.FrameLeft/FrameBottom SizingMargins (l, r, t, b), groupText =
-  // button.groupbox TextColor, paneTop/paneBottom = ExplorerBar gradient,
-  // special*/normal* = ExplorerBar.{Special,Normal}Group{Head,Background}
-  // TextColor (and the normal group's FillColor), edit = edit BorderColor,
-  // accent = ActiveCaption.
+  // Vista's system colours (the same in all four schemes; only the glass and
+  // the taskbar differ): face = ButtonFace, highlight(Text) = Highlight(Text),
+  // gray = GrayText, capText = the Basic caption text (black, no shadow:
+  // capShadow transparent), frameL/frameB = Window.FrameLeft/FrameBottom
+  // SizingMargins, groupText = Button.GroupBox TextColor, paneTop/paneBottom
+  // and special*/normal* = the task pane (Vista has none: Control Panel's
+  // light blue left pane), edit = Edit BorderColor, accent = Highlight,
+  // instruction = TaskDialog main-instruction text.
+  readonly property var vistaColours: ({
+    face: "#F0F0F0", highlight: "#3399FF", highlightText: "#FFFFFF", gray: "#6D6D6D",
+    capText: "#000000", capShadow: "#00000000", frameL: [2, 1, 91, 0], frameB: [2, 2, 0, 2],
+    groupText: "#000000", paneTop: "#EEF3FA", paneBottom: "#D8E6F5",
+    specialHead: "#1E395B", specialText: "#1E395B", normalHead: "#1E395B", normalText: "#0066CC",
+    normalFill: "#FFFFFF", edit: "#ABADB3", accent: "#3399FF", instruction: "#003399"
+  })
   readonly property var schemes: ({
-    "windows-vista":        { face: "#ECE9D8", highlight: "#316AC5", highlightText: "#FFFFFF", gray: "#ACA899",
-                           capText: "#FFFFFF", capShadow: "#0A1883", frameL: [2, 2, 0, 0], frameB: [5, 5, 2, 2],
-                           groupText: "#0046D5", paneTop: "#8CAAE6", paneBottom: "#6487DC",
-                           specialHead: "#FFFFFF", specialText: "#265CC0", normalHead: "#215DC6", normalText: "#265CC0",
-                           normalFill: "#D6DFF7", edit: "#7F9DB9", accent: "#0054E3" },
-    "windows-vista-olive":  { face: "#ECE9D8", highlight: "#93A070", highlightText: "#FFFFFF", gray: "#ACA899",
-                           capText: "#FFFFFF", capShadow: "#41400A", frameL: [2, 2, 0, 0], frameB: [5, 5, 2, 2],
-                           groupText: "#99540A", paneTop: "#D3D9BC", paneBottom: "#AFB988",
-                           specialHead: "#FFFFFF", specialText: "#265CC0", normalHead: "#294600", normalText: "#345800",
-                           normalFill: "#EEF6E4", edit: "#A4B97F", accent: "#8BA169" },
-    "windows-vista-silver": { face: "#E0DFE3", highlight: "#B2B4BF", highlightText: "#000000", gray: "#ACA899",
-                           capText: "#0E1010", capShadow: "#C7C2D1", frameL: [1, 1, 0, 0], frameB: [5, 5, 1, 2],
-                           groupText: "#0046D5", paneTop: "#E0E0DF", paneBottom: "#A6A4BA",
-                           specialHead: "#FFFFFF", specialText: "#265CC0", normalHead: "#3E3C52", normalText: "#555367",
-                           normalFill: "#F2F0FF", edit: "#A5ACB2", accent: "#C0C0C0" },
-    "windows-vista-royale": { face: "#EBE9ED", highlight: "#335EA8", highlightText: "#FFFFFF", gray: "#A7A6AA",
-                           capText: "#FFFFFF", capShadow: "#0A1883", frameL: [2, 1, 0, 0], frameB: [5, 5, 1, 2],
-                           groupText: "#335EA8", paneTop: "#62A0E8", paneBottom: "#5372BE",
-                           specialHead: "#FFFFFF", specialText: "#265CC0", normalHead: "#215DC6", normalText: "#265CC0",
-                           normalFill: "#D6DFF7", edit: "#A7A6AA", accent: "#335EA8" },
-    "windows-vista-zune":   { face: "#E2E2E2", highlight: "#BEBEBE", highlightText: "#000000", gray: "#646464",
-                           capText: "#FFFFFF", capShadow: "#231814", frameL: [2, 1, 0, 0], frameB: [5, 5, 2, 2],
-                           groupText: "#0046D5", paneTop: "#B4B4B4", paneBottom: "#969696",
-                           specialHead: "#FFFFFF", specialText: "#6B6B6B", normalHead: "#6B6B6B", normalText: "#6B6B6B",
-                           normalFill: "#E3E3E3", edit: "#969696", accent: "#343434" }
+    "windows-vista": vistaColours,
+    "windows-vista-graphite": vistaColours,
+    "windows-vista-frost": vistaColours,
+    "windows-vista-basic": vistaColours
   })
 
   FileView {

@@ -41,7 +41,7 @@ Rectangle {
     color: field.enabled ? "#000000" : VistaScheme.sc.gray
     selectionColor: VistaScheme.sc.highlight
     selectedTextColor: VistaScheme.sc.highlightText
-    font.family: "Tahoma"
+    font.family: "Segoe UI"
     font.pixelSize: Style.font.bodySmall
   }
 

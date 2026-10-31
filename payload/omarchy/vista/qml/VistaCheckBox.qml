@@ -37,7 +37,7 @@ Item {
     text: cb.text
     textFormat: Text.StyledText
     color: cb.enabled ? "#000000" : "#A1A192"
-    font.family: "Tahoma"
+    font.family: "Segoe UI"
     font.pixelSize: Style.font.bodySmall
   }
 

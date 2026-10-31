@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "ocko.vista-weather",
+  "name": "Windows Vista Weather",
+  "version": "1.0.0",
+  "author": "ocko",
+  "description": "omarchy.weather for the Windows Vista notification area: the weather button with an Vista Weather window. Enabled only while an Vista theme is active (omarchy/vista/bin/vista-mode); the stock widget stays enabled for other bars.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Weather",
+    "description": "Weather pill with detail popup",
+    "category": "Info",
+    "allowMultiple": false,
+    "settingsForm": "weatherSettings"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.weather"
+  }
+}

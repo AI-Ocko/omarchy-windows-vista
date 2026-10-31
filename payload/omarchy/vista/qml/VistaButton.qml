@@ -31,7 +31,7 @@ Item {
     text: btn.text
     textFormat: Text.StyledText
     color: btn.enabled ? "#000000" : "#A1A192"
-    font.family: "Tahoma"
+    font.family: "Segoe UI"
     font.pixelSize: Style.font.bodySmall
   }
 

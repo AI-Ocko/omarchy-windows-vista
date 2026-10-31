@@ -21,7 +21,7 @@ Rectangle {
     anchors.centerIn: parent
     text: box.code.toUpperCase()
     color: "#FFFFFF"
-    font.family: "Tahoma"
+    font.family: "Segoe UI"
     font.bold: true
     font.pixelSize: Style.font.caption
   }

@@ -46,7 +46,7 @@ Item {
         elide: Text.ElideRight
         text: combo.currentIndex >= 0 && combo.currentIndex < combo.model.length ? String(combo.model[combo.currentIndex]) : ""
         color: !combo.enabled ? "#A1A192" : combo.focused && !combo.open ? VistaScheme.sc.highlightText : "#000000"
-        font.family: "Tahoma"
+        font.family: "Segoe UI"
         font.pixelSize: Style.font.bodySmall
       }
     }
@@ -113,7 +113,7 @@ Item {
           elide: Text.ElideRight
           text: String(combo.model[parent.index])
           color: parent.lit ? VistaScheme.sc.highlightText : "#000000"
-          font.family: "Tahoma"
+          font.family: "Segoe UI"
           font.pixelSize: Style.font.bodySmall
         }
         MouseArea {

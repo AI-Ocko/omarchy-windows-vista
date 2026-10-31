@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "ocko.vista-polkit",
+  "name": "Windows Vista Run As",
+  "version": "1.0.0",
+  "author": "ocko",
+  "description": "omarchy.polkit restyled as the Windows Vista Run As credential dialog. Enabled only while an Vista theme is active (omarchy/vista/bin/vista-mode); inherits the authentication capability from omarchy.polkit.",
+  "kinds": [
+    "service"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "PolkitAgent.qml"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.polkit"
+  }
+}

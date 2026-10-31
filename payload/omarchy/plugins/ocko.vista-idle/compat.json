@@ -1,0 +1,24 @@
+{
+  "verified": "omarchy 4.0.6-1",
+  "stock": {
+    "plugins/services/idle/IdleModel.js": "4684ae9b2ffa79490cfbeda54d50d9d072a56fcb5ad765303ebfa1beceea7c71",
+    "plugins/services/idle/Service.qml": "f9ec3c2645e28ec83e8c19641a4762e50ec891ecfa90094b15048de20d6bffaa"
+  },
+  "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
+  "self": "9aa42d8f4a55a225eff937eed8e1e4697f67497241a576b22b0376e9643e0680",
+  "external": [
+    "callLater",
+    "env",
+    "indexOf",
+    "isIdle",
+    "log",
+    "push",
+    "reload",
+    "restart",
+    "split",
+    "stop",
+    "stringify",
+    "toISOString",
+    "trim"
+  ]
+}
