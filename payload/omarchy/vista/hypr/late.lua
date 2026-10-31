@@ -27,21 +27,6 @@ if name ~= "windows-vista" and name:sub(1, 14) ~= "windows-vista-" then
 	return
 end
 
--- Vista frames: a 4 px resizable border around 6 px-rounded windows that sit
--- a little apart.
-hl.config({
-	general = {
-		gaps_in = 3,
-		gaps_out = 6,
-		border_size = 4,
-	},
-	decoration = {
-		rounding = 6,
-		rounding_power = 2.0,
-		dim_inactive = false,
-		active_opacity = 1.0,
-	},
-})
 o.window({ tag = "default-opacity" }, { opacity = "1 1" })
 
 -- Title bars: hyprbars with Vista's caption art (omarchy/vista/hyprbars/
@@ -53,13 +38,33 @@ o.window({ tag = "default-opacity" }, { opacity = "1 1" })
 -- top: minimize/maximize 28 x 20 (SIZINGMARGINS 12 12 6 8), close 46 x 20
 -- (20 20 6 8). Basic: the opaque Window CAPTION image (9-slice 28 35 9 17)
 -- and its separate buttons. Tints: omarchy/vista/palette.md.
+-- Tints are the colorizations themselves (alpha 0x45; Default from aero.theme,
+-- Graphite/Frost calibrated, palette.md); unfocused windows get 45/80 of
+-- that, DWM's inactive/active caption OPACITY (DWMWindow part 39).
 local schemes = {
-	["windows-vista"] = { glass = true, tint = "rgba(9cc4ecb8)", idle = "rgba(c4d8ee99)" },
-	["windows-vista-graphite"] = { glass = true, tint = "rgba(2a2a2ac8)", idle = "rgba(5a5a5aa0)" },
-	["windows-vista-frost"] = { glass = true, tint = "rgba(d9e7eec0)", idle = "rgba(e6eef2a0)" },
+	["windows-vista"] = { glass = true, tint = "rgba(409efe45)", idle = "rgba(409efe27)" },
+	["windows-vista-graphite"] = { glass = true, tint = "rgba(00000045)", idle = "rgba(00000027)" },
+	["windows-vista-frost"] = { glass = true, tint = "rgba(9abfc845)", idle = "rgba(9abfc827)" },
 	["windows-vista-basic"] = { glass = false },
 }
 local c = schemes[name] or schemes["windows-vista"]
+
+-- Vista frames: Aero's glass frame is ~8 px on the sides and bottom; a 6 px
+-- translucent border in the glass colour stands in for it (the border colour
+-- is the scheme's hyprland.lua). Basic keeps its thin opaque frame.
+hl.config({
+	general = {
+		gaps_in = 3,
+		gaps_out = 6,
+		border_size = c.glass and 6 or 4,
+	},
+	decoration = {
+		rounding = 6,
+		rounding_power = 2.0,
+		dim_inactive = false,
+		active_opacity = 1.0,
+	},
+})
 
 -- Aero glass behind the taskbar and the Start menu: blur what is under
 -- their translucent pixels (fully transparent ones, e.g. the strip above the
@@ -108,12 +113,15 @@ if c.glass then
 	cfg = {
 		bar_height = 25,
 		bar_color = c.tint,
+		-- the bar sits over the top border, so the buttons hang flush from
+		-- the frame's top edge as DWM's do
+		bar_precedence_over_border = true,
 		bar_blur = true,
 		["col.text"] = "rgb(000000)",
 		["col.text_glow"] = "rgba(ffffffe6)",
 		bar_text_glow_size = 5,
 		bar_overlay_image = g .. "aero/parts/DWMWindow/40.0.ATLAS.png",
-		bar_overlay_opacity = 45,
+		bar_overlay_opacity = 100,
 		bar_button_padding = 0,
 		bar_button_top = 0,
 	}

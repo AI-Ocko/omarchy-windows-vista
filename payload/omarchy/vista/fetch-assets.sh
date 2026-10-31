@@ -586,16 +586,19 @@ done
 install_tree gtk/Windows-Vista "$DATA/themes/Windows Vista"
 install_tree icons/windows-vista-cursors "$DATA/icons/windows-vista-cursors"
 
-# Wallpapers: every scheme gets Vista's own, img24 (Aurora, the default) first,
-# replacing the installer's placeholder gradient.
+# Wallpapers: every scheme gets Vista's default, Aurora, and only Aurora:
+# img36 (16:10, the closer crop on 16:9 screens) then img24 (4:3). Omarchy
+# moves to the next background whenever a theme is set again, so a longer
+# list would rotate away from Aurora on every scheme switch. The other
+# wallpapers stay in assets/wallpapers/. Replaces the installer's placeholder.
 for t in "$HERE"/../themes/windows-vista*/; do
     [[ -d $t ]] || continue
     mkdir -p "$t/backgrounds"
-    rm -f "$t/backgrounds/placeholder.png"
-    for i in 24 $(seq 1 23) $(seq 25 36); do
-        src=$ASSETS/wallpapers/img$i.jpg
+    find "$t/backgrounds" -maxdepth 1 \( -name 'placeholder.png' -o -name '[0-9][0-9]-img*.jpg' \) \
+        ! -name '00-img36.jpg' ! -name '01-img24.jpg' -delete
+    for pair in 00:36 01:24; do
+        src=$ASSETS/wallpapers/img${pair#*:}.jpg link=$t/backgrounds/${pair%%:*}-img${pair#*:}.jpg
         [[ -f $src ]] || continue
-        link=$t/backgrounds/$(printf '%02d' "$([[ $i == 24 ]] && echo 0 || echo "$i")")-img$i.jpg
         [[ $(readlink "$link" 2>/dev/null) == "$src" ]] || ln -sfn "$src" "$link"
     done
 done

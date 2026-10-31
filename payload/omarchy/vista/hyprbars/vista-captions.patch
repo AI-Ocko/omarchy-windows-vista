@@ -1,5 +1,5 @@
 diff --git c/hyprbars/barDeco.cpp w/hyprbars/barDeco.cpp
-index c27653d..4add99e 100644
+index c27653d..6591694 100644
 --- c/hyprbars/barDeco.cpp
 +++ w/hyprbars/barDeco.cpp
 @@ -22,6 +22,10 @@
@@ -350,7 +350,7 @@ index c27653d..4add99e 100644
          }
  
          const auto scaledBorderSize  = PWINDOW->getRealBorderSize() * pMonitor->m_scale;
-@@ -572,6 +796,19 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
+@@ -572,6 +796,21 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
          const auto yOffset           = std::round((BARBUF.y - m_pTextTex->m_size.y) / 2.0);
          CBox       titleBox          = {textBox.x + xOffset, textBox.y + yOffset, m_pTextTex->m_size.x, m_pTextTex->m_size.y};
  
@@ -363,14 +363,16 @@ index c27653d..4add99e 100644
 +                    const double ang = k * M_PI / 4 + ring * 0.4;
 +                    CBox         g   = titleBox;
 +                    g.translate({std::round(std::cos(ang) * R * ring / 3), std::round(std::sin(ang) * R * ring / 3)});
-+                    g_pHyprOpenGL->renderTexture(m_pGlowTex, g, {.a = a * (0.34F - ring * 0.08F)});
++                    // soft: the halo must lighten the glass round the
++                    // text without greying the black text itself
++                    g_pHyprOpenGL->renderTexture(m_pGlowTex, g, {.a = a * (0.20F - ring * 0.05F)});
 +                }
 +            }
 +        }
          g_pHyprOpenGL->renderTexture(m_pTextTex, titleBox, {.a = a});
      }
  
-@@ -677,15 +914,15 @@ void CHyprBar::damageOnButtonHover() {
+@@ -677,15 +916,15 @@ void CHyprBar::damageOnButtonHover() {
  
      for (auto& b : g_pGlobalState->buttons) {
          const auto BARBUF     = Vector2D{(int)assignedBoxGlobal().w, HEIGHT};

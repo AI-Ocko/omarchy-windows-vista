@@ -3,9 +3,11 @@ import Quickshell
 import qs.Commons
 import "../../vista/qml"
 
-// Quick Launch toolbar: 16 px icons in 22 px hot-tracked buttons, as Vista drew
-// them beside the start button. Icons come from the apps' desktop entries
-// until an Vista icon theme exists (Task 9).
+// Quick Launch toolbar: 16 px icons in 22 px hot-tracked buttons beside the
+// orb, in Vista's own order and with Vista's own icons (explorer.exe and
+// imageres.dll groups, assets/graphics/<lib>/32): Show Desktop (explorer 100),
+// Switch between windows (explorer 258, Flip 3D: here Hyprland's window
+// cycle), Internet (explorer 260), Command Prompt (imageres 15).
 Row {
   id: ql
 
@@ -13,11 +15,12 @@ Row {
   required property string monitorName
   required property string artDir
 
+  readonly property string g: "file://" + Quickshell.env("HOME") + "/.config/omarchy/vista/assets/graphics/"
   readonly property var items: [
-    { tip: "Internet", icon: "zen-browser", cmd: "omarchy-launch-browser" },
-    { tip: "Command Prompt", icon: "foot", cmd: "omarchy-launch-terminal" },
-    { tip: "My Computer", icon: "org.gnome.Nautilus", cmd: "nautilus --new-window /" },
-    { tip: "Show Desktop", icon: "user-desktop", cmd: "" }
+    { tip: "Show Desktop", icon: g + "explorer/32/100.png", cmd: "" },
+    { tip: "Switch between windows", icon: g + "explorer/32/258.png", cmd: "hyprctl dispatch 'hl.dsp.window.cycle_next()'" },
+    { tip: "Launch Internet Browser", icon: g + "explorer/32/260.png", cmd: "omarchy-launch-browser" },
+    { tip: "Command Prompt", icon: g + "imageres/32/15.png", cmd: "omarchy-launch-terminal" }
   ]
 
   spacing: 0
@@ -48,9 +51,9 @@ Row {
         anchors.verticalCenterOffset: mouse.pressed ? Style.space(1) : 0
         width: Style.space(16)
         height: Style.space(16)
-        sourceSize.width: width
-        sourceSize.height: height
-        source: Quickshell.iconPath(btn.item.icon, "application-x-executable")
+        smooth: true
+        mipmap: true
+        source: btn.item.icon
       }
 
       MouseArea {
