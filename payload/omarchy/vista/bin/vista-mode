@@ -202,7 +202,9 @@ VISTA_WIDGET_CLONES='["ocko.vista-monitor", "ocko.vista-audio", "ocko.vista-netw
 # widget clones, it is enabled without disabling anything.)
 # Rivals: the user's own clones of the same stock plugin (manifest
 # omarchy.clonedFrom, e.g. a you.polkit cloned from omarchy.polkit).
-# One listed in plugins[] would stay enabled next to the Vista clone: two
+# One listed in plugins[] (or placed in bar.layout, which stock also counts as
+# enabled: PluginRegistry.isEnabled -> findEntryLocation) would stay enabled
+# next to the Vista clone: two
 # polkit agents or two lock services at once, and resolveEnabledId() would
 # route omarchy.* calls to whichever it meets first. So every rival of an
 # enabled Vista clone goes in disabledPlugins[] as well (isDisabled() wins over
@@ -215,7 +217,8 @@ VISTA_WIDGET_CLONES='["ocko.vista-monitor", "ocko.vista-audio", "ocko.vista-netw
 # pre-Vista keys). A failed taskbar keeps bar.id on the stock bar and drops the
 # widget clones too, since only the Vista taskbar places them.
 VISTA_CONFIG='($failed | index($bar) | not) as $bar_ok
-  | [(.plugins // [])[] | if type == "object" then .id else . end] as $listed
+  | ([(.plugins // [])[] | if type == "object" then .id else . end]
+     + [(.bar.layout // {})[]? | arrays | .[] | if type == "object" then .id else . end]) as $listed
   | [$clones[] | select(.[0] as $c | $failed | index($c) | not)] as $on
   | [$clones[] | select(.[0] as $c | $failed | index($c))] as $off
   | (if $bar_ok then [$widgets[] | select(. as $c | $failed | index($c) | not)] else [] end) as $won
