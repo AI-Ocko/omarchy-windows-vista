@@ -6,7 +6,7 @@
     "plugins/panels/weather/Panel.qml": "3a5b1345741f699e426ac08a2e4548a8bc0e0c4c82a54600402f716c20736de5"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "bb0f0633b8c70f984581b7762ee7135eb3a24658d3c1ed66c7f29b1d9d5ff1d7",
+  "self": "e633af34e8a06ac812c6fc684e679550155abfe7d81918f6953578b6ca7539e8",
   "external": [
     "ElideRight",
     "Key_Down",

@@ -5,7 +5,7 @@
     "plugins/panels/network/Panel.qml": "1e551a8d109535d2673ec9bb08faea01acdba27141c82aae6b7ae3be8da3c002"
   },
   "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "e06dd440b53e265f3bf974b97507ed2b492c127dd2275a6d2941a6cd2b91ce9b",
+  "self": "7d549477e887c63503657123f384cb65b23c65499394e14986ab74754f8767c7",
   "external": [
     "AlignVCenter",
     "Color",
@@ -48,6 +48,7 @@
     "gateway",
     "indexOf",
     "internet_ping_ms",
+    "ip6",
     "isArray",
     "join",
     "pow",

@@ -1000,6 +1000,23 @@ Panel {
   // Vista: the tray click shows the network flyout first; its links open
   // the connection windows below.
   property bool vistaFlyout: true
+  // `omarchy-shell vistanet status|details|wireless`: the windows the
+  // flyout's links open, directly.
+  IpcHandler {
+    target: "vistanet"
+    function status(): void { root.vistaShowWindow("") }
+    function details(): void { root.vistaShowWindow("details") }
+    function wireless(): void { root.vistaShowWindow("wireless") }
+  }
+  function vistaShowWindow(which) {
+    if (!root.opened) root.open()
+    Qt.callLater(function() {
+      root.vistaFlyout = false
+      root.detailsOpen = which === "details"
+      root.wirelessOpen = which === "wireless"
+      if (which === "wireless") root.refresh(true)
+    })
+  }
   // Repair: stock's refresh, with the rotating phrase in the Status row for
   // as long as Vista's repair took to say anything.
   property bool repairing: false
@@ -1219,7 +1236,7 @@ Panel {
           return
         }
         if (root.detailsOpen || root.propsOpen) return
-        if (dx !== 0) root.sheetTab = (root.sheetTab + dx + 3) % 3
+        if (dx !== 0) root.sheetTab = root.sheetTab === 0 ? 2 : 0
       }
       onActivateRequested: if (root.wirelessOpen) root.activateSelected()
       onDeleteRequested: {
@@ -1339,43 +1356,57 @@ Panel {
       VistaPropertySheet {
         id: statusWin
         visible: !root.vistaFlyout
-        title: root.info.type === "wifi" ? "Wireless Network Connection Status" : "Local Area Connection Status"
-        titleIcon: VistaScheme.graphics + "/netshell/16/" + (root.kind === "disconnected" ? "195" : "193") + ".png"
+        title: root.kind === "wifi" ? "Wireless Network Connection Status" : "Local Area Connection Status"
+        titleIcon: VistaScheme.graphics + "/pnidui/16/" + (root.kind === "disconnected" ? "3020" : root.kind === "wifi" ? "3026" : "3048") + ".png"
         buttons: ["close"]
         active: !root.detailsOpen && !root.propsOpen && !root.wirelessOpen
         onCloseClicked: root.close()
-        titles: ["General", "Support", "Advanced"]
-        tab: root.sheetTab
-        onTabClicked: function(i) { root.sheetTab = i }
-        pageWidth: root.du(210)
-        pageHeight: root.dv(154)
+        // Vista's sheet has General only; Advanced keeps stock's DNS, band,
+        // speed test and QR code (no Vista counterpart; Support's rows are in
+        // Details...).
+        titles: ["General", "Advanced"]
+        tab: root.sheetTab === 2 ? 1 : 0
+        onTabClicked: function(i) { root.sheetTab = i === 1 ? 2 : 0 }
+        pageWidth: root.du(227)
+        pageHeight: root.dv(215)
         buttonLabels: ["<u>C</u>lose"]
         onButtonClicked: root.close()
 
-        // -- General (1801) --
+        // -- General: netshell.dll.mui DIALOG 24050 (wireless) / 24100 (wired) --
         Item {
           parent: statusWin.page
           anchors.fill: parent
           visible: root.sheetTab === 0
+          readonly property bool wifi: root.kind === "wifi"
+          // 24050 puts the rows 11 DLU apart with SSID and Signal Quality;
+          // 24100 12 DLU apart without them.
+          function row(n) { return root.dv(21 + n * (wifi ? 11 : 12)) }
 
-          VistaGroupBox { x: root.du(7); y: root.dv(7); width: root.du(196); height: root.dv(65); caption: "Connection" }
-          VistaLabel { x: root.du(17); y: root.dv(19); text: "Status:" }
+          VistaLabel { x: root.du(7); y: root.dv(9); text: "Connection" }
+          Rectangle { x: root.du(48); y: root.dv(13); width: root.du(172); height: 1; color: "#D5DFE5" }
+          VistaLabel { x: root.du(17); y: parent.row(0); text: "IPv4 Connectivity:" }
+          VistaLabel { x: root.du(110); y: parent.row(0); text: root.kind === "disconnected" ? "No network access" : (root.info.gateway ? "Internet" : "Local") }
+          VistaLabel { x: root.du(17); y: parent.row(1); text: "IPv6 Connectivity:" }
+          VistaLabel { x: root.du(110); y: parent.row(1); text: root.info.ip6 ? "Local" : "No network access" }
+          VistaLabel { x: root.du(17); y: parent.row(2); text: "Media State:" }
           VistaLabel {
-            x: root.du(73); y: root.dv(19)
+            x: root.du(73); y: parent.row(2)
             visible: !root.phraseMode
-            text: root.kind === "disconnected" ? "Disconnected" : "Connected"
+            text: root.kind === "disconnected" ? "Disconnected" : "Enabled"
           }
           // Stock's rotating phrase (its swap animation drives this id).
           VistaLabel {
             id: heroMeta
-            x: root.du(73); y: root.dv(19)
+            x: root.du(73); y: parent.row(2)
             visible: root.phraseMode
             textFormat: Text.PlainText
             text: root.connectionPhrase + "..."
           }
-          VistaLabel { x: root.du(17); y: root.dv(31); text: "Duration:" }
+          VistaLabel { visible: parent.wifi; x: root.du(17); y: parent.row(3); text: "SSID:" }
+          VistaLabel { visible: parent.wifi; x: root.du(73); y: parent.row(3); textFormat: Text.PlainText; text: root.info.ssid || (root.connectedWifiNetwork && root.connectedWifiNetwork.name) || "" }
+          VistaLabel { x: root.du(17); y: parent.row(parent.wifi ? 4 : 3); text: "Duration:" }
           VistaLabel {
-            x: root.du(73); y: root.dv(31)
+            x: root.du(73); y: parent.row(parent.wifi ? 4 : 3)
             text: root.vistaDuration()
             MouseArea { id: durMouse; anchors.fill: parent; hoverEnabled: true }
             VistaToolTip {
@@ -1385,56 +1416,67 @@ Panel {
               text: "Time since this shell first saw the link up. It restarts at 00:00:00 when the shell restarts."
             }
           }
-          VistaLabel { x: root.du(17); y: root.dv(43); text: "Speed:" }
-          VistaLabel { x: root.du(73); y: root.dv(43); text: root.vistaSpeed() }
-          VistaLabel { visible: root.info.type === "wifi"; x: root.du(17); y: root.dv(55); text: "Signal Strength:" }
+          VistaLabel { x: root.du(17); y: parent.row(parent.wifi ? 5 : 4); text: "Speed:" }
+          VistaLabel { x: root.du(73); y: parent.row(parent.wifi ? 5 : 4); text: root.vistaSpeed() }
+          VistaLabel { visible: parent.wifi; x: root.du(17); y: root.dv(91); text: "Signal Quality:" }
           SignalBars {
-            visible: root.info.type === "wifi"
+            visible: parent.wifi
             x: root.du(73)
-            y: root.dv(55) + root.dv(8) - height
+            y: root.dv(91) + root.dv(8) - height
             strength: Math.max(0, root.signalStrength)
           }
+          VistaButton {
+            x: root.du(17); y: root.dv(parent.wifi ? 106 : 83); width: root.du(50); height: root.dv(14)
+            text: "D<u>e</u>tails..."
+            onClicked: root.detailsOpen = true
+          }
+          VistaButton {
+            visible: parent.wifi && root.wifiStationAvailable
+            x: root.du(70); y: root.dv(106); width: root.du(90); height: root.dv(14)
+            text: "<u>W</u>ireless Properties"
+            onClicked: { root.wirelessOpen = true; root.refresh(true) }
+          }
 
-          VistaGroupBox { x: root.du(7); y: root.dv(78); width: root.du(196); height: root.dv(51); caption: "Activity" }
-          VistaLabel { x: root.du(54); y: root.dv(90); width: root.du(41); horizontalAlignment: Text.AlignRight; text: "Sent" }
-          Rectangle { x: root.du(99); y: root.dv(94); width: root.du(13); height: 1; color: "#000000" }
+          VistaLabel { x: root.du(7); y: root.dv(parent.wifi ? 127 : 106); text: "Activity" }
+          Rectangle { x: root.du(35); y: root.dv(parent.wifi ? 130 : 110); width: root.du(184); height: 1; color: "#D5DFE5" }
+          VistaLabel { x: root.du(54); y: root.dv(parent.wifi ? 145 : 127); width: root.du(41); horizontalAlignment: Text.AlignRight; text: "Sent" }
+          Rectangle { x: root.du(99); y: root.dv(parent.wifi ? 149 : 131); width: root.du(13); height: 1; color: "#000000" }
           Image {
-            x: root.du(116) + (root.du(20) - width) / 2
-            y: root.dv(85) + (root.dv(20) - height) / 2
+            x: root.du(121) + (root.du(21) - width) / 2
+            y: root.dv(parent.wifi ? 138 : 120) + (root.dv(20) - height) / 2
             width: root.s(32)
             height: root.s(32)
             source: root.vistaActivityIcon
           }
-          Rectangle { x: root.du(139); y: root.dv(94); width: root.du(13); height: 1; color: "#000000" }
-          VistaLabel { x: root.du(157); y: root.dv(90); text: "Received" }
-          VistaLabel { x: root.du(17); y: root.dv(108); text: "Bytes:" }
+          Rectangle { x: root.du(156); y: root.dv(parent.wifi ? 149 : 131); width: root.du(13); height: 1; color: "#000000" }
+          VistaLabel { x: root.du(174); y: root.dv(parent.wifi ? 145 : 127); text: "Received" }
+          VistaLabel { x: root.du(17); y: root.dv(parent.wifi ? 165 : 149); text: "Bytes:" }
           VistaLabel {
-            x: root.du(52); y: root.dv(108); width: root.du(63)
+            x: root.du(52); y: root.dv(parent.wifi ? 165 : 149); width: root.du(63)
             horizontalAlignment: Text.AlignRight
             text: root.hasTransferStats ? root.vistaCommas(parseFloat(root.info.tx_bytes || "0")) : "--"
           }
-          Rectangle { x: root.du(126); y: root.dv(106); width: 1; height: root.dv(12); color: "#ACA899" }
+          Rectangle { x: root.du(134); y: root.dv(parent.wifi ? 165 : 149); width: 1; height: root.dv(10); color: "#A0A0A0" }
           VistaLabel {
-            x: root.du(132); y: root.dv(108); width: root.du(61)
+            x: root.du(149); y: root.dv(parent.wifi ? 165 : 149); width: root.du(61)
             text: root.hasTransferStats ? root.vistaCommas(parseFloat(root.info.rx_bytes || "0")) : "--"
           }
 
           VistaButton {
-            x: root.du(7); y: root.dv(136); width: root.du(50); height: root.dv(14)
-            text: "P<u>r</u>operties"
+            x: root.du(7); y: root.dv(192); width: root.du(55); height: root.dv(14)
+            text: "<u>P</u>roperties"
             onClicked: root.propsOpen = true
           }
           // Read-only, as answer 8 asks: shown, never enabled.
           VistaButton {
-            x: root.du(60); y: root.dv(136); width: root.du(55); height: root.dv(14)
+            x: root.du(65); y: root.dv(192); width: root.du(55); height: root.dv(14)
             text: "<u>D</u>isable"
             enabled: false
           }
           VistaButton {
-            visible: root.wifiStationAvailable
-            x: root.du(203) - width; y: root.dv(136); width: root.du(84); height: root.dv(14)
-            text: "<u>V</u>iew Wireless Networks"
-            onClicked: { root.wirelessOpen = true; root.refresh(true) }
+            x: root.du(123); y: root.dv(192); width: root.du(55); height: root.dv(14)
+            text: "Dia<u>g</u>nose"
+            onClicked: root.vistaRepair()
           }
         }
 
@@ -1443,7 +1485,7 @@ Panel {
         Item {
           parent: statusWin.page
           anchors.fill: parent
-          visible: root.sheetTab === 1
+          visible: false  // Vista: these rows are in Details...
 
           VistaGroupBox { x: root.du(7); y: root.dv(7); width: root.du(196); height: root.dv(79); caption: "Internet Protocol (TCP/IP)" }
           VistaLabel { x: root.du(14); y: root.dv(21); text: "IP Address:" }
@@ -1545,13 +1587,14 @@ Panel {
         z: 30
       }
 
-      // Network Connection Details (1807): stock's stats, click to copy.
+      // Network Connection Details (netshell DIALOG 24300): stock's stats, click to copy.
       VistaWindow {
         id: detailsWin
+        nested: true
         visible: root.detailsOpen
         z: 31
-        width: root.du(227) + root.s(6)
-        height: root.dv(198) + root.s(29 + 3)
+        width: root.du(240) + 2 * frameWidth
+        height: root.dv(250) + captionHeight + frameWidth
         x: Math.max(-panel.cardOrigin.x, Math.min((parent.width - width) / 2, panel.screenW - panel.cardOrigin.x - width))
         y: parent.height - height
         title: "Network Connection Details"
@@ -1561,7 +1604,7 @@ Panel {
         VistaLabel { x: root.du(7); y: root.dv(7); text: "Network Connection <u>D</u>etails:" }
         VistaListView {
           id: detailsList
-          x: root.du(7); y: root.dv(17); width: root.du(213); height: root.dv(133)
+          x: root.du(7); y: root.dv(17); width: root.du(226); height: root.dv(198)
           columns: [{ title: "Property", width: root.s(120) }, { title: "Value", width: root.s(200) }]
           rows: root.detailsOpen ? root.vistaDetailsRows : []
           onClicked: function(i) {
@@ -1569,10 +1612,10 @@ Panel {
             root.copyToClipboard(root.vistaDetailsRows[i][1])
           }
         }
-        VistaLabel { x: root.du(7); y: root.dv(155); enabled: false; text: "Click a row to copy its value." }
-        VistaEtched { x: root.du(7); y: root.dv(172); width: root.du(213) }
+        VistaLabel { x: root.du(7); y: root.dv(230); enabled: false; text: "Click a row to copy its value." }
+        VistaEtched { x: root.du(7); y: root.dv(221); width: root.du(226) }
         VistaButton {
-          x: root.du(170); y: root.dv(177); width: root.du(50); height: root.dv(14)
+          x: root.du(184); y: root.dv(227); width: root.du(50); height: root.dv(14)
           text: "<u>C</u>lose"
           isDefault: true
           onClicked: root.detailsOpen = false
@@ -1582,6 +1625,7 @@ Panel {
       // Local Area Connection Properties > General (16004), read-only.
       VistaPropertySheet {
         id: propsWin
+        nested: true
         visible: root.propsOpen
         z: 31
         x: Math.max(-panel.cardOrigin.x, Math.min((parent.width - width) / 2, panel.screenW - panel.cardOrigin.x - width))
@@ -1662,8 +1706,10 @@ Panel {
         host: root
         visible: root.wirelessOpen
         z: 25
-        width: Math.min(root.s(620), panel.screenW - root.s(16))
-        height: root.s(440)
+        // VAN's page (317 x 143 DLU at Segoe UI 9) plus the wizard's heading,
+        // margins and button bar.
+        width: Math.min(root.s(Math.round(317 * 1.75) + 40) + 2 * root.s(8), panel.screenW - root.s(16))
+        height: root.s(29 + 14 + 22 + 14 + Math.round(143 * 1.875) + 12 + 46) + root.s(8)
         x: Math.max(-panel.cardOrigin.x + root.s(8), -width - root.s(8))
         y: parent.height - height
         onCloseRequested: root.wirelessOpen = false

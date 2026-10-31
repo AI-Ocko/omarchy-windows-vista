@@ -1335,6 +1335,7 @@ Panel {
       }
       VistaPropertySheet {
         id: propsWin
+        nested: true
         visible: root.propsOpen
         z: 31
         x: Math.max(-mixerPanel.cardOrigin.x, Math.min((parent.width - width) / 2, mixerPanel.screenW - mixerPanel.cardOrigin.x - width))

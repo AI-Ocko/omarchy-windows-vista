@@ -30,6 +30,10 @@ Item {
   default property alias content: client.data
   readonly property alias client: client
   readonly property bool glass: VistaScheme.glass
+  // A window drawn over another one in the same surface (a modal dialog over
+  // its owner): no compositor blur between them, so the glass gets an opaque
+  // backing in its own colour instead of showing the owner through it.
+  property bool nested: false
   readonly property int frameWidth: Style.space(glass ? 8 : 4)
   readonly property int captionHeight: Style.space(29)
 
@@ -85,6 +89,12 @@ Item {
   }
 
   // ---- glass frame (drawn under everything else)
+  Rectangle {
+    visible: win.glass && win.nested
+    anchors.fill: parent
+    radius: win.s(6)
+    color: Qt.tint("#C9D3DE", Qt.rgba(VistaScheme.tint.r, VistaScheme.tint.g, VistaScheme.tint.b, 0.55))
+  }
   Rectangle {
     visible: win.glass
     anchors.fill: parent
