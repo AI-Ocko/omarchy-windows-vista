@@ -20,6 +20,9 @@ Scope {
 
   property var screenObj: null
   property int sel: 0
+  // Drop-down state lives here: ids inside the LazyLoader aren't visible to
+  // this Scope's functions (`combo.open` in hide() threw and skipped the action).
+  property bool comboOpen: false
 
   function s(n) { return Style.space(n) }
 
@@ -42,12 +45,12 @@ Scope {
     screenObj = screen
   }
 
-  function hide() { screenObj = null; combo.open = false }
+  function hide() { screenObj = null; comboOpen = false }
 
+  // Close first (the sound follows), but run the action even if hide() throws.
   function choose() {
     var a = actions[sel]
-    hide()
-    if (a) a.run()
+    try { hide() } finally { if (a) a.run() }
   }
 
   LazyLoader {
@@ -117,7 +120,10 @@ Scope {
             currentIndex: dlg.sel
             visibleRows: 7
             focused: true
-            onActivated: function(i) { dlg.sel = i; open = false }
+            open: dlg.comboOpen
+            // The field's own click assigns `open` (replacing the binding), so mirror it back.
+            onOpenChanged: dlg.comboOpen = open
+            onActivated: function(i) { dlg.sel = i; dlg.comboOpen = false }
           }
           Text {
             x: dlg.s(60); y: dlg.s(72 + 5 + 68)
