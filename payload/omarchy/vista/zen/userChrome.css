@@ -1,8 +1,9 @@
 /* Windows Vista for Zen: the shared half of userChrome.css.
  *
  * Active only while a Vista theme is: vista-mode writes the scheme's zen.css
- * (the --vista-* colours, from omarchy/themes/<scheme>/zen.css) followed
- * by this file into ~/.local/state/omarchy/vista/zen-userChrome.css, and links
+ * (the --vista-* colours, from omarchy/themes/<scheme>/zen.css), with
+ * browser-dark on its zen-dark.css (the dark palette), then this file into
+ * ~/.local/state/omarchy/vista/zen-userChrome.css, and links
  * the live profile's chrome/userChrome.css to it. Revert removes the link. Zen
  * reads userChrome.css only at startup, so a running Zen changes on its next
  * start.
@@ -12,31 +13,63 @@
  * edit box (#ABADB3), Vista's hot-tracked buttons and menu highlight (light
  * blue gradient, rounded), Segoe UI. */
 
+/* Light defaults for the shared colours. :where() has zero specificity, so
+ * the scheme's zen.css and, with browser-dark on, its zen-dark.css (both
+ * plain :root) override any of them whatever the concatenation order. Every
+ * rule below takes its colours from variables only. */
+:where(:root) {
+  --vista-text: #000000;
+  --vista-window: #FFFFFF;
+  --vista-border: #A0AFC3;
+  --vista-menu: #F0F0F0;
+  --vista-menu-border: #979797;
+  --vista-popup-border: #767676;
+  --vista-streak-1: rgba(255, 255, 255, 0.22);
+  --vista-streak-2: rgba(255, 255, 255, 0.16);
+  --vista-hot: linear-gradient(to bottom, #EAF6FD 0%, #D9F0FC 49%, #BEE6FD 50%, #A7D9F5 100%);
+  --vista-hot-edge: #3C7FB1;
+  --vista-pressed: linear-gradient(to bottom, #E5F4FC 0%, #C4E5F6 49%, #98D1EF 50%, #68B3DB 100%);
+  --vista-pressed-edge: #2C628B;
+  --vista-edit-border: #ABADB3;
+  --vista-edit-focus: #3D7BAD;
+  --vista-tab: linear-gradient(to bottom, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.30) 50%,
+                               rgba(255, 255, 255, 0.18) 51%, rgba(255, 255, 255, 0.32));
+  --vista-tab-inner: rgba(255, 255, 255, 0.45);
+  --vista-tab-hot: linear-gradient(to bottom, rgba(234, 246, 253, 0.95), rgba(217, 240, 252, 0.9) 50%,
+                                   rgba(190, 230, 253, 0.9) 51%, rgba(167, 217, 245, 0.9));
+  --vista-tab-hot-edge: #3C7FB1;
+  --vista-tab-selected: #FFFFFF;
+  --vista-tab-selected-text: #000000;
+  --vista-menu-hot: linear-gradient(to bottom, #F1F7FE, #E3EFFD);
+  --vista-menu-hot-edge: #A8D8EB;
+  --vista-menu-hot-text: #000000;
+}
+
 :root {
   --zen-border-radius: 3px !important;
   --zen-main-browser-background: var(--vista-face) !important;
   --zen-main-browser-background-toolbar: var(--vista-face) !important;
   --zen-themed-toolbar-bg-transparent: var(--vista-face) !important;
-  --zen-colors-border: #A0AFC3 !important;
+  --zen-colors-border: var(--vista-border) !important;
   --zen-dialog-background: var(--vista-face) !important;
   --toolbar-bgcolor: var(--vista-face) !important;
-  --toolbar-color: #000000 !important;
-  --toolbar-field-background-color: #FFFFFF !important;
-  --toolbar-field-focus-background-color: #FFFFFF !important;
-  --toolbar-field-color: #000000 !important;
-  --toolbar-field-focus-color: #000000 !important;
+  --toolbar-color: var(--vista-text) !important;
+  --toolbar-field-background-color: var(--vista-window) !important;
+  --toolbar-field-focus-background-color: var(--vista-window) !important;
+  --toolbar-field-color: var(--vista-text) !important;
+  --toolbar-field-focus-color: var(--vista-text) !important;
   --toolbarbutton-border-radius: 3px !important;
   --tab-border-radius: 3px !important;
-  --panel-background: #F0F0F0 !important;
-  --panel-color: #000000 !important;
-  --panel-border-color: #979797 !important;
+  --panel-background: var(--vista-menu) !important;
+  --panel-color: var(--vista-text) !important;
+  --panel-border-color: var(--vista-menu-border) !important;
   --panel-border-radius: 0px !important;
-  --arrowpanel-background: #FFFFFF !important;
-  --arrowpanel-color: #000000 !important;
-  --arrowpanel-border-color: #767676 !important;
+  --arrowpanel-background: var(--vista-window) !important;
+  --arrowpanel-color: var(--vista-text) !important;
+  --arrowpanel-border-color: var(--vista-popup-border) !important;
   --arrowpanel-border-radius: 3px !important;
   font-family: "Segoe UI", sans-serif !important;
-  color: #000000 !important;
+  color: var(--vista-text) !important;
 }
 
 /* Zen sets its workspace gradient inline on these two; !important wins. */
@@ -59,8 +92,8 @@
  * gradient with Aero's faint diagonal reflection streaks over it. */
 #navigator-toolbox {
   background:
-    linear-gradient(115deg, transparent 18%, rgba(255, 255, 255, 0.22) 21%, transparent 27%,
-                    transparent 52%, rgba(255, 255, 255, 0.16) 55%, transparent 60%),
+    linear-gradient(115deg, transparent 18%, var(--vista-streak-1) 21%, transparent 27%,
+                    transparent 52%, var(--vista-streak-2) 55%, transparent 60%),
     var(--vista-frame) !important;
   border-right: 1px solid var(--vista-glass-edge) !important;
 }
@@ -86,32 +119,32 @@
 
 /* Buttons: Vista's hot and pressed push-button faces. */
 toolbarbutton:not([disabled]):hover > :is(.toolbarbutton-icon, .toolbarbutton-badge-stack) {
-  background: linear-gradient(to bottom, #EAF6FD 0%, #D9F0FC 49%, #BEE6FD 50%, #A7D9F5 100%) !important;
-  outline: 1px solid #3C7FB1 !important;
+  background: var(--vista-hot) !important;
+  outline: 1px solid var(--vista-hot-edge) !important;
   border-radius: 3px !important;
 }
 toolbarbutton:not([disabled]):is([open], [checked], :hover:active) > :is(.toolbarbutton-icon, .toolbarbutton-badge-stack) {
-  background: linear-gradient(to bottom, #E5F4FC 0%, #C4E5F6 49%, #98D1EF 50%, #68B3DB 100%) !important;
-  outline: 1px solid #2C628B !important;
+  background: var(--vista-pressed) !important;
+  outline: 1px solid var(--vista-pressed-edge) !important;
   border-radius: 3px !important;
 }
 
 /* Address bar: a Vista edit box. */
 #urlbar .urlbar-background {
-  --zen-urlbar-background-base: #FFFFFF !important;
-  --zen-urlbar-background-transparent: #FFFFFF !important;
-  background: #FFFFFF !important;
+  --zen-urlbar-background-base: var(--vista-window) !important;
+  --zen-urlbar-background-transparent: var(--vista-window) !important;
+  background: var(--vista-window) !important;
   border-radius: 2px !important;
   box-shadow: none !important;
-  outline: 1px solid #ABADB3 !important;
+  outline: 1px solid var(--vista-edit-border) !important;
   outline-offset: 0 !important;
 }
 #urlbar[focused] .urlbar-background {
-  outline-color: #3D7BAD !important;
+  outline-color: var(--vista-edit-focus) !important;
 }
 #urlbar,
 #urlbar-input {
-  color: #000000 !important;
+  color: var(--vista-text) !important;
   font-family: "Segoe UI", sans-serif !important;
 }
 
@@ -120,18 +153,16 @@ toolbarbutton:not([disabled]):is([open], [checked], :hover:active) > :is(.toolba
 .tabbrowser-tab .tab-background {
   border-radius: 3px !important;
   border: 1px solid var(--vista-tab-edge) !important;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.30) 50%,
-                              rgba(255, 255, 255, 0.18) 51%, rgba(255, 255, 255, 0.32)) !important;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45) !important;
+  background: var(--vista-tab) !important;
+  box-shadow: inset 0 0 0 1px var(--vista-tab-inner) !important;
   outline: none !important;
 }
 .tabbrowser-tab:hover .tab-background {
-  border-color: #3C7FB1 !important;
-  background: linear-gradient(to bottom, rgba(234, 246, 253, 0.95), rgba(217, 240, 252, 0.9) 50%,
-                              rgba(190, 230, 253, 0.9) 51%, rgba(167, 217, 245, 0.9)) !important;
+  border-color: var(--vista-tab-hot-edge) !important;
+  background: var(--vista-tab-hot) !important;
 }
 .tabbrowser-tab:is([selected], [visuallyselected], [multiselected]) .tab-background {
-  background: #FFFFFF !important;
+  background: var(--vista-tab-selected) !important;
   border-color: var(--vista-tab-edge) !important;
   box-shadow: none !important;
 }
@@ -142,7 +173,7 @@ toolbarbutton:not([disabled]):is([open], [checked], :hover:active) > :is(.toolba
 }
 .tabbrowser-tab:is([selected], [visuallyselected], [multiselected]) .tab-label,
 .tabbrowser-tab:hover .tab-label {
-  color: #000000 !important;
+  color: var(--vista-tab-selected-text) !important;
   text-shadow: none !important;
 }
 
@@ -155,14 +186,14 @@ browser[type="content"] {
   box-shadow: none !important;
 }
 #tabbrowser-tabpanels .browserSidebarContainer {
-  outline: 1px solid #A0AFC3 !important;
+  outline: 1px solid var(--vista-border) !important;
 }
 
 /* Menus: Vista's (light grey, the rounded light-blue hot item). */
 menupopup,
 panel {
-  --panel-background: #F0F0F0 !important;
-  --panel-border-color: #979797 !important;
+  --panel-background: var(--vista-menu) !important;
+  --panel-border-color: var(--vista-menu-border) !important;
   --panel-border-radius: 0px !important;
 }
 menupopup menuitem,
@@ -172,9 +203,9 @@ menupopup menu {
 }
 menupopup menuitem[_moz-menuactive],
 menupopup menu[_moz-menuactive] {
-  background: linear-gradient(to bottom, #F1F7FE, #E3EFFD) !important;
-  outline: 1px solid #A8D8EB !important;
-  color: #000000 !important;
+  background: var(--vista-menu-hot) !important;
+  outline: 1px solid var(--vista-menu-hot-edge) !important;
+  color: var(--vista-menu-hot-text) !important;
 }
 menupopup menuitem[disabled],
 menupopup menu[disabled] {
