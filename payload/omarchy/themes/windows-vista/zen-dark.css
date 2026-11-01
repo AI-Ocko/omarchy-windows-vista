@@ -1,0 +1,51 @@
+/* Windows Vista (Aero, Default), browser-dark: the dark half of the scheme's Zen colours.
+ * vista-mode concatenates zen.css, this file, then
+ * omarchy/vista/zen/userChrome.css while browser-dark is on (vista-mode
+ * browser-dark on|off). Faces are the black glass of Vista's Start menu
+ * (#1F2428 -> #0A0F13, text #E8E8E8) and Media Center; the
+ * glass keeps Aero's blue, darkened to Media Center's navy (#081D49). */
+:root {
+  color-scheme: dark;
+  --vista-face: #14181C;
+  --vista-glass: linear-gradient(to bottom, #2A3B55 0%, #1B2A42 49%, #0E1A2E 50%, #16253D 100%);
+  --vista-glass-text: #FFFFFF;
+  --vista-glass-edge: #05101F;
+  --vista-frame: linear-gradient(to bottom, #1D2B44 0%, #0F1A2C 45%, #081222 100%);
+  --vista-tab-edge: #3C5A80;
+  --vista-glow: rgba(0,0,0,0.8);
+  --vista-gray-text: #8A8F94;
+  --vista-text: #E8E8E8;
+  --vista-window: #0A0F13;
+  --vista-border: #3A4148;
+  --vista-menu: #1F2428;
+  --vista-menu-border: #525357;
+  --vista-popup-border: #525357;
+  --vista-streak-1: rgba(255, 255, 255, 0.07);
+  --vista-streak-2: rgba(255, 255, 255, 0.05);
+  --vista-hot: linear-gradient(to bottom, #3B5A78 0%, #2D4B69 49%, #1E3B5A 50%, #28506F 100%);
+  --vista-hot-edge: #5A9BD5;
+  --vista-pressed: linear-gradient(to bottom, #2A4560 0%, #1F3A55 49%, #142C45 50%, #1D3D5A 100%);
+  --vista-pressed-edge: #3C7FB1;
+  --vista-edit-border: #525357;
+  --vista-edit-focus: #5A9BD5;
+  --vista-tab: linear-gradient(to bottom, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.07) 50%,
+                               rgba(255, 255, 255, 0.03) 51%, rgba(255, 255, 255, 0.08));
+  --vista-tab-inner: rgba(255, 255, 255, 0.10);
+  --vista-tab-hot: linear-gradient(to bottom, rgba(90, 155, 213, 0.45), rgba(60, 127, 177, 0.35) 50%,
+                                   rgba(30, 59, 90, 0.40) 51%, rgba(40, 80, 111, 0.45));
+  --vista-tab-hot-edge: #5A9BD5;
+  --vista-tab-selected: #1F2428;
+  --vista-tab-selected-text: #FFFFFF;
+  --vista-menu-hot: linear-gradient(to bottom, #2D4B69, #1E3B5A);
+  --vista-menu-hot-edge: #3C7FB1;
+  --vista-menu-hot-text: #FFFFFF;
+}
+/* Menu text is coloured from --panel-text-color and the popup's own
+ * color-scheme, which Firefox sets on each popup itself, out of reach of
+ * the :root variables. */
+menupopup,
+panel {
+  color-scheme: dark !important;
+  --panel-text-color: #E8E8E8 !important;
+  --text-color-disabled: #8A8F94 !important;
+}
