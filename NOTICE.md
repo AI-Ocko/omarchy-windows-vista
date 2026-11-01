@@ -88,3 +88,10 @@ which stays under the original's licence. Credits:
 ## Microsoft
 
 Microsoft's files are not distributed here; see `ASSETS.md`.
+
+## Browser dark mode palettes
+
+The colour values in `payload/omarchy/themes/*/zen-dark.css` and
+`chromium-dark.theme` were sampled (as hex values only) from screenshots of
+Microsoft's Windows Vista Start menu and Windows Media Center. No screenshot or other
+Microsoft file is included in this repository.

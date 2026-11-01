@@ -77,6 +77,25 @@ you enter it (`zz-windows-*-on`), and each `on` turns the other off if it is
 still on, so switching XP <-> Vista <-> anything else always restores the
 right state. Uninstalling either leaves the other working.
 
+## Browser dark mode
+
+Under every Vista scheme, Zen, Chromium and Google Chrome run dark: web pages
+get `prefers-color-scheme: dark`, and the browsers' own UI keeps the Vista
+look in a dark palette (the black glass of Vista's Start menu and Media
+Center, each scheme's glass tint kept, darkened, on the sidebar and top band).
+The rest of the desktop stays light.
+
+```
+~/.config/omarchy/vista/bin/vista-mode browser-dark off      # back to the light Vista browsers
+~/.config/omarchy/vista/bin/vista-mode browser-dark on       # dark again (the default)
+~/.config/omarchy/vista/bin/vista-mode browser-dark status
+```
+
+The choice is kept in `~/.config/omarchy/vista/browser-dark` across theme
+switches and reboots. Browsers read it when they start: restart Zen, Chromium
+and Chrome to see a change (the command says which are running; it never
+closes them). Chromium's tab-strip colour follows at once.
+
 ## What it changes outside its own folders
 
 - `~/.config/foot/foot.ini`, `~/.bashrc`, `~/.config/tmux/tmux.conf`: one
@@ -99,6 +118,18 @@ right state. Uninstalling either leaves the other working.
   `chrome/userChrome.css` (a link), a Hyprland toggle file (geometry, the
   title bars, Win+R), and the tmux status bar.
 - Nothing system-wide unless you choose the boot splash.
+- Browser dark mode (while a Vista theme is on and `browser-dark` is on; all
+  of it undone when you leave Vista or turn it off): a marked
+  `--force-dark-mode` block at the end of `~/.config/chromium-flags.conf` and
+  `~/.config/chrome-flags.conf` (the untouched file waits in
+  `~/.local/state/omarchy/vista/browser-dark/` and is moved back byte for byte),
+  the scheme's dark tab-strip colour through Omarchy's own browser-policy
+  helper, and a marked block in your Zen profile's `user.js`
+  (`layout.css.prefers-color-scheme.content-override`). Zen keeps that pref
+  in `prefs.js` while it runs, so if Zen is open when dark mode ends, the
+  block turns into a reset and the clean-up finishes after Zen is closed (the
+  next `vista-mode` call or your next login); `uninstall.sh` asks you to close
+  Zen first in that case.
 
 ## Boot splash (optional)
 
