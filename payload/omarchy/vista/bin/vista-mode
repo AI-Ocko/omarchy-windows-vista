@@ -786,12 +786,16 @@ browser_save() {
     '{profile: $p, prefs: (if $l == "" then null else $l end), userjs: $u}'
 }
 
-# The saved record, or one for the live profile with no pre-Vista value (a
-# saved state from before this step).
+# The saved record. A saved state from before this step has none: then a
+# pending record for the live profile (ours or the other theme's), else one
+# that assumes no pre-Vista value and keeps user.js.
 browser_saved() {
-  local b=null zp
+  local b=null zp pf
   [[ -r $SAVED ]] && b=$(jq -c '.browser // null' "$SAVED")
   if [[ $b == null ]] && zp=$(zen_profile); then
+    for pf in "$ZEN_PENDING" "$OTHER_PENDING"; do
+      [[ -r $pf && $(jq -r '.profile' "$pf" 2>/dev/null) == "$zp" ]] && { jq -c '{profile, prefs, userjs}' "$pf"; return; }
+    done
     b=$(jq -cn --arg p "$zp" '{profile: $p, prefs: null, userjs: true}')
   fi
   echo "$b"
@@ -842,7 +846,7 @@ browser_status() {
   if zp=$(zen_profile); then
     u=$zp/user.js
     if [[ -f $u ]] && grep -qxF "$ZEN_BEGIN" "$u"; then
-      echo "  Zen user.js: $(grep -F "user_pref(\"$ZEN_PREF\"" "$u" | tail -n 1)"
+      echo "  Zen user.js: $(B=$ZEN_BEGIN E=$ZEN_END awk '$0 == ENVIRON["B"] { on = 1; next } $0 == ENVIRON["E"] { on = 0 } on' "$u")"
     else
       echo "  Zen user.js: no block"
     fi
