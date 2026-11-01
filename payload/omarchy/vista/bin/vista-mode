@@ -681,6 +681,7 @@ browser_refresh() {
 chromium chromium
 chrome google-chrome-stable
 EOF
+  return 0
 }
 
 policy_dark() {
