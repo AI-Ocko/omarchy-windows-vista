@@ -609,7 +609,7 @@ FLAGS_FILES=("${XDG_CONFIG_HOME:-$HOME/.config}/chromium-flags.conf" "${XDG_CONF
 browser_dark_wanted() { [[ $(cat "$BROWSER_DARK" 2>/dev/null) != off ]]; }
 
 # strip_marked <file> <begin> <end>: the file without the block and the one
-# blank line put above it.
+# blank line put above it (below it, for a block at the top).
 strip_marked() {
   B=$2 E=$3 awk '
     { line[NR] = $0 }
@@ -618,6 +618,7 @@ strip_marked() {
       if (!s) { for (i = 1; i <= NR; i++) print line[i]; exit }
       for (t = s; t <= NR && line[t] != ENVIRON["E"]; t++);
       if (s > 1 && line[s - 1] == "") s--
+      else if (s == 1 && t < NR && line[t + 1] == "") t++
       for (i = 1; i <= NR; i++) if (i < s || i > t) print line[i]
     }' "$1"
 }
