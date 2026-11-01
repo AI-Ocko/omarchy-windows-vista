@@ -54,6 +54,23 @@ else
   echo "current theme is ${cur:-unknown}, not Vista: nothing to switch"
 fi
 
+# Browser dark mode: `vista-mode off` above took out the Chromium/Chrome flag
+# blocks and Zen's user.js block, unless Zen was running; then a reset block
+# waits for Zen to close. Finish it now, or stop before removing what would.
+pending=$HOME/.local/state/omarchy/vista/zen-pending
+if [[ -e $pending ]]; then
+  run "$VISTA/bin/vista-mode" cleanup
+  if ((!DRY)) && [[ -e $pending ]]; then
+    warn "Zen is running and still holds the Windows Vista dark-mode setting: close Zen, then run ./uninstall.sh again (it carries on from here)"
+    exit 1
+  fi
+fi
+for f in "${XDG_CONFIG_HOME:-$HOME/.config}"/chromium-flags.conf "${XDG_CONFIG_HOME:-$HOME/.config}"/chrome-flags.conf; do
+  if [[ -f $f ]] && grep -qxF '# >>> omarchy-windows-vista browser-dark' "$f"; then
+    warn "$f still has the Vista browser-dark block (vista-mode off failed?): see $HOME/.local/state/omarchy/vista/vista-mode.log"
+  fi
+done
+
 say "Systemd user units"
 run systemctl --user disable --now vista-sizes.path
 remove "$CFG/systemd/user/vista-sizes.path" "$CFG/systemd/user/vista-sizes.service"

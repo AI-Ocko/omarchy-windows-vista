@@ -1,0 +1,6 @@
+#!/bin/bash
+# Windows Vista browser dark mode: finish a Zen clean-up left pending because Zen
+# was running when dark mode ended (see vista-mode, browser step). Runs at login,
+# before Zen is normally open again; without a pending marker it exits here.
+[[ -e $HOME/.local/state/omarchy/vista/zen-pending ]] || exit 0
+exec "$HOME/.config/omarchy/vista/bin/vista-mode" cleanup

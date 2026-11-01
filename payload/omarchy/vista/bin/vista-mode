@@ -1,5 +1,5 @@
 #!/bin/bash
-# vista-mode on|off|status -- apply or fully revert the Windows Vista side effects
+# vista-mode on|off|status|browser-dark|cleanup -- apply or fully revert the Windows Vista side effects
 # that an Omarchy theme cannot carry by itself. Called by the theme-set hooks
 # 00-windows-vista-off (first) and zz-windows-vista-on (last), after every
 # `omarchy theme set`.
@@ -12,6 +12,12 @@
 #   status  "on" or "off" plus a short summary.
 #   sizes   Re-apply only the sizes step (Vista terminal font from Omarchy's text
 #           size); a no-op outside Vista. Run by systemd/user/vista-sizes.path.
+#   browser-dark on|off|status
+#           Dark mode for Zen, Chromium and Chrome under the Vista themes (on
+#           by default). Saved as the user's setting; re-applied at once while
+#           a Vista theme is active. See the browser step.
+#   cleanup Finish a Zen clean-up left pending because Zen was running (the
+#           browser step); a no-op without one. Run by post-boot.d at login.
 #
 # The hook's stdout is discarded, so errors go to stderr AND to $LOG.
 #
@@ -20,7 +26,7 @@
 # append <name> to STEPS. Each step is run and logged independently; `off`
 # keeps saved-state.json if any restore failed so a rerun can finish the job.
 
-STEPS=(gsettings hypr shell tmux files sizes)
+STEPS=(gsettings hypr shell tmux files sizes browser)
 
 SCHEMA=org.gnome.desktop.interface
 STATE_DIR=$HOME/.local/state/omarchy/vista
@@ -427,7 +433,8 @@ tmux_restore() {
 # files as "original". Kinds: none (absent under Vista), copy <src>, link <target>.
 #   gtk-3.0/gtk.css   a user override would recolour the GTK3 Vista theme
 #   gtk-4.0/gtk.css   -> the scheme's libadwaita palette (theme gtk.css)
-#   Zen userChrome    -> scheme zen.css + omarchy/vista/zen/userChrome.css
+#   Zen userChrome    -> scheme zen.css (+ zen-dark.css with browser-dark on)
+#                     + omarchy/vista/zen/userChrome.css
 #   branding, fastfetch: the Vista About logo (the Start orb) (fastfetch's config inlines its own
 #                     logo and never reads about.txt, so it is swapped too)
 ORIG=$STATE_DIR/orig
@@ -459,10 +466,16 @@ files_list() {
 
 files_save() { echo null; }
 
+zen_css_build() {
+  local dark=()
+  browser_dark_wanted && [[ -r $THEME_DIR/zen-dark.css ]] && dark=("$THEME_DIR/zen-dark.css")
+  cat "$THEME_DIR/zen.css" "${dark[@]}" "$VISTA_DIR/zen/userChrome.css" >"$ZEN_CSS.tmp" && mv "$ZEN_CSS.tmp" "$ZEN_CSS"
+}
+
 files_apply() {
   local path kind src aside rc=0
   mkdir -p "$ORIG" || return 1
-  cat "$THEME_DIR/zen.css" "$VISTA_DIR/zen/userChrome.css" >"$ZEN_CSS.tmp" && mv "$ZEN_CSS.tmp" "$ZEN_CSS" || rc=1
+  zen_css_build || rc=1
   while IFS='|' read -r path kind src; do
     aside=$ORIG/${path//\//%}
     if [[ ! -e $aside && ! -L $aside && ! -e $aside.absent ]]; then
@@ -556,6 +569,312 @@ sizes_apply() {
   fi
 }
 
+# ---------------------------------------------------------- browser (dark)
+# Dark mode for Zen, Chromium and Chrome: dark pages (prefers-color-scheme)
+# and dark browser UI that keeps the Vista look. On unless the user's setting
+# ($BROWSER_DARK, `vista-mode browser-dark off`) says off; it survives theme
+# switches and reboots. GTK stays prefer-light (gsettings step), so nothing
+# here can follow the desktop; each browser is set directly. Everything takes
+# effect at the browser's next start, except the Chromium seed colour, which
+# a running Chromium/Chrome picks up as Omarchy's own theme switch does.
+#   Chromium, Chrome  --force-dark-mode in a marked block at the end of
+#                     chromium-flags.conf / chrome-flags.conf (only files that
+#                     exist; a byte-exact copy of each waits in $BD_DIR), and
+#                     the scheme's chromium-dark.theme as BrowserThemeColor
+#                     through Omarchy's passwordless policy helper (the light
+#                     seed stays vivid on a dark UI). BrowserColorScheme stays
+#                     Omarchy's "device"; the flag wins over it.
+#   Zen               $ZEN_PREF = 0 (dark pages) in a marked user.js block, and
+#                     zen-dark.css in the userChrome (files step).
+# A pref user.js once set stays in prefs.js after the line goes, and a running
+# Zen rewrites prefs.js from memory on exit. So leaving dark mode with Zen
+# closed strips the block and puts the saved pre-Vista prefs.js line back (or
+# none); with Zen running, the block instead resets the pref (the saved
+# value, or the default 2, which clears it on Zen's next start) and
+# $ZEN_PENDING has the next vista-mode call or login (post-boot.d) finish the
+# job once Zen is closed. Nothing watches or polls.
+BROWSER_DARK=$VISTA_DIR/browser-dark
+BD_DIR=$STATE_DIR/browser-dark
+ZEN_PENDING=$STATE_DIR/zen-pending
+# XP's: on Vista -> XP -> Vista, a reset block XP left pending holds the
+# real pre-theme value.
+OTHER_PENDING=$HOME/.local/state/omarchy/xp/zen-pending
+BD_BEGIN='# >>> omarchy-windows-vista browser-dark'
+BD_END='# <<< omarchy-windows-vista browser-dark'
+ZEN_BEGIN='// >>> omarchy-windows-vista browser-dark'
+ZEN_END='// <<< omarchy-windows-vista browser-dark'
+ZEN_PREF=layout.css.prefers-color-scheme.content-override
+FLAGS_FILES=("${XDG_CONFIG_HOME:-$HOME/.config}/chromium-flags.conf" "${XDG_CONFIG_HOME:-$HOME/.config}/chrome-flags.conf")
+
+browser_dark_wanted() { [[ $(cat "$BROWSER_DARK" 2>/dev/null) != off ]]; }
+
+# strip_marked <file> <begin> <end>: the file without the block and the one
+# blank line put above it.
+strip_marked() {
+  B=$2 E=$3 awk '
+    { line[NR] = $0 }
+    END {
+      for (i = 1; i <= NR; i++) if (line[i] == ENVIRON["B"]) { s = i; break }
+      if (!s) { for (i = 1; i <= NR; i++) print line[i]; exit }
+      for (t = s; t <= NR && line[t] != ENVIRON["E"]; t++);
+      if (s > 1 && line[s - 1] == "") s--
+      for (i = 1; i <= NR; i++) if (i < s || i > t) print line[i]
+    }' "$1"
+}
+
+flags_block() {
+  printf '%s\n%s\n%s\n%s\n' "$BD_BEGIN" \
+    "# Windows Vista browser dark mode (vista-mode browser-dark on|off)." --force-dark-mode "$BD_END"
+}
+
+# flags_tail <original>: what flags_add appends to it.
+flags_tail() {
+  [[ -s $1 ]] && { [[ -n $(tail -c1 "$1") ]] && printf '\n'; printf '\n'; }
+  flags_block
+}
+
+flags_add() {
+  local f=$1 keep=$BD_DIR/${1##*/}
+  [[ -f $f ]] || return 0
+  grep -qxF "$BD_BEGIN" "$f" && return 0
+  mkdir -p "$BD_DIR" && cp -a "$f" "$keep" || return 1
+  flags_tail "$keep" >>"$f"
+}
+
+# Back byte for byte (and with its mtime) from the copy when the file is
+# still exactly what flags_add left; otherwise (edited since) only the block
+# goes, and the copy stays if the result differs from it.
+flags_remove() {
+  local f=$1 keep=$BD_DIR/${1##*/}
+  if [[ ! -f $f ]] || ! grep -qxF "$BD_BEGIN" "$f"; then
+    rm -f "$keep"
+    return 0
+  fi
+  if [[ -f $keep ]] && cmp -s "$f" <(cat "$keep"; flags_tail "$keep"); then
+    mv -f "$keep" "$f"
+    return
+  fi
+  strip_marked "$f" "$BD_BEGIN" "$BD_END" >"$f.vista-tmp" && cat "$f.vista-tmp" >"$f" && rm -f "$f.vista-tmp" || return 1
+  if [[ ! -f $keep ]] || cmp -s "$f" "$keep"; then
+    rm -f "$keep"
+  else
+    log "$f changed while dark mode was on: removed the dark-mode block, kept the pre-dark copy in $keep"
+  fi
+}
+
+# rrggbb from a theme's "r,g,b" file (the format omarchy-theme-set-browser reads).
+seed_hex() {
+  local rgb
+  [[ -r $1 ]] && rgb=$(<"$1") || return 1
+  [[ $rgb =~ ^[[:space:]]*([0-9]{1,3})[[:space:]]*,[[:space:]]*([0-9]{1,3})[[:space:]]*,[[:space:]]*([0-9]{1,3})[[:space:]]*$ ]] || return 1
+  ((10#${BASH_REMATCH[1]} < 256 && 10#${BASH_REMATCH[2]} < 256 && 10#${BASH_REMATCH[3]} < 256)) || return 1
+  printf '%02x%02x%02x' "$((10#${BASH_REMATCH[1]}))" "$((10#${BASH_REMATCH[2]}))" "$((10#${BASH_REMATCH[3]}))"
+}
+
+# What omarchy-theme-set-browser does after writing the policy.
+browser_refresh() {
+  local proc cmd
+  while read -r proc cmd; do
+    command -v "$cmd" >/dev/null && pgrep -x "$proc" >/dev/null &&
+      "$cmd" --refresh-platform-policy --no-startup-window &>/dev/null
+  done <<'EOF'
+chromium chromium
+chrome google-chrome-stable
+EOF
+}
+
+policy_dark() {
+  local hex
+  hex=$(seed_hex "$THEME_DIR/chromium-dark.theme") || { log "theme has no valid chromium-dark.theme; Chromium keeps the light seed"; return 0; }
+  omarchy-theme-set-browser-policy "$hex" || { log "omarchy-theme-set-browser-policy $hex failed"; return 1; }
+  browser_refresh
+}
+
+# Omarchy's own value for the current theme (its chromium.theme seed).
+policy_light() {
+  omarchy-theme-set-browser >/dev/null 2>&1 || { log "omarchy-theme-set-browser failed"; return 1; }
+}
+
+# The live profile's lock names the pid of the Zen that holds it.
+zen_running() {
+  local t
+  t=$(readlink "$1/lock" 2>/dev/null) || return 1
+  t=${t##*+}
+  [[ $t =~ ^[0-9]+$ && -d /proc/$t ]]
+}
+
+# userjs_set <profile> <value>: our block, setting the pref to <value>,
+# replacing the one there or appended (after one blank line).
+userjs_set() {
+  local u=$1/user.js blk
+  blk=$(printf '%s\n%s\n%s' "$ZEN_BEGIN" "user_pref(\"$ZEN_PREF\", $2);" "$ZEN_END")
+  if [[ -f $u ]] && grep -qxF "$ZEN_BEGIN" "$u"; then
+    B=$ZEN_BEGIN E=$ZEN_END BLK=$blk awk '
+      $0 == ENVIRON["B"] { print ENVIRON["BLK"]; skip = 1; next }
+      skip { if ($0 == ENVIRON["E"]) skip = 0; next }
+      { print }' "$u" >"$u.vista-tmp" || return 1
+    cmp -s "$u.vista-tmp" "$u" || cat "$u.vista-tmp" >"$u"
+    rm -f "$u.vista-tmp"
+  elif [[ -s $u ]]; then
+    local sep=$'\n'
+    [[ -n $(tail -c1 "$u") ]] && sep=$'\n\n'
+    printf '%s%s\n' "$sep" "$blk" >>"$u"
+  else
+    echo "$blk" >>"$u"
+  fi
+}
+
+# zen_undark <saved>: undo the Zen part; <saved> is the browser step's JSON
+# ({profile, prefs: the pre-Vista prefs.js line or null, userjs: existed}).
+zen_undark() {
+  local zp line u v
+  zp=$(jq -r '.profile // empty' <<<"$1")
+  line=$(jq -r '.prefs // empty' <<<"$1")
+  u=$zp/user.js
+  if [[ -z $zp || ! -f $u ]] || ! grep -qxF "$ZEN_BEGIN" "$u"; then
+    rm -f "$ZEN_PENDING"
+    return 0
+  fi
+  if zen_running "$zp"; then
+    v=2
+    [[ $line =~ ,[[:space:]]*([0-9]+)\)\; ]] && v=${BASH_REMATCH[1]}
+    userjs_set "$zp" "$v" || return 1
+    [[ -e $ZEN_PENDING ]] || log "Zen is running: its dark pages end at its next start; the user.js clean-up finishes once it is closed"
+    jq -c '{profile, prefs, userjs}' <<<"$1" >"$ZEN_PENDING"
+    return 0
+  fi
+  strip_marked "$u" "$ZEN_BEGIN" "$ZEN_END" >"$u.vista-tmp" || return 1
+  if [[ ! -s $u.vista-tmp && $(jq -r '.userjs' <<<"$1") == false ]]; then
+    rm -f "$u" "$u.vista-tmp"
+  else
+    cat "$u.vista-tmp" >"$u" && rm -f "$u.vista-tmp"
+  fi
+  prefs_restore "$zp/prefs.js" "$line" || return 1
+  rm -f "$ZEN_PENDING"
+}
+
+# prefs_restore <prefs.js> <line>: our pref's line out, the saved one (if
+# any) back in at its sorted place, as Zen writes them. Untouched if equal.
+prefs_restore() {
+  [[ -f $1 ]] || return 0
+  K="user_pref(\"$ZEN_PREF\"," L=$2 awk '
+    BEGIN { done = (ENVIRON["L"] == "") }
+    index($0, ENVIRON["K"]) == 1 { next }
+    !done && /^user_pref\(/ && $0 > ENVIRON["L"] { print ENVIRON["L"]; done = 1 }
+    { print }
+    END { if (!done) print ENVIRON["L"] }' "$1" >"$1.vista-tmp" || return 1
+  cmp -s "$1.vista-tmp" "$1" || cat "$1.vista-tmp" >"$1"
+  rm -f "$1.vista-tmp"
+}
+
+zen_finish_pending() {
+  [[ -r $ZEN_PENDING ]] || return 0
+  zen_undark "$(<"$ZEN_PENDING")"
+}
+
+# A pending record (ours or XP's) for this profile holds the true
+# pre-theme value: prefs.js may still carry the dark one.
+browser_save() {
+  local zp pf line
+  zp=$(zen_profile) || { echo null; return 0; }
+  for pf in "$ZEN_PENDING" "$OTHER_PENDING"; do
+    [[ -r $pf && $(jq -r '.profile' "$pf" 2>/dev/null) == "$zp" ]] && { jq -c '{profile, prefs, userjs}' "$pf"; return; }
+  done
+  line=$(grep -m1 -F "user_pref(\"$ZEN_PREF\"," "$zp/prefs.js" 2>/dev/null)
+  jq -cn --arg p "$zp" --arg l "$line" --argjson u "$([[ -e $zp/user.js ]] && echo true || echo false)" \
+    '{profile: $p, prefs: (if $l == "" then null else $l end), userjs: $u}'
+}
+
+# The saved record, or one for the live profile with no pre-Vista value (a
+# saved state from before this step).
+browser_saved() {
+  local b=null zp
+  [[ -r $SAVED ]] && b=$(jq -c '.browser // null' "$SAVED")
+  if [[ $b == null ]] && zp=$(zen_profile); then
+    b=$(jq -cn --arg p "$zp" '{profile: $p, prefs: null, userjs: true}')
+  fi
+  echo "$b"
+}
+
+browser_undark() {
+  local f rc=0
+  for f in "${FLAGS_FILES[@]}"; do flags_remove "$f" || { log "could not remove the dark-mode block from $f"; rc=1; }; done
+  zen_undark "$1" || { log "could not undo Zen's dark mode"; rc=1; }
+  return $rc
+}
+
+browser_apply() {
+  local f zp rc=0 saved
+  saved=$(browser_saved)
+  if ! browser_dark_wanted; then
+    browser_undark "$saved"
+    return
+  fi
+  for f in "${FLAGS_FILES[@]}"; do flags_add "$f" || { log "could not add the dark-mode flag to $f"; rc=1; }; done
+  policy_dark || rc=1
+  zp=$(jq -r '.profile // empty' <<<"$saved")
+  if [[ -n $zp && -d $zp ]]; then
+    userjs_set "$zp" 0 || { log "could not write $zp/user.js"; rc=1; }
+    rm -f "$ZEN_PENDING"
+  fi
+  return $rc
+}
+
+# Leaving Vista: omarchy-theme-set has already written the new theme's seed.
+browser_restore() {
+  [[ $1 != null ]] || set -- "$(browser_saved)"
+  [[ $1 != null ]] || set -- '{}'
+  browser_undark "$1"
+}
+
+browser_status() {
+  local f state zp u
+  if browser_dark_wanted; then state=on; else state=off; fi
+  echo "browser-dark: $state ($([[ -e $BROWSER_DARK ]] && echo "set in $BROWSER_DARK" || echo 'default'))"
+  for f in "${FLAGS_FILES[@]}"; do
+    if [[ ! -f $f ]]; then echo "  ${f/#$HOME/\~}: absent"
+    elif grep -qxF "$BD_BEGIN" "$f"; then echo "  ${f/#$HOME/\~}: --force-dark-mode block"
+    else echo "  ${f/#$HOME/\~}: no block"; fi
+  done
+  f=$(jq -r '.BrowserThemeColor // empty' /etc/chromium/policies/managed/color.json 2>/dev/null)
+  echo "  Chromium seed (policy): ${f:-unknown}"
+  if zp=$(zen_profile); then
+    u=$zp/user.js
+    if [[ -f $u ]] && grep -qxF "$ZEN_BEGIN" "$u"; then
+      echo "  Zen user.js: $(grep -F "user_pref(\"$ZEN_PREF\"" "$u" | tail -n 1)"
+    else
+      echo "  Zen user.js: no block"
+    fi
+    if [[ -e $ZEN_PENDING ]]; then echo "  Zen: reset pending, finished once Zen is closed"; fi
+    if [[ -r $ZEN_CSS ]] && grep -q 'browser-dark: the dark half' "$ZEN_CSS"; then echo "  Zen userChrome: dark"
+    elif [[ -r $ZEN_CSS ]]; then echo "  Zen userChrome: light"; fi
+  fi
+}
+
+cmd_browser_dark() {
+  local running=() p
+  echo "$1" >"$BROWSER_DARK.tmp" && mv "$BROWSER_DARK.tmp" "$BROWSER_DARK" || return 1
+  if [[ ! -e $SAVED ]] || ! vista_theme_active; then
+    echo "Browser dark mode $1: applies the next time a Windows Vista theme is set."
+    return 0
+  fi
+  local rc=0
+  zen_css_build || rc=1
+  if [[ $1 == on ]]; then
+    browser_apply || rc=1
+  else
+    browser_undark "$(browser_saved)" || rc=1
+    policy_light || rc=1
+  fi
+  for p in zen-bin:Zen chromium:Chromium chrome:Chrome; do pgrep -x "${p%%:*}" >/dev/null && running+=("${p#*:}"); done
+  if ((${#running[@]})); then
+    echo "Browser dark mode $1. Restart $(printf '%s, ' "${running[@]}" | sed 's/, $//') to apply."
+  else
+    echo "Browser dark mode $1: applies when the browsers start."
+  fi
+  return $rc
+}
+
 # ---------------------------------------------------------------- commands
 save_state() {
   local s v args=()
@@ -620,21 +939,30 @@ cmd_status() {
     echo "hypr toggle: installed, differs from late.lua"
   fi
   echo "font-name: $(gsettings get "$SCHEMA" font-name)  monospace: $(gsettings get "$SCHEMA" monospace-font-name)"
+  browser_status
   [[ -s $LOG ]] && echo "last logged error: $(tail -n 1 "$LOG")"
   return 0
 }
 
 CMD=${1:-}
+USAGE="usage: vista-mode on|off|status|sizes|cleanup|browser-dark [on|off|status]"
 case $CMD in
   on | off) ;;
   status) cmd_status; exit ;;
   sizes) vista_theme_active || exit 0 ;;
-  *) echo "usage: vista-mode on|off|status|sizes" >&2; exit 2 ;;
+  cleanup) [[ -e $ZEN_PENDING ]] || exit 0 ;;
+  browser-dark)
+    case ${2:-status} in
+      on | off) ;;
+      status) browser_status; exit ;;
+      *) echo "$USAGE" >&2; exit 2 ;;
+    esac ;;
+  *) echo "$USAGE" >&2; exit 2 ;;
 esac
 
 # Never forked or locked when there is nothing to undo: this runs on every
 # non-Vista theme switch.
-[[ $CMD == off && ! -e $SAVED && ! -e $TOGGLE ]] && exit 0
+[[ $CMD == off && ! -e $SAVED && ! -e $TOGGLE && ! -e $ZEN_PENDING ]] && exit 0
 
 # Theme switches can overlap (omarchy-theme-set runs hooks outside its lock);
 # two concurrent first `on`s could otherwise both save, the second capturing Vista
@@ -642,4 +970,12 @@ esac
 exec 9>"${XDG_RUNTIME_DIR:-/tmp}/vista-mode.lock"
 flock 9
 
-if [[ $CMD == sizes ]]; then sizes_apply; else "cmd_$CMD"; fi
+# A Zen clean-up left pending finishes first (if Zen is closed now), so an
+# `on` saves the true pre-Vista state.
+[[ $CMD == sizes ]] || zen_finish_pending || log "Zen clean-up still pending"
+case $CMD in
+  sizes) sizes_apply ;;
+  cleanup) ;;
+  browser-dark) cmd_browser_dark "$2" ;;
+  *) "cmd_$CMD" ;;
+esac
