@@ -124,12 +124,17 @@ closes them). Chromium's tab-strip colour follows at once.
   `~/.config/chrome-flags.conf` (the untouched file waits in
   `~/.local/state/omarchy/vista/browser-dark/` and is moved back byte for byte),
   the scheme's dark tab-strip colour through Omarchy's own browser-policy
-  helper, and a marked block in your Zen profile's `user.js`
-  (`layout.css.prefers-color-scheme.content-override`). Zen keeps that pref
-  in `prefs.js` while it runs, so if Zen is open when dark mode ends, the
-  block turns into a reset and the clean-up finishes after Zen is closed (the
-  next `vista-mode` call or your next login); `uninstall.sh` asks you to close
-  Zen first in that case.
+  helper, and two prefs in the Zen `user.js` block below:
+  `layout.css.prefers-color-scheme.content-override` (dark pages) and
+  `zen.view.window.scheme` (Zen's own window colours).
+- Zen's `user.js` (while a Vista theme is on, light or dark): a marked block
+  (`// >>> omarchy-windows-vista browser-dark`) with
+  `toolkit.legacyUserProfileCustomizations.stylesheets`, without which Zen
+  ignores the Vista `userChrome.css`. The prefs you had before come back when
+  Vista is turned off. Zen keeps these prefs in `prefs.js` while it runs, so if
+  Zen is open when one is dropped, the block turns into a reset and the
+  clean-up finishes after Zen is closed (the next `vista-mode` call or your
+  next login); `uninstall.sh` asks you to close Zen first in that case.
 
 ## Boot splash (optional)
 

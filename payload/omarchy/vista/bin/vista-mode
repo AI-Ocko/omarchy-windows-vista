@@ -584,15 +584,20 @@ sizes_apply() {
 #                     through Omarchy's passwordless policy helper (the light
 #                     seed stays vivid on a dark UI). BrowserColorScheme stays
 #                     Omarchy's "device"; the flag wins over it.
-#   Zen               $ZEN_PREF = 0 (dark pages) in a marked user.js block, and
-#                     zen-dark.css in the userChrome (files step).
+#   Zen               a marked user.js block: whenever Vista is on, $ZEN_CSS_PREF
+#                     (Zen loads no chrome/userChrome.css without it, so the
+#                     files step's Vista look needs it, light or dark); with dark
+#                     mode, content-override 0 (dark pages) and Zen's own
+#                     zen.view.window.scheme 0 (its default 2 follows GTK,
+#                     which stays light), plus zen-dark.css in the userChrome
+#                     (files step). The block keeps its browser-dark marker.
 # A pref user.js once set stays in prefs.js after the line goes, and a running
-# Zen rewrites prefs.js from memory on exit. So leaving dark mode with Zen
-# closed strips the block and puts the saved pre-Vista prefs.js line back (or
-# none); with Zen running, the block instead resets the pref (the saved
-# value, or the default 2, which clears it on Zen's next start) and
-# $ZEN_PENDING has the next vista-mode call or login (post-boot.d) finish the
-# job once Zen is closed. Nothing watches or polls.
+# Zen rewrites prefs.js from memory on exit. So dropping a pref with Zen
+# closed takes its line out of the block and puts the saved pre-Vista prefs.js
+# line back (or none); with Zen running, the block instead resets the pref
+# (the saved value, or Zen's default, which clears it on Zen's next start)
+# and $ZEN_PENDING has the next vista-mode call or login (post-boot.d) finish
+# the job once Zen is closed. Nothing watches or polls.
 BROWSER_DARK=$VISTA_DIR/browser-dark
 BD_DIR=$STATE_DIR/browser-dark
 ZEN_PENDING=$STATE_DIR/zen-pending
@@ -603,7 +608,12 @@ BD_BEGIN='# >>> omarchy-windows-vista browser-dark'
 BD_END='# <<< omarchy-windows-vista browser-dark'
 ZEN_BEGIN='// >>> omarchy-windows-vista browser-dark'
 ZEN_END='// <<< omarchy-windows-vista browser-dark'
-ZEN_PREF=layout.css.prefers-color-scheme.content-override
+ZEN_CSS_PREF=toolkit.legacyUserProfileCustomizations.stylesheets
+ZEN_PAGES_PREF=layout.css.prefers-color-scheme.content-override
+ZEN_SCHEME_PREF=zen.view.window.scheme
+# Every pref the block can hold, with Zen's default (the reset value).
+declare -A ZEN_DEFAULT=([$ZEN_CSS_PREF]=false [$ZEN_PAGES_PREF]=2 [$ZEN_SCHEME_PREF]=2)
+ZEN_PREFS=("$ZEN_CSS_PREF" "$ZEN_PAGES_PREF" "$ZEN_SCHEME_PREF")
 FLAGS_FILES=("${XDG_CONFIG_HOME:-$HOME/.config}/chromium-flags.conf" "${XDG_CONFIG_HOME:-$HOME/.config}/chrome-flags.conf")
 
 browser_dark_wanted() { [[ $(cat "$BROWSER_DARK" 2>/dev/null) != off ]]; }
@@ -705,11 +715,26 @@ zen_running() {
   [[ $t =~ ^[0-9]+$ && -d /proc/$t ]]
 }
 
-# userjs_set <profile> <value>: our block, setting the pref to <value>,
-# replacing the one there or appended (after one blank line).
+# zen_record <json>: the saved record with .prefs as {pref: the pre-Vista
+# prefs.js line or null}. A record from before the stylesheets and scheme
+# prefs holds only the content-override line (or null) as .prefs.
+zen_record() {
+  jq -c --arg k "$ZEN_PAGES_PREF" \
+    '{profile, prefs: (if (.prefs | type) == "object" then .prefs else {($k): .prefs} end), userjs}' <<<"$1"
+}
+
+# zen_wanted: the "pref value" lines of the block while Vista is on.
+zen_wanted() {
+  echo "$ZEN_CSS_PREF true"
+  browser_dark_wanted && printf '%s 0\n' "$ZEN_PAGES_PREF" "$ZEN_SCHEME_PREF"
+  return 0
+}
+
+# userjs_set <profile> <lines>: our block holding <lines>, replacing the one
+# there or appended (after one blank line).
 userjs_set() {
   local u=$1/user.js blk
-  blk=$(printf '%s\n%s\n%s' "$ZEN_BEGIN" "user_pref(\"$ZEN_PREF\", $2);" "$ZEN_END")
+  blk=$(printf '%s\n%s%s' "$ZEN_BEGIN" "$2" "$ZEN_END")
   if [[ -f $u ]] && grep -qxF "$ZEN_BEGIN" "$u"; then
     B=$ZEN_BEGIN E=$ZEN_END BLK=$blk awk '
       $0 == ENVIRON["B"] { print ENVIRON["BLK"]; skip = 1; next }
@@ -726,40 +751,62 @@ userjs_set() {
   fi
 }
 
-# zen_undark <saved>: undo the Zen part; <saved> is the browser step's JSON
-# ({profile, prefs: the pre-Vista prefs.js line or null, userjs: existed}).
-zen_undark() {
-  local zp line u v
-  zp=$(jq -r '.profile // empty' <<<"$1")
-  line=$(jq -r '.prefs // empty' <<<"$1")
+# zen_sync <saved> [<pref value>...]: make our block hold exactly these prefs
+# (none: no block); <saved> is the browser step's record ({profile, prefs:
+# {pref: the pre-Vista prefs.js line or null}, userjs: user.js existed}). A pref
+# the block holds now and should not keeps a reset line while Zen runs.
+zen_sync() {
+  local rec zp u p v line old="" body="" reset=0
+  local -A want=()
+  rec=$(zen_record "$1") || return 1
+  shift
+  for p; do want[${p%% *}]=${p#* }; done
+  zp=$(jq -r '.profile // empty' <<<"$rec")
+  [[ -n $zp && -d $zp ]] || { rm -f "$ZEN_PENDING"; return 0; }
   u=$zp/user.js
-  if [[ -z $zp || ! -f $u ]] || ! grep -qxF "$ZEN_BEGIN" "$u"; then
-    rm -f "$ZEN_PENDING"
+  [[ -f $u ]] && old=$(B=$ZEN_BEGIN E=$ZEN_END awk '$0 == ENVIRON["B"] { on = 1; next } $0 == ENVIRON["E"] { on = 0 } on' "$u")
+  local running=0
+  zen_running "$zp" && running=1
+  for p in "${ZEN_PREFS[@]}"; do
+    if [[ -v want[$p] ]]; then
+      body+="user_pref(\"$p\", ${want[$p]});"$'\n'
+    elif ((running)) && [[ $old == *"user_pref(\"$p\","* ]]; then
+      line=$(jq -r --arg p "$p" '.prefs[$p] // empty' <<<"$rec")
+      v=${ZEN_DEFAULT[$p]}
+      [[ $line =~ ,[[:space:]]*(.+)\)\;$ ]] && v=${BASH_REMATCH[1]}
+      body+="user_pref(\"$p\", $v);"$'\n'
+      reset=1
+    fi
+  done
+  if [[ -n $body ]]; then
+    userjs_set "$zp" "$body" || return 1
+  elif [[ -f $u ]] && grep -qxF "$ZEN_BEGIN" "$u"; then
+    strip_marked "$u" "$ZEN_BEGIN" "$ZEN_END" >"$u.vista-tmp" || return 1
+    if [[ ! -s $u.vista-tmp && $(jq -r '.userjs' <<<"$rec") == false ]]; then
+      rm -f "$u" "$u.vista-tmp"
+    else
+      cat "$u.vista-tmp" >"$u" && rm -f "$u.vista-tmp"
+    fi
+  fi
+  if ((reset)); then
+    [[ -e $ZEN_PENDING ]] || log "Zen is running: its old prefs come back at its next start; the user.js clean-up finishes once it is closed"
+    echo "$rec" >"$ZEN_PENDING"
     return 0
   fi
-  if zen_running "$zp"; then
-    v=2
-    [[ $line =~ ,[[:space:]]*([0-9]+)\)\; ]] && v=${BASH_REMATCH[1]}
-    userjs_set "$zp" "$v" || return 1
-    [[ -e $ZEN_PENDING ]] || log "Zen is running: its dark pages end at its next start; the user.js clean-up finishes once it is closed"
-    jq -c '{profile, prefs, userjs}' <<<"$1" >"$ZEN_PENDING"
-    return 0
+  if ((!running)); then
+    for p in "${ZEN_PREFS[@]}"; do
+      [[ -v want[$p] || $old != *"user_pref(\"$p\","* ]] && continue
+      prefs_restore "$zp/prefs.js" "$p" "$(jq -r --arg p "$p" '.prefs[$p] // empty' <<<"$rec")" || return 1
+    done
   fi
-  strip_marked "$u" "$ZEN_BEGIN" "$ZEN_END" >"$u.vista-tmp" || return 1
-  if [[ ! -s $u.vista-tmp && $(jq -r '.userjs' <<<"$1") == false ]]; then
-    rm -f "$u" "$u.vista-tmp"
-  else
-    cat "$u.vista-tmp" >"$u" && rm -f "$u.vista-tmp"
-  fi
-  prefs_restore "$zp/prefs.js" "$line" || return 1
   rm -f "$ZEN_PENDING"
 }
 
-# prefs_restore <prefs.js> <line>: our pref's line out, the saved one (if
-# any) back in at its sorted place, as Zen writes them. Untouched if equal.
+# prefs_restore <prefs.js> <pref> <line>: the pref's line out, the saved one
+# (if any) back in at its sorted place, as Zen writes them. Untouched if equal.
 prefs_restore() {
   [[ -f $1 ]] || return 0
-  K="user_pref(\"$ZEN_PREF\"," L=$2 awk '
+  K="user_pref(\"$2\"," L=$3 awk '
     BEGIN { done = (ENVIRON["L"] == "") }
     index($0, ENVIRON["K"]) == 1 { next }
     !done && /^user_pref\(/ && $0 > ENVIRON["L"] { print ENVIRON["L"]; done = 1 }
@@ -769,60 +816,67 @@ prefs_restore() {
   rm -f "$1.vista-tmp"
 }
 
+# A clean-up left pending: the block Vista wants now (none once Vista is off).
 zen_finish_pending() {
+  local want=()
   [[ -r $ZEN_PENDING ]] || return 0
-  zen_undark "$(<"$ZEN_PENDING")"
+  [[ -e $SAVED ]] && vista_theme_active && mapfile -t want < <(zen_wanted)
+  zen_sync "$(<"$ZEN_PENDING")" "${want[@]}"
 }
 
 # A pending record (ours or XP's) for this profile holds the true
-# pre-theme value: prefs.js may still carry the dark one.
+# pre-theme values: prefs.js may still carry Vista's.
 browser_save() {
-  local zp pf line
+  local zp pf p line prefs='{}'
   zp=$(zen_profile) || { echo null; return 0; }
   for pf in "$ZEN_PENDING" "$OTHER_PENDING"; do
-    [[ -r $pf && $(jq -r '.profile' "$pf" 2>/dev/null) == "$zp" ]] && { jq -c '{profile, prefs, userjs}' "$pf"; return; }
+    [[ -r $pf && $(jq -r '.profile' "$pf" 2>/dev/null) == "$zp" ]] && { zen_record "$(<"$pf")"; return; }
   done
-  line=$(grep -m1 -F "user_pref(\"$ZEN_PREF\"," "$zp/prefs.js" 2>/dev/null)
-  jq -cn --arg p "$zp" --arg l "$line" --argjson u "$([[ -e $zp/user.js ]] && echo true || echo false)" \
-    '{profile: $p, prefs: (if $l == "" then null else $l end), userjs: $u}'
+  for p in "${ZEN_PREFS[@]}"; do
+    line=$(grep -m1 -F "user_pref(\"$p\"," "$zp/prefs.js" 2>/dev/null)
+    prefs=$(jq -c --arg p "$p" --arg l "$line" '. + {($p): (if $l == "" then null else $l end)}' <<<"$prefs")
+  done
+  jq -cn --arg p "$zp" --argjson prefs "$prefs" --argjson u "$([[ -e $zp/user.js ]] && echo true || echo false)" \
+    '{profile: $p, prefs: $prefs, userjs: $u}'
 }
 
 # The saved record. A saved state from before this step has none: then a
 # pending record for the live profile (ours or the other theme's), else one
-# that assumes no pre-Vista value and keeps user.js.
+# that assumes no pre-Vista values and keeps user.js.
 browser_saved() {
   local b=null zp pf
   [[ -r $SAVED ]] && b=$(jq -c '.browser // null' "$SAVED")
   if [[ $b == null ]] && zp=$(zen_profile); then
     for pf in "$ZEN_PENDING" "$OTHER_PENDING"; do
-      [[ -r $pf && $(jq -r '.profile' "$pf" 2>/dev/null) == "$zp" ]] && { jq -c '{profile, prefs, userjs}' "$pf"; return; }
+      [[ -r $pf && $(jq -r '.profile' "$pf" 2>/dev/null) == "$zp" ]] && { zen_record "$(<"$pf")"; return; }
     done
-    b=$(jq -cn --arg p "$zp" '{profile: $p, prefs: null, userjs: true}')
+    b=$(jq -cn --arg p "$zp" '{profile: $p, prefs: {}, userjs: true}')
   fi
-  echo "$b"
+  [[ $b == null ]] && { echo null; return; }
+  zen_record "$b"
 }
 
+# browser_undark <saved> [<pref value>...]: no dark flags; Zen's block holds
+# only the given prefs.
 browser_undark() {
-  local f rc=0
+  local f s=$1 rc=0
+  shift
   for f in "${FLAGS_FILES[@]}"; do flags_remove "$f" || { log "could not remove the dark-mode block from $f"; rc=1; }; done
-  zen_undark "$1" || { log "could not undo Zen's dark mode"; rc=1; }
+  zen_sync "$s" "$@" || { log "could not update Zen's user.js"; rc=1; }
   return $rc
 }
 
 browser_apply() {
-  local f zp rc=0 saved
+  local f rc=0 saved want=()
   saved=$(browser_saved)
+  mapfile -t want < <(zen_wanted)
   if ! browser_dark_wanted; then
-    browser_undark "$saved"
+    browser_undark "$saved" "${want[@]}"
     return
   fi
   for f in "${FLAGS_FILES[@]}"; do flags_add "$f" || { log "could not add the dark-mode flag to $f"; rc=1; }; done
   policy_dark || rc=1
-  zp=$(jq -r '.profile // empty' <<<"$saved")
-  if [[ -n $zp && -d $zp ]]; then
-    userjs_set "$zp" 0 || { log "could not write $zp/user.js"; rc=1; }
-    rm -f "$ZEN_PENDING"
-  fi
+  zen_sync "$saved" "${want[@]}" || { log "could not write Zen's user.js"; rc=1; }
   return $rc
 }
 
@@ -847,7 +901,8 @@ browser_status() {
   if zp=$(zen_profile); then
     u=$zp/user.js
     if [[ -f $u ]] && grep -qxF "$ZEN_BEGIN" "$u"; then
-      echo "  Zen user.js: $(B=$ZEN_BEGIN E=$ZEN_END awk '$0 == ENVIRON["B"] { on = 1; next } $0 == ENVIRON["E"] { on = 0 } on' "$u")"
+      echo "  Zen user.js block:"
+      B=$ZEN_BEGIN E=$ZEN_END awk '$0 == ENVIRON["B"] { on = 1; next } $0 == ENVIRON["E"] { on = 0 } on { print "    " $0 }' "$u"
     else
       echo "  Zen user.js: no block"
     fi
@@ -866,12 +921,8 @@ cmd_browser_dark() {
   fi
   local rc=0
   zen_css_build || rc=1
-  if [[ $1 == on ]]; then
-    browser_apply || rc=1
-  else
-    browser_undark "$(browser_saved)" || rc=1
-    policy_light || rc=1
-  fi
+  browser_apply || rc=1
+  if [[ $1 == off ]]; then policy_light || rc=1; fi
   for p in zen-bin:Zen chromium:Chromium chrome:Chrome; do pgrep -x "${p%%:*}" >/dev/null && running+=("${p#*:}"); done
   if ((${#running[@]})); then
     echo "Browser dark mode $1. Restart $(printf '%s, ' "${running[@]}" | sed 's/, $//') to apply."
