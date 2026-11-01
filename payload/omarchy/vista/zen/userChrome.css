@@ -1,7 +1,7 @@
 /* Windows Vista for Zen: the shared half of userChrome.css.
  *
  * Active only while a Vista theme is: vista-mode writes the scheme's zen.css
- * (the --vista-* colours, from omarchy/themes/windows-vista*/zen.css) followed
+ * (the --vista-* colours, from omarchy/themes/<scheme>/zen.css) followed
  * by this file into ~/.local/state/omarchy/vista/zen-userChrome.css, and links
  * the live profile's chrome/userChrome.css to it. Revert removes the link. Zen
  * reads userChrome.css only at startup, so a running Zen changes on its next
