@@ -1,7 +1,11 @@
 # Windows Vista (Aero (Graphite)) -- terminal palette.
 #
 # The ANSI slots are the cmd.exe console palette, the same in every Vista
-# scheme. `accent` is the scheme's active frame colour: a PLACEHOLDER until
+# scheme, with six colours that are too dark on black (below 4.5:1) raised to
+# 5:1, same hue. The same values as the Vista foot.ini and neovim.lua.
+# Originals, to undo: red #800000, green #008000, blue #000080,
+# magenta #800080, cyan #008080, bright_blue #0000FF.
+# `accent` is the scheme's active frame colour: a PLACEHOLDER until
 # it is read from aero.msstyles and the Window Color presets.
 mode = "dark"
 
@@ -21,18 +25,18 @@ dark_foreground   = "#808080"
 light_foreground  = "#C0C0C0"
 bright_foreground = "#FFFFFF"
 
-red     = "#800000"
-green   = "#008000"
+red     = "#F90000"
+green   = "#009100"
 yellow  = "#808000"
-blue    = "#000080"
-magenta = "#800080"
-cyan    = "#008080"
+blue    = "#6868FF"
+magenta = "#DB00DB"
+cyan    = "#008A8A"
 orange  = "#808000"
 brown   = "#808000"
 
 bright_red     = "#FF0000"
 bright_green   = "#00FF00"
 bright_yellow  = "#FFFF00"
-bright_blue    = "#0000FF"
+bright_blue    = "#8080FF"
 bright_magenta = "#FF00FF"
 bright_cyan    = "#00FFFF"

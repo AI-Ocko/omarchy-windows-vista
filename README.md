@@ -29,9 +29,10 @@ see below):
   Windows Sidebar) with the Clock, CPU Meter, Slide Show and Weather gadgets.
 - **cmd.exe** console (`C:\Users\you>`), the Vista GTK theme, icons and
   pointers, Segoe UI, a Vista fastfetch, an IE7-style Zen.
-  The console palette, in foot and in neovim, has its six too-dark colours raised
-  to 5:1 on black. `vista-nvim-check` fails if any foot slot or nvim highlight
-  group drops below the bar again.
+  The console palette, in foot, neovim and colors.toml (so btop and Omarchy's
+  generated app themes match), has its six too-dark colours raised to 5:1 on
+  black. `vista-nvim-check` fails if any foot slot, nvim highlight group or
+  colors.toml text colour drops below the bar again, or if the three drift apart.
 - **Wallpapers:** all of Vista's own in each scheme (Aurora first, then
   Vista's picker groups), the two Windows Ultimate wallpapers Microsoft
   published, and twenty Frutiger Aero photographs from Wikimedia Commons

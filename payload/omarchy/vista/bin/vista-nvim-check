@@ -12,6 +12,10 @@
 -- 4.5:1 against its background (regular0 exempt, see below). Prints each group
 -- or slot below its bar, worst first. Also checks that the four theme copies
 -- of neovim.lua, and of foot.ini, are byte-identical.
+-- And colors.toml (Omarchy's source for btop, its shell, Hermes, Claude Code,
+-- ...): every text key at least 4.5:1 against `background`, the four copies
+-- the same apart from comments and `accent`, and its 14 ANSI keys equal to
+-- neovim.lua's `colors` and foot's slots ("drift" otherwise).
 --
 -- Exit 0: nothing below the bar and the copies match. 1: something is.
 -- 2: could not run (aether.nvim or the neovim.lua missing or broken).
@@ -45,8 +49,10 @@ vim.opt.rtp:prepend(aether)
 -- Mark aether's hot reload as set up, so it never watches the live theme files.
 _G.__aether_hotreload_state = { did_setup = true, fs_event_handles = {}, pending_reload_timers = {} }
 
+local colors -- the neovim.lua palette, compared with colors.toml and foot below
 local ok, err = pcall(function()
   local spec = dofile(file)
+  colors = spec[1].opts.colors
   require("aether").setup(spec[1].opts)
   vim.cmd.colorscheme("aether")
 end)
@@ -146,9 +152,9 @@ end
 -- black, the same as the background on purpose (text in it is meant to vanish).
 local SCHEMES = { "windows-vista", "windows-vista-basic", "windows-vista-frost", "windows-vista-graphite" }
 local foot = themes .. "/" .. SCHEMES[1] .. "/foot.ini"
-local footrows = 0
+local footrows, slots = 0, {}
 if vim.fn.filereadable(foot) == 1 then
-  local slots, section = {}, nil
+  local section = nil
   for _, line in ipairs(vim.fn.readfile(foot)) do
     section = line:match("^%[(.-)%]") or section
     local k, v = line:match("^%s*([%w-]+)%s*=%s*(%x%x%x%x%x%x)%s*$")
@@ -174,6 +180,102 @@ if vim.fn.filereadable(foot) == 1 then
 else
   rows[#rows + 1] = { 0, "missing      " .. foot }
   footrows = 1
+end
+
+-- colors.toml: Omarchy generates btop, its shell, Hermes, Claude Code and the
+-- other apps' themes from it. Every colour key is text (at least 4.5 against
+-- `background`) or exempt, with its reason; a key in neither list fails, so a
+-- key Omarchy adds later is not skipped unmeasured.
+local TOML_TEXT = {
+  "red", "green", "yellow", "blue", "magenta", "cyan", "orange", "brown",
+  "bright_red", "bright_green", "bright_yellow", "bright_blue", "bright_magenta", "bright_cyan",
+  "foreground", "dark_foreground", "light_foreground", "bright_foreground", "muted",
+}
+local TOML_EXEMPT = {
+  background = "the background itself",
+  dark_background = "a background",
+  darker_background = "a background",
+  lighter_background = "a background (#000080; carries white text in nvim)",
+  selection = "the selection background",
+  selection_background = "the selection background",
+  selection_foreground = "text on the selection: measured against selection_background instead",
+  accent = "the scheme's frame colour, not chosen for text (Graphite #4B4B4B is 2.41: a known gap)",
+}
+-- The 14 ANSI keys, and the same colour in neovim.lua's `colors` and foot's
+-- [colors-dark]. orange and brown have no foot slot (false).
+local ANSI = {
+  red = "regular1", green = "regular2", yellow = "regular3", blue = "regular4",
+  magenta = "regular5", cyan = "regular6", orange = false, brown = false,
+  bright_red = "bright1", bright_green = "bright2", bright_yellow = "bright3",
+  bright_blue = "bright4", bright_magenta = "bright5", bright_cyan = "bright6",
+}
+
+local function read_toml(p)
+  local keys, rest = {}, {}
+  for _, line in ipairs(vim.fn.readfile(p)) do
+    local k, v = line:match('^%s*([%w_]+)%s*=%s*"#(%x%x%x%x%x%x)"%s*$')
+    if k then
+      keys[k] = tonumber(v, 16)
+    end
+    -- what must match across the schemes: everything but comments and `accent`
+    if not line:match("^%s*#") and not line:match("^%s*accent%s*=") then
+      rest[#rest + 1] = line
+    end
+  end
+  return keys, table.concat(rest, "\n")
+end
+
+local toml_path = themes .. "/" .. SCHEMES[1] .. "/colors.toml"
+local tomlrows, drift = 0, false
+if vim.fn.filereadable(toml_path) == 1 then
+  local toml = read_toml(toml_path)
+  local tbg = toml.background or die("no background in " .. toml_path)
+  local before = #rows
+  local text = {}
+  for _, k in ipairs(TOML_TEXT) do
+    text[k] = true
+    if not toml[k] then
+      rows[#rows + 1] = { 0, "missing      colors.toml " .. k }
+    else
+      add(ratio(toml[k], tbg), 4.5, "colors.toml " .. k, "key", toml[k], tbg)
+    end
+  end
+  if toml.selection_foreground and toml.selection_background then
+    local sf, sb = toml.selection_foreground, toml.selection_background
+    add(ratio(sf, sb), 4.5, "colors.toml selection_foreground", "key", sf, sb)
+  end
+  for k in pairs(toml) do
+    if not text[k] and not TOML_EXEMPT[k] then
+      rows[#rows + 1] = { 0, "unclassified colors.toml " .. k .. " (add it to TOML_TEXT or TOML_EXEMPT)" }
+    end
+  end
+  tomlrows = #rows - before
+
+  -- Drift: colors.toml, neovim.lua and foot must agree on every ANSI key.
+  local keys = vim.tbl_keys(ANSI)
+  table.sort(keys)
+  for _, k in ipairs(keys) do
+    local slot = ANSI[k]
+    local t = toml[k]
+    local n = colors and colors[k] and tonumber(colors[k]:gsub("^#", ""), 16)
+    local f = slot and slots[slot]
+    if t ~= n or (slot and t ~= f) then
+      drift = true
+      io.write(
+        string.format(
+          "drift    %-14s colors.toml %s  neovim.lua %s  foot %s",
+          k,
+          t and string.format("#%06X", t) or "-",
+          n and string.format("#%06X", n) or "-",
+          slot and (f and string.format("#%06X", f) or "-") or "(no slot)"
+        ),
+        "\n"
+      )
+    end
+  end
+else
+  rows[#rows + 1] = { 0, "missing      " .. toml_path }
+  tomlrows = 1
 end
 
 table.sort(rows, function(a, b)
@@ -202,16 +304,35 @@ for _, name in ipairs({ "neovim.lua", "foot.ini" }) do
     end
   end
 end
+-- ... and the same colors.toml, apart from its comments and the `accent` line.
+local first_toml = nil
+for _, s in ipairs(SCHEMES) do
+  local p = themes .. "/" .. s .. "/colors.toml"
+  if vim.fn.filereadable(p) == 0 then
+    io.write("missing  " .. p, "\n")
+    differ = true
+  else
+    local _, rest = read_toml(p)
+    first_toml = first_toml or rest
+    if rest ~= first_toml then
+      io.write("differs  " .. p .. " (beyond comments and accent, from the first copy found)", "\n")
+      differ = true
+    end
+  end
+end
 
 io.write(
   string.format(
-    "%s: %d groups below the bar; %s: %d foot slots below the bar%s",
+    "%s: %d groups below the bar; %s: %d foot slots below the bar; %s: %d keys below the bar%s%s",
     file,
-    #rows - footrows,
+    #rows - footrows - tomlrows,
     foot,
     footrows,
+    toml_path,
+    tomlrows,
+    drift and "; palettes drift" or "",
     differ and "; theme copies differ" or ""
   ),
   "\n"
 )
-os.exit((#rows > 0 or differ) and 1 or 0)
+os.exit((#rows > 0 or differ or drift) and 1 or 0)
