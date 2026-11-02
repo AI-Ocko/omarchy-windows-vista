@@ -1,0 +1,217 @@
+#!/usr/bin/env -S nvim --clean --headless -l
+-- vista-nvim-check [path/to/neovim.lua]
+--
+-- Is nvim readable under a Vista theme's neovim.lua? Loads the file the way
+-- Omarchy does (aether.nvim with the file's opts) in a clean nvim, with no
+-- user config and no live theme, then measures the WCAG contrast of every
+-- highlight group nvim ends up with:
+--   text                          at least 4.5:1 against its own background
+--   borders, separators, signs,   at least 3:1 (picked by name, INDICATOR
+--   icons, guides, undercurls     below; undercurl/underline colour by `sp`)
+-- Also checks foot: every [colors-dark] slot of the Vista foot.ini at least
+-- 4.5:1 against its background (regular0 exempt, see below). Prints each group
+-- or slot below its bar, worst first. Also checks that the four theme copies
+-- of neovim.lua, and of foot.ini, are byte-identical.
+--
+-- Exit 0: nothing below the bar and the copies match. 1: something is.
+-- 2: could not run (aether.nvim or the neovim.lua missing or broken).
+--
+-- The default file is omarchy/themes/windows-vista/neovim.lua beside this
+-- script's omarchy/vista: the repo's payload copies, or once installed, the
+-- ones in ~/.config/omarchy/themes.
+-- aether.nvim comes from $VISTA_AETHER_DIR, default ~/.local/share/nvim/lazy/aether.
+-- With lazy.nvim not loaded, aether turns on every plugin's groups, so all
+-- of them are measured.
+
+local function die(msg)
+  io.stderr:write("vista-nvim-check: " .. msg .. "\n")
+  os.exit(2)
+end
+
+local script = vim.fn.resolve(vim.fn.fnamemodify(arg[0], ":p"))
+-- omarchy/vista/bin -> omarchy/themes: payload/omarchy in the repo, ~/.config/omarchy installed.
+local themes = vim.fn.fnamemodify(script, ":h:h:h") .. "/themes"
+local file = vim.fn.fnamemodify(arg[1] or (themes .. "/windows-vista/neovim.lua"), ":p")
+
+local aether = os.getenv("VISTA_AETHER_DIR") or vim.fn.expand("~/.local/share/nvim/lazy/aether")
+if vim.fn.isdirectory(aether .. "/lua/aether") == 0 then
+  die("aether.nvim not found at " .. aether .. " (set VISTA_AETHER_DIR)")
+end
+if vim.fn.filereadable(file) == 0 then
+  die("no such file: " .. file)
+end
+vim.opt.rtp:prepend(aether)
+
+-- Mark aether's hot reload as set up, so it never watches the live theme files.
+_G.__aether_hotreload_state = { did_setup = true, fs_event_handles = {}, pending_reload_timers = {} }
+
+local ok, err = pcall(function()
+  local spec = dofile(file)
+  require("aether").setup(spec[1].opts)
+  vim.cmd.colorscheme("aether")
+end)
+if not ok then
+  die("loading " .. file .. ": " .. tostring(err))
+end
+
+-- Not text, or fg == bg on purpose. Lua patterns on the group name (a group
+-- linking to one is exempt too). Kept short; each one is a choice, not a miss.
+local EXEMPT = {
+  ["^EndOfBuffer$"] = "fg = bg hides the ~ past the end of the buffer",
+  ["^NvimInternalError$"] = "nvim's red-on-red marker for broken cmdline expressions; Nvim* parser groups link to it",
+  ["^@markup%.heading%.%d%.delimiter%.vimdoc$"] = "nvim hides help's ==== rules (fg = bg) and draws an underdouble instead; sp is still checked",
+  ["^NeoTreeTabSeparatorInactive$"] = "fg = bg makes neo-tree's inactive tab slant merge into the tab bar",
+  ["Shadow"] = "FloatShadow/PmenuShadow: nvim's blended drop shadows, never hold text",
+  ["^RedrawDebug"] = "nvim's 'redrawdebug' flash colours, debugging only",
+}
+
+-- Borders, separators and indicators: 3:1 is enough (WCAG non-text contrast).
+local INDICATOR = { "Border", "Separator", "Split", "Indent", "Ibl", "Scope", "Guide", "Thumb", "Sign", "Icon", "Bullet" }
+
+local function lum(c)
+  local function ch(v)
+    v = v / 255
+    return v <= 0.03928 and v / 12.92 or ((v + 0.055) / 1.055) ^ 2.4
+  end
+  return 0.2126 * ch(math.floor(c / 65536) % 256) + 0.7152 * ch(math.floor(c / 256) % 256) + 0.0722 * ch(c % 256)
+end
+
+local function ratio(a, b)
+  local x, y = lum(a), lum(b)
+  if x < y then
+    x, y = y, x
+  end
+  return (x + 0.05) / (y + 0.05)
+end
+
+local function exempt(name)
+  for _ = 1, 20 do -- follow links: Nvim* groups link to NvimInternalError
+    for pat in pairs(EXEMPT) do
+      if name:find(pat) then
+        return true
+      end
+    end
+    name = vim.api.nvim_get_hl(0, { name = name, create = false }).link
+    if not name then
+      return false
+    end
+  end
+  return false
+end
+
+local function indicator(name)
+  for _, p in ipairs(INDICATOR) do
+    if name:find(p, 1, true) then
+      return true
+    end
+  end
+  return false
+end
+
+-- ponytail: a group without its own bg is measured on Normal's bg, and a group
+-- without its own fg (Visual, CursorLine, ...) with Normal's fg. Syntax colours
+-- under a bg-only group, and floats with a bg other than Normal's, are not
+-- measured; add that if a theme gives floats their own bg.
+local normal = vim.api.nvim_get_hl(0, { name = "Normal" })
+local nfg, nbg = normal.fg or 0xFFFFFF, normal.bg or 0x000000
+
+local rows = {}
+local function add(r, bar, name, what, a, b)
+  if r < bar then
+    rows[#rows + 1] = { r, string.format("%5.2f < %.1f  %-42s %-10s #%06X on #%06X", r, bar, name, what, a, b) }
+  end
+end
+
+for name in pairs(vim.api.nvim_get_hl(0, {})) do
+  local h = vim.api.nvim_get_hl(0, { name = name, link = false })
+  if not exempt(name) then
+    local fg, bg = h.fg or nfg, h.bg or nbg
+    if h.reverse then
+      fg, bg = bg, fg
+    end
+    local ind = indicator(name)
+    if h.bg and not h.fg and (name:find("Thumb", 1, true) or name:find("Trailspace", 1, true)) then
+      add(ratio(h.bg, nbg), 3.0, name, "block", h.bg, nbg) -- scrollbar thumb, trailing-space marker: a block, not text
+    elseif h.fg or h.bg then
+      add(ratio(fg, bg), ind and 3.0 or 4.5, name, h.fg and "fg" or "fg(Normal)", fg, bg)
+    end
+    if h.sp and (h.undercurl or h.underline or h.underdouble or h.underdotted or h.underdashed) then
+      add(ratio(h.sp, bg), 3.0, name, "sp", h.sp, bg)
+    end
+  end
+end
+
+-- foot: the 16 slots of [colors-dark] in the first scheme's foot.ini, each at
+-- least 4.5 against its `background`. regular0 is exempt: it is the console's
+-- black, the same as the background on purpose (text in it is meant to vanish).
+local SCHEMES = { "windows-vista", "windows-vista-basic", "windows-vista-frost", "windows-vista-graphite" }
+local foot = themes .. "/" .. SCHEMES[1] .. "/foot.ini"
+local footrows = 0
+if vim.fn.filereadable(foot) == 1 then
+  local slots, section = {}, nil
+  for _, line in ipairs(vim.fn.readfile(foot)) do
+    section = line:match("^%[(.-)%]") or section
+    local k, v = line:match("^%s*([%w-]+)%s*=%s*(%x%x%x%x%x%x)%s*$")
+    if section == "colors-dark" and k then
+      slots[k] = tonumber(v, 16)
+    end
+  end
+  local fbg = slots.background or die("no background in [colors-dark] of " .. foot)
+  for _, kind in ipairs({ "regular", "bright" }) do
+    for i = 0, 7 do
+      local k = kind .. i
+      if k ~= "regular0" then
+        local before = #rows
+        if not slots[k] then
+          rows[#rows + 1] = { 0, "missing      foot " .. k .. " in [colors-dark]" }
+        else
+          add(ratio(slots[k], fbg), 4.5, "foot " .. k, "slot", slots[k], fbg)
+        end
+        footrows = footrows + #rows - before
+      end
+    end
+  end
+else
+  rows[#rows + 1] = { 0, "missing      " .. foot }
+  footrows = 1
+end
+
+table.sort(rows, function(a, b)
+  return a[1] < b[1] or (a[1] == b[1] and a[2] < b[2])
+end)
+for _, r in ipairs(rows) do
+  io.write(r[2], "\n")
+end
+
+-- The four Vista schemes ship the same neovim.lua and the same foot.ini.
+local differ = false
+for _, name in ipairs({ "neovim.lua", "foot.ini" }) do
+  local first = nil
+  for _, s in ipairs(SCHEMES) do
+    local p = themes .. "/" .. s .. "/" .. name
+    if vim.fn.filereadable(p) == 0 then
+      io.write("missing  " .. p, "\n")
+      differ = true
+    else
+      local blob = vim.fn.readblob(p)
+      first = first or blob
+      if blob ~= first then
+        io.write("differs  " .. p .. " (from the first copy found)", "\n")
+        differ = true
+      end
+    end
+  end
+end
+
+io.write(
+  string.format(
+    "%s: %d groups below the bar; %s: %d foot slots below the bar%s",
+    file,
+    #rows - footrows,
+    foot,
+    footrows,
+    differ and "; theme copies differ" or ""
+  ),
+  "\n"
+)
+os.exit((#rows > 0 or differ) and 1 or 0)
