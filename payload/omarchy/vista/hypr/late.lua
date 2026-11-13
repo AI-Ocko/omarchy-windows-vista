@@ -27,12 +27,29 @@ if name ~= "windows-vista" and name:sub(1, 14) ~= "windows-vista-" then
 	return
 end
 
+-- Title bars are ours alone: Omarchy 4.5 loads its own hyprbars build
+-- (omarchy-hyprland-titlebars) once a workspace floats
+-- (default/hypr/workspace-modes.lua, which runs after this file). Refuse that
+-- load while a Vista theme is on; without the plugin its titlebars() does
+-- nothing. The Lua state is rebuilt on every reload, so `vista-mode off` (which
+-- removes this file) gives stock its loader back, and Hyprland drops a plugin
+-- the config stops asking for.
+do
+	local load = hl.plugin.load
+	hl.plugin.load = function(path, ...)
+		if type(path) == "string" and path:find("/omarchy%-hyprland%-titlebars/", 1) then
+			return
+		end
+		return load(path, ...)
+	end
+end
+
 -- Opaque windows: Omarchy 4.0 tags its translucent windows default-opacity,
 -- 4.5 transparent-window.
 o.window({ tag = "default-opacity" }, { opacity = "1 1" })
 o.window({ tag = "transparent-window" }, { opacity = "1 1" })
 
--- Title bars: hyprbars with Vista's caption art (omarchy/vista/hyprbars/
+-- Title bars: hyprbars, renamed vistabars, with Vista's caption art (omarchy/vista/hyprbars/
 -- build, ABI-locked: used only while its stamp matches the running Hyprland;
 -- without it there are no title bars, never stock ones under Vista).
 -- Aero: a translucent colorization tint over blur, the glass reflection
@@ -89,12 +106,12 @@ local function read_line(path)
 	f:close()
 	return line
 end
-local ready = read_line(bars .. "/hyprland-version") == hl.version() and io.open(bars .. "/libhyprbars.so", "r") ~= nil
+local ready = read_line(bars .. "/hyprland-version") == hl.version() and io.open(bars .. "/libvistabars.so", "r") ~= nil
 if not ready then
 	return
 end
-hl.plugin.load(bars .. "/libhyprbars.so")
-if hl.plugin.hyprbars == nil then
+hl.plugin.load(bars .. "/libvistabars.so")
+if hl.plugin.vistabars == nil then
 	return
 end
 
@@ -145,7 +162,7 @@ end
 for k, v in pairs(common) do
 	cfg[k] = v
 end
-hl.config({ plugin = { hyprbars = cfg } })
+hl.config({ plugin = { vistabars = cfg } })
 
 -- First added is rightmost. bg_color/fg_color/icon are what stock hyprbars
 -- would draw if the art failed to load.
@@ -155,22 +172,22 @@ local function art(n)
 end
 local glyph_alt = art("restore-g")
 if c.glass then
-	hl.plugin.hyprbars.add_button({ bg_color = "rgb(c8463c)", fg_color = "rgb(ffffff)", icon = "✕", size = 20, width = 46, height = 20, margins = { 20, 20, 6, 8 }, action = dispatch("hl.dsp.window.close()"), bg_image = art("close-bg"), fg_image = art("close-g") })
-	hl.plugin.hyprbars.add_button({ bg_color = "rgb(dce8f4)", fg_color = "rgb(000000)", icon = "□", size = 20, width = 28, height = 20, margins = { 12, 12, 6, 8 }, action = maximize, bg_image = art("max-bg"), fg_image = art("max-g"), fg_image_alt = glyph_alt })
-	hl.plugin.hyprbars.add_button({ bg_color = "rgb(dce8f4)", fg_color = "rgb(000000)", icon = "_", size = 20, width = 28, height = 20, margins = { 12, 12, 6, 8 }, action = "omarchy-shell vistatask minimizeActive", bg_image = art("min-bg"), fg_image = art("min-g") })
+	hl.plugin.vistabars.add_button({ bg_color = "rgb(c8463c)", fg_color = "rgb(ffffff)", icon = "✕", size = 20, width = 46, height = 20, margins = { 20, 20, 6, 8 }, action = dispatch("hl.dsp.window.close()"), bg_image = art("close-bg"), fg_image = art("close-g") })
+	hl.plugin.vistabars.add_button({ bg_color = "rgb(dce8f4)", fg_color = "rgb(000000)", icon = "□", size = 20, width = 28, height = 20, margins = { 12, 12, 6, 8 }, action = maximize, bg_image = art("max-bg"), fg_image = art("max-g"), fg_image_alt = glyph_alt })
+	hl.plugin.vistabars.add_button({ bg_color = "rgb(dce8f4)", fg_color = "rgb(000000)", icon = "_", size = 20, width = 28, height = 20, margins = { 12, 12, 6, 8 }, action = "omarchy-shell vistatask minimizeActive", bg_image = art("min-bg"), fg_image = art("min-g") })
 else
 	for _, b in ipairs({ { "close", dispatch("hl.dsp.window.close()") }, { "max", maximize }, { "min", "omarchy-shell vistatask minimizeActive" } }) do
-		hl.plugin.hyprbars.add_button({ bg_color = "rgb(dce8f4)", fg_color = "rgb(000000)", icon = " ", size = 18, width = 26, height = 18, margins = { 2, 2, 7, 7 }, action = b[2], bg_image = art(b[1] .. "-bg"), fg_image = art(b[1] .. "-g"), fg_image_alt = b[1] == "max" and glyph_alt or nil })
+		hl.plugin.vistabars.add_button({ bg_color = "rgb(dce8f4)", fg_color = "rgb(000000)", icon = " ", size = 18, width = 26, height = 18, margins = { 2, 2, 7, 7 }, action = b[2], bg_image = art(b[1] .. "-bg"), fg_image = art(b[1] .. "-g"), fg_image_alt = b[1] == "max" and glyph_alt or nil })
 	end
 end
 
 if c.glass then
-	o.window({ focus = false }, { ["hyprbars:bar_color"] = c.idle, ["hyprbars:title_color"] = "rgb(333333)" })
+	o.window({ focus = false }, { ["vistabars:bar_color"] = c.idle, ["vistabars:title_color"] = "rgb(333333)" })
 else
-	o.window({ focus = false }, { ["hyprbars:title_color"] = "rgb(4c4c4c)" })
+	o.window({ focus = false }, { ["vistabars:title_color"] = "rgb(4c4c4c)" })
 end
-o.window("^(com\\.rice\\.(btop|logs)|org\\.omarchy\\.screensaver)$", { ["hyprbars:no_bar"] = true })
-o.window({ tag = "floating-window" }, { ["hyprbars:no_bar"] = true })
+o.window("^(com\\.rice\\.(btop|logs)|org\\.omarchy\\.screensaver)$", { ["vistabars:no_bar"] = true })
+o.window({ tag = "floating-window" }, { ["vistabars:no_bar"] = true })
 
 -- Win+R: Vista's Run dialog (ocko.vista-taskbar). Bound here, so it exists
 -- only while a Vista theme is active (plain SUPER+R is unbound in Omarchy).
