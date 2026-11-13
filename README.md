@@ -14,7 +14,9 @@ see below):
 - **Windows:** Aero glass title bars (the scheme's colorization over blur,
   the DWM reflection, Vista's joined caption buttons hung from the top edge,
   black titles with their glow) or Vista Basic's opaque ones, from a patched
-  hyprbars built for your Hyprland.
+  hyprbars built for your Hyprland (loaded as `vistabars`, so it never meets
+  Omarchy's own floating-window title bars; those stay off while Vista is on,
+  and every window has exactly one title bar).
 - **Taskbar:** the Start orb, Quick Launch, task buttons, the notification
   area with Vista's own icons, the clock.
 - **Start menu:** Vista's two columns, All Programs in place, Start Search
@@ -113,14 +115,27 @@ closes them). Chromium's tab-strip colour follows at once.
   icons/windows-vista-cursors}`.
 - While a Vista theme is on, and put back exactly when you leave it
   (`~/.local/state/omarchy/vista/saved-state.json` and `orig/`):
-  `~/.config/omarchy/shell.json` (the Vista bar and plugins are selected;
-  your own clones of the same stock plugins are disabled meanwhile, so
-  `omarchy-shell` calls reach the Vista ones), gsettings fonts and pointer,
+  `~/.config/omarchy/shell.json` (the Vista bar and plugins are selected,
+  and the bar layout's widget entries name the Vista clones, each keeping the
+  id it replaced in `vistaFrom`; your own clones of the same stock plugins are
+  disabled meanwhile, so `omarchy-shell` calls reach the Vista ones; Omarchy's
+  dock is off), gsettings fonts and pointer,
   `~/.config/gtk-3.0/gtk.css` moved aside, `~/.config/gtk-4.0/gtk.css`
   linked to the scheme's palette, `~/.config/fastfetch/config.jsonc`,
   `~/.config/omarchy/branding/{about,screensaver}.txt`, your Zen profile's
   `chrome/userChrome.css` (a link), a Hyprland toggle file (geometry, the
-  title bars, Win+R), and the tmux status bar.
+  title bars, Win+R, and Super+Alt+Space opening the Start menu in place of
+  the dock's app grid), and the tmux status bar. Omarchy's video-background
+  daemon (OWE) is paused, unless you had paused it yourself, and resumed when
+  you leave (Vista's wallpapers are stills; nothing is written to disk).
+- When you leave Vista for a theme that uses Omarchy's own bar, the bar layout
+  is converted to the Omarchy 4.5 format by Omarchy's own two layout
+  migrations, which 4.5's update could not apply while the Vista taskbar was
+  selected. A theme with its own replacement bar keeps the layout as it is.
+- Once, on the first switch to Vista after updating to this release on
+  Omarchy 4.5: the notification files the previous Vista release (4.0-era)
+  had left in `~/.local/state/omarchy/notifications` are removed, by running
+  Omarchy's own clean-up migration again.
 - Nothing system-wide unless you choose the boot splash.
 - Browser dark mode (while a Vista theme is on and `browser-dark` is on; all
   of it undone when you leave Vista or turn it off): a marked
@@ -159,20 +174,29 @@ disk password blind also works) or pick a Limine snapshot, then
 
 ## Omarchy and Hyprland versions
 
-Every shell plugin copies stock Omarchy code; `VERSION` lists what it was
-built against and which stock files each one copies (sha256). On each
-switch to Vista, `vista-compat-test` checks them against the Omarchy you
+Built against Omarchy 4.5.0 (see `VERSION`); for Omarchy 4.0.x, use the
+previous release (1.0.0). Every shell plugin copies stock
+Omarchy code; `VERSION` lists which stock files each one copies (sha256). On
+each switch to Vista, `vista-compat-test` checks them against the Omarchy you
 have: a part an update broke falls back to Omarchy's own (one notification
-per change), the rest stay Vista. The title bars are tied to Hyprland 0.56.x
-and are rebuilt by themselves after a Hyprland update (one notification if
-that fails); on another Hyprland version the stock bars are used.
+per change), the rest stay Vista. The notification, lock, polkit and idle
+parts fall back as soon as a stock file they copy changes at all, since a
+behaviour change there can't wait for a visible symptom; the test also checks,
+by name, that the stock members the Vista code reads still exist (a member
+reached by a changed parent depth needs the `--runtime` scan below).
+`vista-compat-test --runtime` lists any warning the running shell has logged
+from a Vista part (the installer runs it at the end).
+The title bars are tied to Hyprland 0.56.x and are rebuilt by themselves
+after a Hyprland update (one notification if that fails); until then, or on
+another Hyprland version, windows have no title bars.
 
 ## Battery
 
 Measured on a laptop with a quad-core Intel i5 and two batteries, on battery, idle desktop,
 the same brightness throughout: 30 s to settle, then 3 minutes per theme with
 `power_now` sampled every 5 s; CPU is the process's own time over those 3
-minutes, as % of one core (Omarchy 4.0.6, Hyprland 0.56.2, 2026-10-31).
+minutes, as % of one core (Omarchy 4.0.6, Hyprland 0.56.2, 2026-10-31; not
+re-measured for Omarchy 4.5).
 
 | theme | power, average (W) | min-max (W) | quickshell CPU | Hyprland CPU |
 |---|---|---|---|---|

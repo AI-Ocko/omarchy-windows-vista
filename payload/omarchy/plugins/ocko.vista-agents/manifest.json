@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "ocko.vista-agents",
   "name": "Windows Vista Agents",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "ocko",
   "description": "omarchy.agents for the Windows Vista notification area: the usage dashboard as an Vista property sheet, one tab per subscription. Enabled only while an Vista theme is active (omarchy/vista/bin/vista-mode); the stock widget stays enabled for other bars.",
   "kinds": [
@@ -29,7 +29,67 @@
         "codex": {
           "enabled": true
         },
+        "grok": {
+          "enabled": true
+        },
+        "kimi": {
+          "enabled": true
+        },
+        "cursor": {
+          "enabled": true
+        },
+        "grokbot": {
+          "enabled": true
+        },
+        "copilot": {
+          "enabled": true
+        },
+        "muse": {
+          "enabled": true
+        },
+        "agy": {
+          "enabled": true
+        },
+        "kimchi": {
+          "enabled": true
+        },
+        "hermes": {
+          "enabled": true
+        },
+        "devin": {
+          "enabled": true
+        },
+        "vibe": {
+          "enabled": true
+        },
+        "qwen": {
+          "enabled": true
+        },
+        "opencode": {
+          "enabled": true
+        },
+        "zai": {
+          "enabled": true
+        },
+        "ollama": {
+          "enabled": true
+        },
+        "minimax": {
+          "enabled": true
+        },
+        "openrouter": {
+          "enabled": true
+        },
+        "deepseek": {
+          "enabled": true
+        },
         "fireworks": {
+          "enabled": true
+        },
+        "synthetic": {
+          "enabled": true
+        },
+        "local": {
           "enabled": true
         }
       },

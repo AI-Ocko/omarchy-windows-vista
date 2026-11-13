@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "ocko.vista-network",
   "name": "Windows Vista Network",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "ocko",
   "description": "omarchy.network for the Windows Vista notification area: Local Area Connection Status, Details, Properties and the wireless network window. Enabled only while an Vista theme is active (omarchy/vista/bin/vista-mode); the stock widget stays enabled for other bars.",
   "kinds": [

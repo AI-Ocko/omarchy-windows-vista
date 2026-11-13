@@ -1,19 +1,17 @@
 {
-  "verified": "omarchy 4.0.6-1",
+  "verified": "omarchy 4.5.0-3",
   "stock": {
-    "plugins/bar/widgets/Tray.qml": "dbdd6dddd739c74c00c7e68d1a5c738acddc4dafff92559dc26607463cfcc85d",
-    "plugins/bar/widgets/TrayModel.js": "925a879daf505071608094664c7c53679eaa77b74c169434be026499ccf6c27e"
+    "plugins/bar/widgets/Tray.qml": "bb0a6d360d885df58ac8ab44ff1a3668a3d913c36257a15e6282c4720dba8d2f",
+    "plugins/bar/widgets/TrayModel.js": "e2a06e56334a37f41f057ba7ef128a870b9b37e6e489dd502dfde979b5af7247"
   },
-  "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "c666d084481881477b57e43f9b11c41183a470fdfd089a62b8ba74036a41546b",
+  "shared": "a89a85796e5321e02fff44aa5f19687a0d862af09479626f3ef92352c4788823",
+  "self": "7f4ab10fdd19c20d6de6fb582c185922bb22d986391bf2bb9dbad8fd3fcde412",
   "external": [
-    "Bottom",
     "Checked",
     "Color",
     "Flip",
     "LeftButton",
     "MiddleButton",
-    "None",
     "OutCubic",
     "Passive",
     "PreserveAspectFit",
@@ -21,9 +19,7 @@
     "RadioButton",
     "RightButton",
     "Slide",
-    "Top",
     "WordWrap",
-    "activate",
     "angleDelta",
     "buttonType",
     "checkState",
@@ -36,24 +32,37 @@
     "isArray",
     "isSeparator",
     "lastIndexOf",
-    "map",
     "mapFromItem",
     "onlyMenu",
     "pop",
     "push",
     "rect",
     "replace",
-    "restart",
     "round",
     "scroll",
     "secondaryActivate",
     "slice",
     "splice",
-    "split",
-    "stop",
     "substring",
     "toLowerCase",
     "tooltipTitle",
     "trim"
-  ]
+  ],
+  "stockMembers": {
+    "barSize": [
+      "Ui/BarWidget.qml",
+      "Ui/PluginBarApi.qml",
+      "Ui/WidgetButton.qml",
+      "plugins/bar/Bar.qml",
+      "plugins/dev-gallery/GalleryPanel.qml",
+      "services/PluginBarStateApi.qml"
+    ],
+    "moduleName": [
+      "Ui/BarIndicator.qml",
+      "Ui/BarWidget.qml",
+      "Ui/Panel.qml",
+      "Ui/PluginBarApi.qml",
+      "plugins/bar/Bar.qml"
+    ]
+  }
 }

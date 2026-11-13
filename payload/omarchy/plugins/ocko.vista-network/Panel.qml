@@ -1,10 +1,10 @@
 // ocko.vista-network: omarchy.network for the Vista notification area (Windows Vista
-// theme only; see omarchy/vista/bin/vista-mode). Lines 9-981 are the logic of
-// /usr/share/omarchy/shell/plugins/panels/network/Panel.qml (Omarchy 4.0.6,
-// sha256 1e551a8d109535d2673ec9bb08faea01acdba27141c82aae6b7ae3be8da3c002,
-// lines 1-972), with each change marked "Vista:". The card below that is rebuilt
+// theme only; see omarchy/vista/bin/vista-mode). Lines 9-1109 are the logic of
+// /usr/share/omarchy/shell/plugins/panels/network/Panel.qml (omarchy.network 4.5.0,
+// sha256 8beba301a1d87db144543ad888226099c3dd1c2999f2a52106964b5851959adb,
+// lines 1-1100), with each change marked "Vista:". The card below that is rebuilt
 // as netshell's Status, Details and Properties and SP2's wireless window.
-// Re-diff the logic against a newer Omarchy: diff <(sed -n 9,981p Panel.qml) <(sed -n 1,972p <stock>)
+// Re-diff the logic against a newer Omarchy: diff <(sed -n 9,1109p Panel.qml) <(sed -n 1,1100p <stock>)
 
 import QtQuick
 import QtQuick.Controls
@@ -59,20 +59,20 @@ Panel {
   property int internetPingPacketLoss: 0
   readonly property int pingHistoryWindow: 24
   readonly property int pingAverageWindow: 5
-  readonly property bool hasInternetPing: internetPingSamples.length > 0
+  readonly property bool hasInternetPing: Model.internetPingReadable(internetPingSamples, connectivity)
   // Every stat row stays mounted whether or not there is data behind it, so a
   // sample arriving late never reflows the grid. This says whether the numbers
   // are real yet or the row should read "--".
   readonly property bool hasTransferStats: info.rx_bytes !== undefined
   property int connectionPhraseIndex: 0
   readonly property var connectionPhrases: [
-    "Wiring bits",
-    "Handling packets",
-    "Sorting frames",
-    "Hauling bytes",
-    "Routing crumbs",
-    "Counting collisions",
-    "Bending light",
+    Commons.I18n.t("network.phrase1"),
+    Commons.I18n.t("network.phrase2"),
+    Commons.I18n.t("network.phrase3"),
+    Commons.I18n.t("network.phrase4"),
+    Commons.I18n.t("network.phrase5"),
+    Commons.I18n.t("network.phrase6"),
+    Commons.I18n.t("network.phrase7")
   ]
   readonly property string connectionPhrase: connectionPhrases[connectionPhraseIndex % connectionPhrases.length]
   readonly property bool networkManagerAvailable: Networking.backend === NetworkBackendType.NetworkManager
@@ -129,9 +129,9 @@ Panel {
   property bool cursorActive: false
 
   // Keyboard focus zone for the panel. j/k crosses row boundaries:
-  // header actions ⇄ band ⇄ DNS row ⇄ Wi-Fi networks. h/l move
+  // header actions ⇄ portal ⇄ band ⇄ DNS row ⇄ Wi-Fi networks. h/l move
   // within header actions, band pills, or DNS providers.
-  property string focusSection: "dns"  // "header" | "band" | "dns" | "wifi"
+  property string focusSection: "dns"  // "header" | "portal" | "band" | "dns" | "wifi"
   property int headerIndex: 0
   readonly property bool canDisconnect: !!connectedWifiNetwork
   readonly property bool headerHasDisconnect: false
@@ -147,7 +147,7 @@ Panel {
   readonly property bool qrHeaderHasCursor: cursorActive && focusSection === "header" && headerIndex === qrHeaderIndex
   readonly property bool speedHeaderHasCursor: cursorActive && focusSection === "header" && headerIndex === speedHeaderIndex
   readonly property bool toggleHeaderHasCursor: cursorActive && focusSection === "header" && headerIndex === toggleHeaderIndex
-  readonly property string toggleHint: Networking.wifiEnabled ? "Turn Wi-Fi off" : "Turn Wi-Fi on"
+  readonly property string toggleHint: Networking.wifiEnabled ? Commons.I18n.t("network.turnWifiOff") : Commons.I18n.t("network.turnWifiOn")
   readonly property var dnsProviders: ["DHCP", "Cloudflare", "Google", "Custom"]
   property int dnsIndex: 0
   // ["2.4", "5", ...], or empty when there is nothing to choose between.
@@ -169,8 +169,10 @@ Panel {
   // Under Automatic there is nothing to pick, so the pills collapse away and
   // the header states the live band instead.
   readonly property bool bandPillsVisible: canSelectBand && bandPinned
-  readonly property string bandSectionTitle: Model.bandSectionTitle(bandEffective, bandCurrent)
+  readonly property string bandSectionTitle: Model.bandSectionTitle(bandEffective, bandCurrent, Commons.I18n.t, Commons.I18n.formatNumber)
   readonly property bool bandBusy: pendingBand !== ""
+  // The DNS pills show a choice the moment it's made, and fall back if it fails.
+  readonly property string dnsEffective: pendingDnsProvider !== "" ? pendingDnsProvider : dnsProvider
   // The speed test needs an interface to test, so its hero action only
   // appears once there is one.
   readonly property bool canRunSpeedTest: !!info.iface
@@ -217,7 +219,7 @@ Panel {
     Qt.callLater(function() { root.refresh(true) })
   }
 
-  IpcHandler {
+  ShellIpc {
     target: "omarchy.network"
 
     function open() { root.open() }
@@ -230,6 +232,8 @@ Panel {
     // network target; both cards are their own plugins now.
     function showQr() { root.summonWifiQr(true) }
     function speedTest() { root.summonSpeedTest() }
+    function openCaptivePortal() { root.openCaptivePortal() }
+    function checkConnectivity() { root.checkConnectivity() }
   }
 
   function activateHeader() {
@@ -287,11 +291,11 @@ Panel {
   }
 
   function bandLabel(band) {
-    return Model.bandLabel(band)
+    return Model.bandLabel(band, Commons.I18n.t, Commons.I18n.formatNumber)
   }
 
   function bandTooltip(band) {
-    return Model.bandTooltip(band)
+    return Model.bandTooltip(band, Commons.I18n.t, Commons.I18n.formatNumber)
   }
 
   // Single cursor model: exactly one highlighted spot across the whole
@@ -332,11 +336,11 @@ Panel {
       refresh(true)
       selectedIndex = wifiNetworks.length > 0 ? 0 : -1
       wifiActionFocused = false
-      focusSection = wifiNetworks.length > 0 ? "wifi" : "dns"
+      focusSection = hasCaptivePortal ? "portal" : (wifiNetworks.length > 0 ? "wifi" : "dns")
       var idx = dnsProviders.indexOf(dnsProvider)
       dnsIndex = idx >= 0 ? idx : 0
       syncBandIndex()
-      cursorActive = false
+      cursorActive = hasCaptivePortal
     } else {
       // Drop a restart armed by this open: without it a close/reopen inside
       // the 100ms window reuses the running timer and re-enables the scanner
@@ -364,7 +368,7 @@ Panel {
   onPasswordSsidChanged: {
     if (passwordSsid === "" && opened) {
       passwordText = ""
-      Qt.callLater(function() { if (keyCatcher) keyCatcher.forceActiveFocus() })
+      Qt.callLater(function() { if (panel.loadedContent) panel.loadedContent.forceActiveFocus() })
     }
   }
 
@@ -396,6 +400,7 @@ Panel {
   onWifiDeviceChanged: {
     setScannerEnabled(true)
     syncWifiNetworks()
+    resetActiveApSignal()
   }
 
   onWifiNetworkObjectsChanged: syncWifiNetworks()
@@ -449,18 +454,116 @@ Panel {
   readonly property string kind: {
     if (wiredDevice && wiredDevice.connected) return "ethernet"
     if (connectedWifiNetwork) return "wifi"
+    // NetworkManager can leave the active profile out of the device's
+    // AvailableConnections, and Quickshell only builds known networks from
+    // that list. An OWE transition-mode network does this between scans: the
+    // in-use access point carries the hidden "_owetm_" SSID, so the profile
+    // for the open SSID looks out of range even while it is connected. Trust
+    // the device's own state then instead of flickering to disconnected.
+    if (wifiDevice && wifiDevice.connected) return "wifi"
     return "disconnected"
   }
-  readonly property int signalStrength: connectedWifiNetwork
-    ? Math.round((connectedWifiNetwork.signalStrength || 0) * 100)
+  readonly property int signalStrength: kind === "wifi"
+    ? Model.connectedSignalStrength(connectedWifiNetwork ? connectedWifiNetwork.signalStrength : 0, activeApSignal)
     : -1
+  // Filled by activeApSignalPoll from nmcli while the connected network has no
+  // strength of its own to report.
+  property int activeApSignal: -1
+  readonly property bool needsActiveApSignal: kind === "wifi"
+    && !(connectedWifiNetwork && connectedWifiNetwork.signalStrength > 0)
+  // Bumped whenever the cached reading stops describing the current link, so
+  // an nmcli read still in flight from before cannot write a stale strength.
+  property int activeApSignalGeneration: 0
+  property int activeApSignalRequest: -1
+  onKindChanged: if (kind !== "wifi") resetActiveApSignal()
+
+  // Switching Wi-Fi networks always passes through a non-"wifi" kind (both the
+  // device and the old network drop out of the connected state while the new
+  // profile activates), so this also covers a change of network.
+  function resetActiveApSignal() {
+    activeApSignal = -1
+    activeApSignalGeneration++
+  }
+
+  function pollActiveApSignal() {
+    if (activeApSignalProc.running) return
+    activeApSignalRequest = activeApSignalGeneration
+    activeApSignalProc.running = true
+  }
+
+  function finishActiveApSignal(raw) {
+    if (activeApSignalRequest !== activeApSignalGeneration) {
+      // The link changed mid-read and the restarted poll skipped while this
+      // one was running; read again now instead of a full interval later.
+      if (needsActiveApSignal) activeApSignalPoll.restart()
+      return
+    }
+    activeApSignal = Model.parseActiveApSignal(raw)
+  }
 
   function copyToClipboard(value) {
     if (!value || !root.bar) return
     Quickshell.execDetached(["bash", "-c", "printf %s " + Util.shellQuote(value) + " | wl-copy"])
   }
 
-  readonly property string icon: Model.connectionIcon(kind, signalStrength)
+  // NetworkManager performs the HTTP probe (including unexpected page bodies,
+  // not just redirects). Consume its native notifications rather than running
+  // a second curl loop or mistaking an ordinary timeout for a captive portal.
+  readonly property bool connectivityChecksEnabled: networkManagerAvailable
+    && Networking.canCheckConnectivity && Networking.connectivityCheckEnabled
+  readonly property string connectivity: Model.connectivityState(kind, Networking.connectivity, {
+    Portal: NetworkConnectivity.Portal, Limited: NetworkConnectivity.Limited,
+    Full: NetworkConnectivity.Full, None: NetworkConnectivity.None
+  }, connectivityChecksEnabled)
+  readonly property bool hasCaptivePortal: connectivity === "portal"
+  readonly property bool restricted: hasCaptivePortal || connectivity === "limited"
+  readonly property string icon: Model.connectionIcon(kind, signalStrength, connectivity)
+  // Keyed on the device rather than the SSID: on an OWE transition-mode
+  // network the listed network comes and goes with every scan while the link
+  // stays up, and a real network switch already passes through "disconnected".
+  readonly property string connectionKey: kind === "wifi" && wifiDevice
+    ? kind + ":" + wifiDevice.name
+    : (kind === "ethernet" && wiredDevice ? kind + ":" + wiredDevice.name : "")
+
+  onConnectionKeyChanged: Qt.callLater(checkConnectivity)
+  onConnectivityChecksEnabledChanged: Qt.callLater(checkConnectivity)
+  onHasCaptivePortalChanged: {
+    if (hasCaptivePortal && opened && passwordSsid === "") {
+      focusSection = "portal"
+      cursorActive = true
+    } else if (!hasCaptivePortal && focusSection === "portal") {
+      focusSection = headerActionCount > 0 ? "header" : "dns"
+      headerIndex = 0
+    }
+  }
+  onRestrictedChanged: {
+    connectionPhraseSwap.stop()
+    if (panel.loadedContent) panel.loadedContent.heroMeta.opacity = 1.0
+  }
+
+  function checkConnectivity() {
+    if (connectivityChecksEnabled && kind !== "disconnected") Networking.checkConnectivity()
+  }
+
+  function openCaptivePortal() {
+    if (!hasCaptivePortal) return
+    // Explicit user action only. argv (not a shell string), and a fixed HTTP
+    // URL: let the browser handle the redirect without trusting portal input.
+    // The command pauses a Tailscale exit node and re-checks quickly until the
+    // sign-in completes.
+    Quickshell.execDetached(["omarchy-network-captive-portal", Model.captivePortalUrl])
+    close()
+  }
+
+  // Keep checking while login is needed, even with the panel closed in favour
+  // of the browser. Normal connected operation relies on NM's own schedule.
+  Timer {
+    id: connectivityPoll
+    interval: 10000
+    repeat: true
+    running: root.restricted && root.connectivityChecksEnabled
+    onTriggered: root.checkConnectivity()
+  }
 
   // The share card is its own panel plugin (omarchy.wifiqr) so a replacement
   // design can take it over; summon() routes to whichever implementation is
@@ -479,6 +582,7 @@ Panel {
   }
 
   function refresh(scanWifi) {
+    checkConnectivity()
     if (scanWifi === undefined) scanWifi = false
     if (!detailsProc.running) detailsProc.running = true
     if (!dnsProc.running) {
@@ -504,15 +608,15 @@ Panel {
   }
 
   function formatHeaderSpeed(mbps) {
-    return Model.formatHeaderSpeed(mbps)
+    return Model.formatHeaderSpeed(mbps, Commons.I18n.formatNumber)
   }
 
   function formatHeaderFreq(mhz) {
-    return Model.formatHeaderFreq(mhz)
+    return Model.formatHeaderFreq(mhz, Commons.I18n.formatNumber)
   }
 
   function headerDetail() {
-    return Model.headerDetail(info)
+    return Model.headerDetail(info, Commons.I18n.formatNumber)
   }
 
   function updateDetails(raw) {
@@ -564,19 +668,19 @@ Panel {
   }
 
   function formatBytes(bytes) {
-    return Model.formatBytes(bytes)
+    return Model.formatBytes(bytes, Commons.I18n.formatNumber)
   }
 
   function formatRate(bytesPerSec) {
-    return Model.formatRate(bytesPerSec)
+    return Model.formatRate(bytesPerSec, Commons.I18n.formatNumber)
   }
 
   function formatPingLatency(ms) {
-    return Model.formatPingLatency(ms, hasInternetPing)
+    return Model.formatPingLatency(ms, hasInternetPing, Commons.I18n.t, Commons.I18n.formatNumber)
   }
 
   function formatPacketLoss(percent) {
-    return Model.formatPacketLoss(percent, hasInternetPing)
+    return Model.formatPacketLoss(percent, hasInternetPing, Commons.I18n.formatNumber)
   }
 
   // Prefer a connected device: a machine can expose several NICs of the
@@ -619,7 +723,7 @@ Panel {
   }
 
   function wifiSectionTitle(index) {
-    return Model.wifiSectionTitle(wifiNetworks, index)
+    return Model.wifiSectionTitle(wifiNetworks, index, Commons.I18n.t)
   }
 
   function wifiIconFor(strength) {
@@ -664,7 +768,7 @@ Panel {
     cancelPasswordPrompt()
     var connection = ""
     if (info.type === "wifi") connection = info.ssid || "Wi-Fi"
-    else if (info.type === "ethernet") connection = "Ethernet"
+    else if (info.type === "ethernet") connection = Commons.I18n.t("network.ethernet")
     bar.shell.summon("omarchy.speedtest", connection ? JSON.stringify({ connection: connection }) : "{}")
   }
 
@@ -684,10 +788,11 @@ Panel {
       return
     }
 
+    // The panel stays open, so the choice can be seen taking hold and another
+    // tried without reopening it.
     root.pendingDnsProvider = provider
     actionProc.command = ["bash", "-c", root.dnsCommand(provider)]
     actionProc.running = true
-    root.close()
   }
 
   function requiresCredentials(security) {
@@ -752,7 +857,7 @@ Panel {
   }
 
   function networkFailureReason(reason, needsCredentials) {
-    return Model.networkFailureReason(reason, needsCredentials, connectionFailReasons)
+    return Model.networkFailureReason(reason, needsCredentials, connectionFailReasons, Commons.I18n.t)
   }
 
   function shouldRepromptPassphrase(reason, needsCredentials) {
@@ -824,6 +929,26 @@ Panel {
       waitForEnd: true
       onStreamFinished: root.updateDetails(text)
     }
+  }
+
+  // Reads the in-use access point's strength without triggering a scan, for
+  // the connected network that has none of its own (see signalStrength).
+  Process {
+    id: activeApSignalProc
+    command: ["nmcli", "-t", "-f", "IN-USE,SIGNAL", "device", "wifi", "list", "ifname", root.wifiDevice ? root.wifiDevice.name : "", "--rescan", "no"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.finishActiveApSignal(text)
+    }
+  }
+
+  Timer {
+    id: activeApSignalPoll
+    interval: 5000
+    repeat: true
+    triggeredOnStart: true
+    running: root.needsActiveApSignal
+    onTriggered: root.pollActiveApSignal()
   }
 
   Timer {
@@ -911,7 +1036,7 @@ Panel {
   Timer {
     id: connectionPhraseTimer
     interval: 2800
-    running: root.opened && (root.info.type === "ethernet" || (root.info.type === "wifi" && root.canDisconnect))
+    running: root.opened && !root.restricted && (root.info.type === "ethernet" || (root.info.type === "wifi" && root.canDisconnect))
     repeat: true
     onTriggered: connectionPhraseSwap.restart()
   }
@@ -919,15 +1044,15 @@ Panel {
   SequentialAnimation {
     id: connectionPhraseSwap
     PropertyAnimation {
-      target: heroMeta; property: "opacity"
-      to: 0.0; duration: 180; easing.type: Easing.OutQuad
+      target: panel.loadedContent ? panel.loadedContent.heroMeta : null; property: "opacity"
+      to: 0.0; duration: Style.duration(150); easing.type: Easing.OutCubic
     }
     ScriptAction {
       script: root.connectionPhraseIndex = (root.connectionPhraseIndex + 1) % root.connectionPhrases.length
     }
     PropertyAnimation {
-      target: heroMeta; property: "opacity"
-      to: 1.0; duration: 260; easing.type: Easing.InQuad
+      target: panel.loadedContent ? panel.loadedContent.heroMeta : null; property: "opacity"
+      to: 1.0; duration: Style.duration(200); easing.type: Easing.OutCubic
     }
   }
 
@@ -936,7 +1061,7 @@ Panel {
     function onInfoChanged() {
       if (!(root.info.type === "ethernet" || (root.info.type === "wifi" && root.canDisconnect))) {
         connectionPhraseSwap.stop()
-        heroMeta.opacity = 1.0
+        if (panel.loadedContent) panel.loadedContent.heroMeta.opacity = 1.0
       }
     }
   }
@@ -952,9 +1077,9 @@ Panel {
     onTriggered: {
       if (!root.actionKind) return
       var reason
-      if (root.actionKind === "connect") reason = "Timed out connecting"
-      else if (root.actionKind === "disconnect") reason = "Timed out disconnecting"
-      else reason = "Timed out forgetting"
+      if (root.actionKind === "connect") reason = Commons.I18n.t("network.timedOutConnecting")
+      else if (root.actionKind === "disconnect") reason = Commons.I18n.t("network.timedOutDisconnecting")
+      else reason = Commons.I18n.t("network.timedOutForgetting")
       root.failureSsid = root.actionSsid
       root.failureReason = reason
       root.actionSsid = ""
@@ -968,6 +1093,9 @@ Panel {
     anchors.fill: parent
     bar: root.bar
     text: root.icon
+    active: root.restricted
+    tooltipText: root.hasCaptivePortal ? Commons.I18n.t("network.signInToNetwork")
+      : (root.restricted ? Commons.I18n.t("network.limitedAccess") : "")
 
     onPressed: function(b) {
       if (root.opened) root.close()
@@ -1001,8 +1129,9 @@ Panel {
   // the connection windows below.
   property bool vistaFlyout: true
   // `omarchy-shell vistanet status|details|wireless`: the windows the
-  // flyout's links open, directly.
-  IpcHandler {
+  // flyout's links open, directly. Vista: ShellIpc, so omarchy-shell reaches it
+  // over the shell socket.
+  ShellIpc {
     target: "vistanet"
     function status(): void { root.vistaShowWindow("") }
     function details(): void { root.vistaShowWindow("details") }
@@ -1044,13 +1173,21 @@ Panel {
     if (kind === "disconnected") linkUpSince = 0
     else if (linkUpSince === 0) linkUpSince = Date.now()
   }
-  onKindChanged: trackLink()
+  // Vista: 4.5.0 stock owns root onKindChanged (resetActiveApSignal); a second
+  // handler on root would not load, so trackLink runs from the Connections below.
   QtObject { Component.onCompleted: root.trackLink() }
 
-  // Stock owns onOpenedChanged; a second handler on root would not load.
+  // Stock owns onOpenedChanged, onKindChanged and onPasswordSsidChanged; a
+  // second handler on root would not load.
   Connections {
     target: root
     function onOpenedChanged() { if (!root.opened) root.vistaCloseOverlays(); else root.vistaFlyout = true }
+    function onKindChanged() { root.trackLink() }
+    // Vista: 4.5.0 stock hands focus back through panel.loadedContent, which is
+    // null for our eager card, so give it back to keyCatcher ourselves.
+    function onPasswordSsidChanged() {
+      if (root.passwordSsid === "" && root.opened) Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+    }
   }
 
   Timer {
@@ -1518,7 +1655,7 @@ Panel {
           parent: statusWin.page
           anchors.fill: parent
           visible: root.sheetTab === 2
-          readonly property string dnsNow: root.pendingDnsProvider !== "" ? root.pendingDnsProvider : root.dnsProvider
+          readonly property string dnsNow: root.dnsEffective  // Vista: 4.5.0 pending-or-current DNS
 
           VistaGroupBox { x: root.du(7); y: root.dv(7); width: root.du(196); height: root.dv(64); caption: "DNS server" }
           Column {

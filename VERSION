@@ -1,27 +1,27 @@
-omarchy-windows-vista 1.0.0 (2026-10-31)
+omarchy-windows-vista 1.1.0 (2026-11-13)
 
-Built against: Omarchy 4.0.6-1, Hyprland v0.56.2 (efb5099), quickshell 0.3.2.r7.g2b4501a-1
-Title bars: hyprbars from hyprwm/hyprland-plugins 7644cec + vista-captions.patch, built per user (no AUR); Hyprland 0.56.x only (others: stock bars)
+Built against: Omarchy 4.5.0-3, Hyprland v0.56.2 (efb5099), quickshell 0.3.2.r7.g2b4501a-1
+Title bars: hyprbars from hyprwm/hyprland-plugins 7644cec + vista-captions.patch, renamed vistabars, built per user (no AUR); Hyprland 0.56.x only (others: no title bars until rebuilt)
 Assets: Windows Vista Business SP2 6.0.6002.18005 (x86 DVD), sha256-pinned; see ASSETS.md
 
 Stock Omarchy files each Vista plugin copies, verified by sha256 (compat.json):
-  ocko.vista-agents: 3 files, omarchy 4.0.6-1
-  ocko.vista-audio: 2 files, omarchy 4.0.6-1
-  ocko.vista-bluetooth: 2 files, omarchy 4.0.6-1
-  ocko.vista-clock: 3 files, omarchy 4.0.6-1
-  ocko.vista-idle: 2 files, omarchy 4.0.6-1
-  ocko.vista-lock: 2 files, omarchy 4.0.6-1
-  ocko.vista-menu: 2 files, omarchy 4.0.6-1
-  ocko.vista-monitor: 2 files, omarchy 4.0.6-1
-  ocko.vista-network: 2 files, omarchy 4.0.6-1
-  ocko.vista-notifications: 3 files, omarchy 4.0.6-1
-  ocko.vista-osd: 2 files, omarchy 4.0.6-1
-  ocko.vista-polkit: 2 files, omarchy 4.0.6-1
-  ocko.vista-power: 2 files, omarchy 4.0.6-1
-  ocko.vista-sidebar: 0 files, omarchy 4.0.6-1
-  ocko.vista-taskbar: 2 files, omarchy 4.0.6-1
-  ocko.vista-tray: 2 files, omarchy 4.0.6-1
-  ocko.vista-weather: 3 files, omarchy 4.0.6-1
+  ocko.vista-agents: 3 files, 5 stock members, omarchy 4.5.0-3
+  ocko.vista-audio: 2 files, 3 stock members, omarchy 4.5.0-3
+  ocko.vista-bluetooth: 2 files, 2 stock members, omarchy 4.5.0-3
+  ocko.vista-clock: 4 files, 8 stock members, omarchy 4.5.0-3
+  ocko.vista-idle: 2 files, 0 stock members, omarchy 4.5.0-3
+  ocko.vista-lock: 3 files, 5 stock members, omarchy 4.5.0-3
+  ocko.vista-menu: 2 files, 3 stock members, omarchy 4.5.0-3
+  ocko.vista-monitor: 2 files, 1 stock members, omarchy 4.5.0-3
+  ocko.vista-network: 2 files, 3 stock members, omarchy 4.5.0-3
+  ocko.vista-notifications: 10 files, 0 stock members, omarchy 4.5.0-3
+  ocko.vista-osd: 2 files, 1 stock members, omarchy 4.5.0-3
+  ocko.vista-polkit: 2 files, 0 stock members, omarchy 4.5.0-3
+  ocko.vista-power: 2 files, 2 stock members, omarchy 4.5.0-3
+  ocko.vista-sidebar: 0 files, 0 stock members, omarchy 4.5.0-3
+  ocko.vista-taskbar: 2 files, 14 stock members, omarchy 4.5.0-3
+  ocko.vista-tray: 2 files, 2 stock members, omarchy 4.5.0-3
+  ocko.vista-weather: 3 files, 6 stock members, omarchy 4.5.0-3
 
 vista-compat-test at release:
   ocko.vista-agents      ok
@@ -42,7 +42,7 @@ vista-compat-test at release:
   ocko.vista-tray        ok
   ocko.vista-weather     ok
 
-Battery (on battery, idle, 3 min per theme, 2026-10-31):
+Battery (measured on Omarchy 4.0.6, not re-measured for 4.5; on battery, idle, 3 min per theme, 2026-10-31):
   | theme | power, average (W) | min-max (W) | quickshell CPU | Hyprland CPU |
   |---|---|---|---|---|
   | tokyo-night (stock) | 9.77 | 9.16-11.59 | 0.1 % | 0.5 % |

@@ -239,16 +239,26 @@ say "Switch to Windows Vista"
 cur=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null)
 scheme=windows-vista
 [[ $cur == windows-vista-* ]] && scheme=$cur
+switched=$(date '+%Y-%m-%d %H:%M:%S')
 run omarchy theme set "$scheme"
 
 # ---------------------------------------------------------------- post-check
 say "Check"
 if ((DRY)); then
-  echo "(dry run) would print: vista-mode status, hyprctl configerrors, the live Vista terminal font line"
+  echo "(dry run) would print: vista-mode status, hyprctl configerrors, the shell's Vista warnings, the live Vista terminal font line"
   exit 0
 fi
 "$VISTA/bin/vista-mode" status
 echo "hyprctl configerrors: $(hyprctl configerrors | tr -s '\n' ' ')"
+# What the shell logged about Vista since the switch, once the plugins it
+# reloads have had a moment to load. A warning only: never fails the install.
+sleep 3
+runtime=$(python3 "$VISTA/bin/vista-compat-test" --runtime --since "$switched" 2>&1)
+case $? in
+  0) echo "shell log: no Vista warnings" ;;
+  1) warn "the shell logged Vista warnings since the switch:"; sed 's/^/  /' <<<"$runtime" >&2 ;;
+  *) warn "could not read the shell log: $runtime" ;;
+esac
 grep -m1 '^font=' "$HOME/.local/state/omarchy/current/theme/foot.ini"
 cat <<'MSG'
 

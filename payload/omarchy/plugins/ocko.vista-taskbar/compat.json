@@ -1,76 +1,68 @@
 {
-  "verified": "omarchy 4.0.6-1",
+  "verified": "omarchy 4.5.0-3",
   "stock": {
-    "plugins/bar/Bar.qml": "a8f27b3d8f29f8b8c14a5e578ad0617e6035375ccab0178a28c435e80a2822f0",
-    "plugins/bar/BarModel.js": "908f30edce60dcba46d2039ba3d501fd0faa35fa1f90b7dbda69439288f8a8d0"
+    "plugins/bar/Bar.qml": "865998cec3114a395e130e1ff16f92486c3fad8da59400035b95c11522c2b235",
+    "plugins/bar/BarModel.js": "9394b2ca8256518bbe04a8b11f4b740e20c2d9c0859372eda475dc33200471b8"
   },
-  "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "1e2831e59b25b61b13161c0015a54e961771a22c9e695a011c77bbe0b1cc18cc",
+  "shared": "a89a85796e5321e02fff44aa5f19687a0d862af09479626f3ef92352c4788823",
+  "self": "f04ff71bc04f92d456c3a07acb962a6c8ce0290fe96aca0b212c44434643653e",
   "external": [
     "AlignHCenter",
+    "AlignTop",
     "AlignVCenter",
     "AllButtons",
     "AltModifier",
-    "Bottom",
     "Color",
-    "ElideRight",
     "Ellipse",
     "Error",
-    "InOutCubic",
     "Key_Down",
     "Key_Enter",
     "Key_Escape",
     "Key_Return",
     "Key_Tab",
     "Key_Up",
-    "Left",
     "LeftButton",
+    "LeftToRight",
     "MiddleButton",
     "Minutes",
+    "NoButton",
     "NoWrap",
-    "None",
     "OutCubic",
     "Overlay",
+    "PI",
     "PlainText",
-    "PreserveAspectCrop",
     "QsWindow",
-    "Right",
     "RightButton",
     "Slide",
     "StopAtBounds",
     "Stretch",
     "StyledText",
-    "Top",
-    "TopToBottom",
-    "abs",
     "activeToplevel",
-    "activeWorkspace",
     "advanceWidth",
     "alt",
     "applications",
     "assign",
     "binding",
     "callLater",
-    "categories",
     "ceil",
     "charAt",
     "class",
     "concat",
     "connect",
+    "cos",
+    "create",
     "createObject",
     "delete",
     "devicePixelRatio",
-    "dispatch",
     "env",
-    "exec",
     "expandedChanged",
-    "focusHistoryID",
     "forEach",
     "forceActiveFocus",
     "formatDateTime",
     "genericName",
     "get",
     "grabToImage",
+    "hasOwnProperty",
     "heuristicLookup",
     "iconPath",
     "indexOf",
@@ -82,37 +74,85 @@
     "lastwindowtitle",
     "localeCompare",
     "logout$",
-    "map",
     "mapFromItem",
     "mapToItem",
     "modifiers",
-    "monitors",
+    "monitorFor",
     "noDisplay",
-    "picture",
+    "pow",
+    "prototype",
     "push",
+    "random",
     "rect",
+    "reduce",
     "refreshToplevels",
     "refreshWorkspaces",
     "replace",
-    "restart",
+    "rgba",
     "round",
     "setText",
+    "sin",
     "slice",
     "some",
     "sort",
     "splice",
-    "split",
-    "stop",
+    "sqrt",
     "stringify",
     "substring",
     "test",
     "toLowerCase",
     "toString",
-    "toplevels",
     "trim",
     "unshift",
     "warn",
-    "wayland",
-    "workspaces"
-  ]
+    "wayland"
+  ],
+  "stockMembers": {
+    "closeForPopoutSwitch": [
+      "Ui/Panel.qml",
+      "plugins/panels/clock/BarWidget.qml",
+      "plugins/panels/weather/BarWidget.qml"
+    ],
+    "contentScale": [
+      "Ui/BarIconContent.qml"
+    ],
+    "heldButtons": [
+      "Ui/WidgetButton.qml"
+    ],
+    "iconComponent": [
+      "Ui/BarIconButton.qml",
+      "Ui/PanelHero.qml"
+    ],
+    "indicatorsModule": [
+      "plugins/bar/widgets/Indicators.qml"
+    ],
+    "openPanelIndicatorItem": [
+      "plugins/bar/widgets/Tray.qml"
+    ],
+    "opticalSize": [
+      "Ui/BarIconButton.qml"
+    ],
+    "remapping": [
+      "Ui/ScreenMoveRemap.qml"
+    ],
+    "revealProgress": [
+      "plugins/background/Background.qml",
+      "plugins/bar/widgets/Tray.qml"
+    ],
+    "sectionHost": [
+      "plugins/bar/widgets/Tray.qml"
+    ],
+    "sectionShown": [
+      "plugins/bar/widgets/Tray.qml"
+    ],
+    "setIndicatorAreaHovered": [
+      "plugins/bar/widgets/Indicators.qml"
+    ],
+    "sourceComponent": [
+      "Ui/BarIconContent.qml"
+    ],
+    "trayItemExtent": [
+      "plugins/bar/widgets/Tray.qml"
+    ]
+  }
 }

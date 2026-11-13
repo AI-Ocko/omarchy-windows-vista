@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "ocko.vista-osd",
   "name": "Windows Vista OSD",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "ocko",
   "description": "omarchy.osd as a small Windows Vista volume/brightness panel above the notification area. Enabled only while an Vista theme is active (omarchy/vista/bin/vista-mode).",
   "kinds": [

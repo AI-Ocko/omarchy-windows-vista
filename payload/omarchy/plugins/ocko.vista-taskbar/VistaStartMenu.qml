@@ -362,17 +362,23 @@ Scope {
   function showRun(screen) { runDialog.show(screen || Quickshell.screens[0]) }
   function closeDialogs() { runDialog.hide(); exitDialog.hide() }
 
+  // 4.5 folded omarchy-system-{logout,reboot,shutdown} into `omarchy-system
+  // <action>`; 4.0 has only the old binaries.
+  function powerCmd(action) {
+    return "if command -v omarchy-system >/dev/null; then omarchy-system " + action
+      + "; else omarchy-system-" + action + "; fi"
+  }
   function powerItems() {
     function act(label, what, cmd) { return { kind: "fly", icon: "", label: label, run: function() { sm.systemAction(what, cmd) } } }
     return [
       act("Switch User", "lock", "omarchy-system-lock"),
-      act("Log Off", "logout", "omarchy-system-logout"),
+      act("Log Off", "logout", powerCmd("logout")),
       act("Lock", "lock", "omarchy-system-lock"),
       { kind: "sep" },
-      act("Restart", "reboot", "omarchy-system-reboot"),
+      act("Restart", "reboot", powerCmd("reboot")),
       act("Sleep", "suspend", "systemctl suspend"),
       act("Hibernate", "hibernate", "systemctl hibernate"),
-      act("Shut Down", "shutdown", "omarchy-system-shutdown")
+      act("Shut Down", "shutdown", powerCmd("shutdown"))
     ]
   }
   function buildFooter() {

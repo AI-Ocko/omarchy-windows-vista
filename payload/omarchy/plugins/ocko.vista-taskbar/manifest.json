@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "ocko.vista-taskbar",
   "name": "Windows Vista Taskbar",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "ocko",
   "description": "Windows Vista taskbar: start button, Quick Launch, window buttons, notification area. Selected by the windows-vista theme hook (omarchy/vista/bin/vista-mode).",
   "kinds": [
