@@ -1274,7 +1274,14 @@ Item {
     // widgets it adds (layoutWidgets).
     layoutConfig = vistaLayout(normalizeLayout(config.layout))  // Vista
     barConfigSerial++
+    // Vista: the shell hands a plugin bar its config only after loading it
+    // (shell.qml configureBar); widgets built from the fallback layout in
+    // between were rebuilt under their real keys a moment later, briefly
+    // running two of each (two omarchy.clock IPC handlers).
+    if (Util.isPlainObject(barConfig) && Object.keys(barConfig).length > 0) vistaConfigured = true
   }
+  // Vista: no widgets until the shell's config has arrived (applyBarConfig).
+  property bool vistaConfigured: false
 
   // Every widget on the bar, each under a key it keeps wherever it moves
   // (BarModel.layoutWidgets): the keys each section shows, in order, and each
@@ -3329,7 +3336,7 @@ Item {
     // Keys alone, in a fixed order: a widget's row never moves or changes,
     // and is added and removed with its entry.
     Instantiator {
-      model: ScriptModel { values: root.layoutWidgets.keys }
+      model: ScriptModel { values: root.vistaConfigured ? root.layoutWidgets.keys : [] }  // Vista: vistaConfigured
       delegate: WidgetHost { pool: widgetPool }
     }
   }

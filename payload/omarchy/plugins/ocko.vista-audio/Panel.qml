@@ -166,7 +166,10 @@ Panel {
   // Re-resolve whenever the selected output changes, and when nodes or links
   // come and go: a tuning being applied or removed underneath us, or a DSP sink
   // rerouted to another output, shows up as exactly that.
-  onSinkChanged: resolveVolumeSink()
+  // Vista: a tick later. The mixer reads volumeSink early; sink first settles
+  // inside that read, and resolving there rewrote volumeSinkName mid-binding
+  // (a binding loop on volumeSink).
+  onSinkChanged: Qt.callLater(resolveVolumeSink)
   onNodesChanged: volumeSinkResolveTimer.restart()
 
   Connections {
