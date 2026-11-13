@@ -27,7 +27,10 @@ if name ~= "windows-vista" and name:sub(1, 14) ~= "windows-vista-" then
 	return
 end
 
+-- Opaque windows: Omarchy 4.0 tags its translucent windows default-opacity,
+-- 4.5 transparent-window.
 o.window({ tag = "default-opacity" }, { opacity = "1 1" })
+o.window({ tag = "transparent-window" }, { opacity = "1 1" })
 
 -- Title bars: hyprbars with Vista's caption art (omarchy/vista/hyprbars/
 -- build, ABI-locked: used only while its stamp matches the running Hyprland;
