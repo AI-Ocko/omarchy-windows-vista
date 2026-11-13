@@ -41,6 +41,9 @@ Item {
       if (route === "root" && !payload.vista) root.vistaOpenStartMenu()
       // Vista: the system (power) menu is Vista's "Shut Down Windows" dialog.
       else if (route === "system" && !payload.vista) root.vistaOpenShutdown()
+      // Vista: the app launcher (`omarchy-menu toggle apps`, stock's dock app
+      // grid, which is off under Vista) is the Start menu and its search box.
+      else if (["apps", "app", "applications"].indexOf(route) !== -1 && !payload.vista) root.vistaOpenStartMenu()
       else root.openRoute(route)
     }
   }

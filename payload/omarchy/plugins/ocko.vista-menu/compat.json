@@ -5,7 +5,7 @@
     "plugins/menu/MenuModel.js": "52178e52dddd6c553b4406c2a2a55122f3d55c632ef0075d923da84603e06caa"
   },
   "shared": "a89a85796e5321e02fff44aa5f19687a0d862af09479626f3ef92352c4788823",
-  "self": "c098de912136c1300ddadaab027aad16999009360e32d671598e1e6a34bb98d5",
+  "self": "b665d460a6d9015d1d4cbe0d0bc599bde77b7eb193bdc8ae296cfaa939d3e7f0",
   "external": [
     "AlignHCenter",
     "AppLibrary",

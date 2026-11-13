@@ -192,3 +192,6 @@ o.window({ tag = "floating-window" }, { ["vistabars:no_bar"] = true })
 -- Win+R: Vista's Run dialog (ocko.vista-taskbar). Bound here, so it exists
 -- only while a Vista theme is active (plain SUPER+R is unbound in Omarchy).
 o.bind("SUPER + R", "Run", "omarchy-shell vistastart run")
+-- Super+Alt+Space: stock's dock app grid, which is off under Vista; the
+-- Start menu and its search box stand in.
+o.rebind("SUPER + ALT + SPACE", "Apps", "omarchy-shell vistastart toggle")
