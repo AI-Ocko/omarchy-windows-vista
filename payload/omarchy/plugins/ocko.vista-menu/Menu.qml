@@ -6,6 +6,7 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 import "MenuModel.js" as MenuModel
+// Vista: the shared Vista chrome, and the shell's AppLibrary for the fallback below.
 import "../../vista/qml"
 import qs.services as VistaServices
 
@@ -26,6 +27,9 @@ Item {
     try { payload = JSON.parse(payloadJson || "{}") } catch (e) { payload = ({}) }
 
     if (payload.fontFamily) root.fontFamily = payload.fontFamily
+    // A shell that started mid-update may never have read the shipped menu
+    // whole; reading it again here keeps the menu from opening empty.
+    if (root.defaultMenuItems.length === 0) defaultMenuFile.reload()
 
     if (payload.mode === "select" || payload.mode === "input") {
       root.openDmenu(payload)
@@ -48,6 +52,8 @@ Item {
   function refresh() {
     defaultMenuFile.reload()
     userMenuFile.reload()
+    languageFile.reload()
+    menuCatalogFile.reload()
     return "ok"
   }
 
@@ -59,13 +65,32 @@ Item {
   // path doesn't have to shell out to bash + jq on every open.
   property string defaultMenuPath: omarchyPath + "/default/omarchy/omarchy-menu.jsonc"
   property string userMenuPath: Quickshell.env("HOME") + "/.config/omarchy/extensions/omarchy-menu.jsonc"
+  // Display language for the shipped rows. The code lives in
+  // ~/.config/omarchy/language (omarchy-language owns it); a missing file
+  // means English. The catalog at default/i18n/<code>/menu.json is applied
+  // to the default items before the user extension merges on top, so a
+  // user's own rows and retitles always win.
+  property string language: "en"
+  property var menuCatalog: ({})
+  readonly property string languagePath: Quickshell.env("OMARCHY_LANGUAGE_FILE") || ((Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/omarchy/language")
   property var defaultMenuItems: []
   property var userMenuItems: []
+  // Whether each file has answered once, loaded or (the user's) missing. At
+  // startup both arrive separately, and evaluating guards for the first alone
+  // would run the whole batch twice; an open before then evaluates anyway.
+  property bool defaultMenuSettled: false
+  property bool userMenuSettled: false
   property bool opened: false
   property string mode: "menu"
   readonly property bool dmenuActive: mode === "select" || mode === "input"
   property string dmenuPrompt: ""
   property var dmenuOptions: []
+  property bool dmenuMultiple: false
+  property var dmenuSelected: []
+  // What the last confirmed change applied; a failed change returns the checks here.
+  property var dmenuSaved: []
+  property string dmenuChangeKey: ""
+  property var dmenuOnChange: []
   property string selectionFile: ""
   property string doneFile: ""
   property int dmenuWidth: 300
@@ -74,6 +99,8 @@ Item {
   property bool rowsLoaded: false
   property string activeMenu: "root"
   property string filterText: ""
+  // Resets of filterText reach the search line; its edits come back through setFilter.
+  onFilterTextChanged: if (filterInput.text !== filterText) filterInput.text = filterText
   property int selectedIndex: 0
   property bool cursorActive: false
   property int requestSerial: 0
@@ -87,10 +114,10 @@ Item {
 
   // Shared application engine (entries, hidden filters, icons, launch,
   // removal), owned by the shell and also used by the standalone launcher.
-  // Vista clone: Omarchy 4.0.6 hands this third-party menu a PluginShellApi whose
-  // appLibrary is null (observed 2026-10-28: pluginId ocko.vista-menu, kind
-  // "menu", appLibrary null), which left the launcher empty. Fall back to an
-  // instance of the shell's own AppLibrary service, created only in that case.
+  // Vista: Omarchy 4.0.6 handed this third-party menu a PluginShellApi whose
+  // appLibrary was null, which left the launcher empty. 4.5 passes it to every
+  // `menu` plugin; the fallback stays as a guard and is created only when the
+  // shell's own is missing.
   readonly property var appLibrary: (root.shell && root.shell.appLibrary) || vistaAppLibraryLoader.item
   Loader {
     id: vistaAppLibraryLoader
@@ -124,11 +151,11 @@ Item {
   // How much of the first hidden row stays visible at the fold — enough to
   // read as a cut-off row rather than a bottom border.
   property int rowPeek: Math.round(baseRowHeight * 0.55)
-  property int rowSpacing: 0
+  property int rowSpacing: 0 // Vista: details rows touch
   property int dividerHeight: Style.space(17)
   property bool searchDivider: false
   property int layoutSerial: 0
-  property int cardWidth: Math.min(root.dmenuActive ? Style.space(root.dmenuWidth) : ((root.activeMenu === "trigger.capture.screenrecord" || root.activeMenu === "style.font") ? Style.space(520) : Style.space(300)), panel.width - Style.gapsOut * 2)
+  property int cardWidth: Math.min(root.dmenuActive ? Style.space(root.dmenuWidth) : ((root.activeMenu === "trigger.capture.screenrecord" || root.activeMenu === "appearance.font" || root.activeMenu === "update.kernel") ? Style.space(520) : Style.space(300)), panel.width - Style.gapsOut * 2)
   property int visibleRowsHeight: root.dmenuActive ? dmenuRowListHeight(layoutSerial, displayModel.count, filterText) : rowListHeight(layoutSerial, displayModel.count, filterText, searchDivider)
   property int cardHeight: root.dmenuActive
     ? Math.min(contentMargin * 2 + headerHeight + (mode === "input" ? 0 : contentSpacing + visibleRowsHeight), panel.height - Style.gapsOut * 2)
@@ -155,8 +182,13 @@ Item {
   }
 
   function runAction(action) {
+    // Vista: the screensaver row runs Vista's 3D Pipes (MenuModel.vistaCommand).
     var command = MenuModel.vistaCommand(action, Quickshell.env("HOME"))
     if (!command) return
+
+    var summon = MenuModel.summonAction(command)
+    if (summon && root.shell && root.shell.summon(summon.id, summon.payload)) return
+
     Util.execDetached(command)
   }
 
@@ -259,18 +291,42 @@ Item {
     return MenuModel.parseMenuJsonc(raw)
   }
 
+  function parseCatalog(raw) {
+    try {
+      var parsed = JSON.parse(raw || "{}")
+      return (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : ({})
+    } catch (e) {
+      return ({})
+    }
+  }
+
+  function setLanguage(raw) {
+    var code = String(raw || "").trim()
+    if (!/^[a-z]{2,3}(-[A-Za-z]{2})?$/.test(code)) code = "en"
+    if (root.language === code) return
+    root.language = code
+    menuCatalogFile.reload()
+  }
+
   // Merge defaults + user extension. Later entries override earlier ones
   // on a per-key basis (so the user can tweak label/icon/action without
   // re-declaring the whole row).
-  function rebuildItemsFromSources() {
-    var mergedMenu = MenuModel.mergeMenuSources(root.defaultMenuItems, root.userMenuItems)
+  // Catalog-only rebuilds pass skipGuards: retitling rows cannot change any
+  // when/checked answer, so re-running the guard batch would be pure waste.
+  function rebuildItemsFromSources(skipGuards) {
+    var translatedDefaults = MenuModel.applyTranslations(root.defaultMenuItems, root.menuCatalog)
+    // The root row is injected by the merge (it has no JSONC entry), so its
+    // "Go" label comes from the catalog's root entry; the merge only uses
+    // it for the injected row, never over a user-supplied heading.
+    var rootCatalog = root.menuCatalog.root
+    var mergedMenu = MenuModel.mergeMenuSources(translatedDefaults, root.userMenuItems, rootCatalog && rootCatalog.label)
     root.providerRevision += 1
     root.providersLoaded = ({})
     root.providerQueue = []
     root.items = mergedMenu.items
     root.itemOrder = mergedMenu.itemOrder
     root.rowsLoaded = true
-    root.evaluateGuards()
+    if (!skipGuards && root.defaultMenuSettled && root.userMenuSettled) root.evaluateGuards()
     if (root.opened) {
       root.rebuildDisplay()
       if (!root.dmenuActive) {
@@ -295,7 +351,31 @@ Item {
     "power-profiles": {
       script: "current=$(powerprofilesctl get 2>/dev/null); omarchy-powerprofiles-list 2>/dev/null | while read -r p; do [[ -z $p ]] && continue; printf '%s\\t%s\\t%s\\n' \"$p\" \"$p\" \"$current\"; done",
       icon: "\udb81\udc0b",
+      // Profile names are powerprofilesctl ids; only the label is translated,
+      // and the id stays searchable through searchTerms.
+      labelFor: function(value) {
+        if (value === "power-saver") return Commons.I18n.t("menu.powerProfilePowerSaver")
+        if (value === "balanced") return Commons.I18n.t("menu.powerProfileBalanced")
+        if (value === "performance") return Commons.I18n.t("menu.powerProfilePerformance")
+        return value
+      },
       actionFor: function(value) { return "omarchy-powerprofiles-set autodetect " + Util.shellQuote(value) }
+    },
+    // Kernel names are package names, the same in every language.
+    "kernels": {
+      script: "current=$(omarchy-kernel get 2>/dev/null); omarchy-kernel list 2>/dev/null | while read -r k; do [[ -z $k ]] && continue; printf '%s\\t%s\\t%s\\n' \"$k\" \"$k\" \"$current\"; done",
+      icon: "\uf17c",
+      volatile: true,
+      actionFor: function(value) { return "omarchy-kernel set " + Util.shellQuote(value) }
+    },
+    // Rows carry a fourth field (the English name) so searching "danish"
+    // finds the row labeled with its native name; mergeProviderRows turns
+    // it into an alias.
+    "languages": {
+      script: "current=$(omarchy-language 2>/dev/null); omarchy-language list 2>/dev/null | while IFS=$'\\t' read -r name code english; do [[ -z $code ]] && continue; printf '%s\\t%s\\t%s\\t%s\\n' \"$name\" \"$code\" \"$current\" \"$english\"; done",
+      icon: "\uf1ab",
+      volatile: true,
+      actionFor: function(value) { return "omarchy-language " + Util.shellQuote(value) }
     }
   })
 
@@ -313,8 +393,33 @@ Item {
     var appRows = []
     for (var j = 0; j < rows.length; j++) {
       var entry = rows[j].entry
-      if (!String(entry.id || "")) continue
-      appRows.push(MenuModel.appRow(entry, root.appLibrary.entryName(entry), root.appLibrary.entrySubtext(entry)))
+      var appId = String(entry.id || "")
+      if (!appId) continue
+      var subtext = root.appLibrary.entrySubtext(entry)
+      var aliases = subtext ? [subtext] : []
+      try {
+        if (entry.keywords && typeof entry.keywords.join === "function") aliases = aliases.concat(entry.keywords)
+      } catch (e) { }
+      appRows.push({
+        id: "apps." + appId,
+        parent: "apps",
+        kind: "app",
+        icon: "",
+        appIcon: String(entry.icon || ""),
+        appId: appId,
+        label: root.appLibrary.entryName(entry),
+        title: "",
+        target: "",
+        description: subtext,
+        action: "",
+        provider: "",
+        aliases: aliases,
+        searchTerms: [],
+        when: "",
+        checked: "",
+        disabled: "",
+        order: 0
+      })
     }
 
     var merged = MenuModel.mergeAppRows(root.items, root.itemOrder, appRows)
@@ -353,7 +458,8 @@ Item {
       var line = lines[i].trim()
       if (!line) continue
       var parts = line.split("\t")
-      var label = parts[0] || ""
+      var rawLabel = parts[0] || ""
+      var label = spec.labelFor ? spec.labelFor(rawLabel) : rawLabel
       var value = parts[1] || parts[0] || ""
       var current = parts[2] || ""
       if (!label) continue
@@ -376,8 +482,10 @@ Item {
         action: spec.actionFor(value),
         provider: "",
         aliases: [],
+        searchTerms: (parts[3] ? [parts[3]] : []).concat(label !== rawLabel ? [rawLabel] : []),
         when: "",
         checked: "",
+        disabled: "",
         order: 0
       })
     }
@@ -466,9 +574,10 @@ Item {
     return MenuModel.isVisible(root.items, root.itemOrder, root.whenResults, entry)
   }
 
-  // Label with the ✓ marker baked in when `checked:` evaluated truthy.
+  // Label with the ✓ marker baked in when `checked:` or `disabled:` evaluated
+  // truthy.
   function labelFor(entry) {
-    return MenuModel.labelFor(entry, root.checkedResults)
+    return MenuModel.labelFor(entry, root.checkedResults, root.disabledResults)
   }
 
   function searchableToken(value) {
@@ -491,8 +600,17 @@ Item {
     return MenuModel.descriptionTextMatches(query, text)
   }
 
+  // Rows whose `disabled:` evaluated truthy stay listed but dimmed, and the
+  // cursor steps over them.
+  function isDisabled(entry) {
+    return MenuModel.isDisabled(root.disabledResults, entry)
+  }
+
+  // A disabled row earns its place in the submenu it belongs to, where the
+  // list around it is the point. Search is a list of what you can do, so it
+  // leaves them out.
   function matchesQuery(entry, query) {
-    return MenuModel.matchesQuery(entry, query, root.isVisible(entry))
+    return MenuModel.matchesQuery(entry, query, root.isVisible(entry) && !root.isDisabled(entry))
   }
 
   function searchScore(entry, query) {
@@ -500,7 +618,38 @@ Item {
   }
 
   function displayRow(entry, detail, score, section) {
-    return MenuModel.displayRow(root.items, root.itemOrder, root.checkedResults, entry, detail, score, section)
+    return MenuModel.displayRow(root.items, root.itemOrder, root.checkedResults, root.disabledResults, entry, detail, score, section)
+  }
+
+  function rowSelectable(index) {
+    if (index < 0 || index >= displayModel.count) return false
+    return !displayModel.get(index).disabled
+  }
+
+  // First selectable row at or past `from`, continuing in the direction of
+  // travel and wrapping. -1 when every row is disabled, which leaves the menu
+  // with no cursor at all rather than one parked on a row Enter won't run.
+  function nextSelectable(from, direction) {
+    var count = displayModel.count
+    if (count === 0) return -1
+
+    var step = direction < 0 ? -1 : 1
+    var index = ((from % count) + count) % count
+    for (var i = 0; i < count; i++) {
+      if (root.rowSelectable(index)) return index
+      index = (index + step + count) % count
+    }
+
+    return -1
+  }
+
+  // Park the cursor on a selectable row after the rows underneath it changed.
+  // A menu with nothing selectable in it -- every app in it already installed
+  // -- shows no cursor at all, and grows one the moment a row can take it.
+  function settleCursor() {
+    var target = root.nextSelectable(root.selectedIndex, 1)
+    root.selectedIndex = target >= 0 ? target : 0
+    root.cursorActive = target >= 0
   }
 
   function rebuildDmenuDisplay() {
@@ -512,6 +661,14 @@ Item {
       return
     }
 
+    if (root.dmenuMultiple && root.dmenuOnChange.length === 0) {
+      displayModel.append({
+        itemId: "dmenu.apply", disabled: false, kind: "dmenu", icon: "", iconFont: "",
+        appIcon: "", appId: "", label: Commons.I18n.t("common.apply"), target: "",
+        detail: Commons.I18n.tn("menu.selectedCount", root.dmenuSelected.length).arg(Commons.I18n.formatNumber(root.dmenuSelected.length)), path: "", childCount: 0,
+        action: "", provider: "", score: -1, section: ""
+      })
+    }
     var query = root.filterText.trim().toLowerCase()
     for (var i = 0; i < root.dmenuOptions.length; i++) {
       // An option is "<label>", "<glyph>\t<label>", or
@@ -526,8 +683,9 @@ Item {
           && detail.toLowerCase().indexOf(query) < 0) continue
       displayModel.append({
         itemId: "dmenu." + i,
+        disabled: false,
         kind: "dmenu",
-        icon: icon,
+        icon: root.dmenuMultiple ? (root.dmenuSelected.indexOf(MenuModel.dmenuValue(root.dmenuOptions[i])) !== -1 ? "✓" : "○") : icon,
         iconFont: "",
         appIcon: "",
         appId: "",
@@ -552,6 +710,18 @@ Item {
     Qt.callLater(function() {
       if (displayModel.count > 0) root.revealCursor()
     })
+  }
+
+  function updateDmenuChecks() {
+    for (var i = 0; i < displayModel.count; i++) {
+      var row = displayModel.get(i)
+      if (row.itemId === "dmenu.apply") {
+        displayModel.setProperty(i, "detail", Commons.I18n.tn("menu.selectedCount", root.dmenuSelected.length).arg(Commons.I18n.formatNumber(root.dmenuSelected.length)))
+      } else if (row.kind === "dmenu") {
+        var value = MenuModel.dmenuValue(root.dmenuOptions[Number(row.itemId.substring(6))])
+        displayModel.setProperty(i, "icon", root.dmenuSelected.indexOf(value) !== -1 ? "✓" : "○")
+      }
+    }
   }
 
   function rebuildDisplay() {
@@ -626,9 +796,7 @@ Item {
     for (var k = 0; k < rows.length; k++) displayModel.append(rows[k])
     layoutSerial += 1
 
-    if (displayModel.count === 0) selectedIndex = 0
-    else if (selectedIndex >= displayModel.count) selectedIndex = displayModel.count - 1
-    else if (selectedIndex < 0) selectedIndex = 0
+    root.settleCursor()
 
     Qt.callLater(function() {
       if (displayModel.count > 0) root.revealCursor()
@@ -661,12 +829,12 @@ Item {
     if (displayModel.count === 0) return
 
     root.disarmPointer()
-    if (!cursorActive) {
-      cursorActive = true
-      selectedIndex = delta < 0 ? displayModel.count - 1 : 0
-    } else {
-      selectedIndex = (selectedIndex + delta + displayModel.count) % displayModel.count
-    }
+    var from = cursorActive ? selectedIndex + delta : (delta < 0 ? displayModel.count - 1 : 0)
+    var target = root.nextSelectable(from, delta)
+    if (target < 0) return
+
+    cursorActive = true
+    selectedIndex = target
     revealCursor()
   }
 
@@ -719,15 +887,34 @@ Item {
       }
       if (index < 0 || index >= displayModel.count) return
       var picked = displayModel.get(index)
-      root.applyDmenuSelection(picked.detail ? picked.label + "\t" + picked.detail : picked.label)
+      if (root.dmenuMultiple) {
+        if (picked.itemId === "dmenu.apply") {
+          root.applyDmenuSelection(JSON.stringify(MenuModel.dmenuSelections(root.dmenuOptions, root.dmenuSelected)))
+        } else {
+          var value = MenuModel.dmenuValue(root.dmenuOptions[Number(picked.itemId.substring(6))])
+          var selected = MenuModel.toggleDmenuSelection(selectionProc.requestedSelection(), value)
+          if (root.dmenuOnChange.length > 0) {
+            selectionProc.enqueue(selected)
+          } else {
+            root.dmenuSelected = selected
+            root.updateDmenuChecks()
+          }
+        }
+      } else {
+        root.applyDmenuSelection(picked.detail ? picked.label + "\t" + picked.detail : picked.label)
+      }
       return
     }
 
-    if (index < 0 || index >= displayModel.count) return
+    if (!root.rowSelectable(index)) return
 
     var row = displayModel.get(index)
     if (row.kind === "menu" || row.kind === "link") {
       root.setActiveMenu(row.target || row.itemId, true, fromPointer)
+    } else if (row.itemId === "apps") {
+      // Vista: the Apps row lists the programs here, as Search Results (the
+      // Vista launcher), rather than running its 4.5 action (the dock's apps view).
+      root.setActiveMenu("apps", true, fromPointer)
     } else if (row.kind === "app") {
       var appId = row.appId
       var label = row.label
@@ -754,7 +941,7 @@ Item {
     root.deleteTarget = null
     deleteConfirm.selectedIndex = 1
     root.disarmPointer()
-    Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+    Qt.callLater(function() { filterInput.forceActiveFocus() })
   }
 
   function confirmDelete() {
@@ -809,14 +996,22 @@ Item {
     // their icons. Refresh here even when the desktop entry list did not change.
     if (root.appLibrary) root.appLibrary.refreshIcons()
 
-    Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+    Qt.callLater(function() { filterInput.forceActiveFocus() })
   }
 
   function openDmenu(payload) {
     requestSerial += 1
     mode = payload.mode === "input" ? "input" : "select"
-    dmenuPrompt = String(payload.prompt || (mode === "input" ? "Input" : "Select"))
+    dmenuPrompt = String(payload.prompt || (mode === "input" ? Commons.I18n.t("menu.inputPrompt") : Commons.I18n.t("menu.selectPrompt")))
     dmenuOptions = Array.isArray(payload.options) ? payload.options : []
+    dmenuMultiple = mode === "select" && payload.multiple === true
+    dmenuOnChange = dmenuMultiple && Array.isArray(payload.onChange)
+      && payload.onChange.every(function(arg) { return typeof arg === "string" }) ? payload.onChange : []
+    dmenuChangeKey = String(payload.changeKey || JSON.stringify(dmenuOnChange))
+    dmenuSelected = MenuModel.dmenuSelections(dmenuOptions, Array.isArray(payload.selected) ? payload.selected : [], dmenuOnChange.length > 0)
+    dmenuSaved = dmenuSelected
+    if (dmenuOnChange.length > 0)
+      dmenuSelected = MenuModel.dmenuSelections(dmenuOptions, selectionProc.requestedSelection(), true)
     selectionFile = String(payload.selectionFile || "")
     doneFile = String(payload.doneFile || "")
     requestActive = !!doneFile
@@ -831,7 +1026,7 @@ Item {
     opened = true
     rebuildDisplay()
 
-    Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+    Qt.callLater(function() { filterInput.forceActiveFocus() })
   }
   ListModel { id: displayModel }
 
@@ -870,6 +1065,7 @@ Item {
 
   function selectFromPointer(index, item, mouse) {
     if (!pointerGate.moved(item, mouse)) return
+    if (!root.rowSelectable(index)) return
     root.cursorActive = true
     root.selectedIndex = index
   }
@@ -889,6 +1085,66 @@ Item {
         if (root.filterText.trim()) root.loadProvidersForSearch()
       }
       root.startNextProvider()
+    }
+  }
+
+  Process {
+    id: selectionProc
+    property int serial: 0
+    property string changeKey: ""
+    property var selected: []
+    property var queue: []
+    property string collected: ""
+
+    function requestedSelection() {
+      for (var i = queue.length - 1; i >= 0; i--) {
+        if (queue[i].key === root.dmenuChangeKey) return queue[i].selected
+      }
+      if (running && changeKey === root.dmenuChangeKey) return selected
+      return root.dmenuSelected
+    }
+
+    function enqueue(values) {
+      var selected = MenuModel.dmenuSelections(root.dmenuOptions, values, true)
+      queue = queue.concat([{
+        serial: root.requestSerial, key: root.dmenuChangeKey, selected: selected,
+        command: root.dmenuOnChange.concat([JSON.stringify(selected)])
+      }])
+      if (!running) startNext()
+    }
+
+    function startNext() {
+      if (queue.length === 0) return
+      var change = queue[0]
+      queue = queue.slice(1)
+      serial = change.serial
+      changeKey = change.key
+      selected = change.selected
+      collected = ""
+      command = change.command
+      running = true
+    }
+
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: selectionProc.collected = text
+    }
+    onExited: function(exitCode) {
+      if (changeKey === root.dmenuChangeKey && root.dmenuActive && root.dmenuOnChange.length > 0) {
+        if (exitCode === 0) {
+          var applied = selected
+          if (collected.trim()) {
+            try { applied = JSON.parse(collected) } catch (error) { applied = root.dmenuSelected }
+          }
+          if (Array.isArray(applied))
+            root.dmenuSelected = MenuModel.dmenuSelections(root.dmenuOptions, applied, true)
+          root.dmenuSaved = root.dmenuSelected
+        } else {
+          root.dmenuSelected = root.dmenuSaved
+        }
+        root.updateDmenuChecks()
+      }
+      startNext()
     }
   }
 
@@ -920,7 +1176,9 @@ Item {
     path: root.defaultMenuPath
     watchChanges: true
     printErrors: false
-    onLoaded: { root.defaultMenuItems = root.parseMenuJsonc(text()); root.rebuildItemsFromSources() }
+    onLoaded: { root.defaultMenuItems = MenuModel.keepMenuRows(root.defaultMenuItems, text(), true); root.defaultMenuSettled = true; root.rebuildItemsFromSources() }
+    // A user file that loaded first held its evaluation for this one.
+    onLoadFailed: { root.defaultMenuSettled = true; if (root.userMenuSettled) root.evaluateGuards() }
     onFileChanged: reload()
   }
 
@@ -929,8 +1187,30 @@ Item {
     path: root.userMenuPath
     watchChanges: true
     printErrors: false
-    onLoaded: { root.userMenuItems = root.parseMenuJsonc(text()); root.rebuildItemsFromSources() }
-    onLoadFailed: { root.userMenuItems = []; root.rebuildItemsFromSources() }
+    onLoaded: { root.userMenuItems = MenuModel.keepMenuRows(root.userMenuItems, text(), false); root.userMenuSettled = true; root.rebuildItemsFromSources() }
+    onLoadFailed: { root.userMenuItems = []; root.userMenuSettled = true; root.rebuildItemsFromSources() }
+    onFileChanged: reload()
+  }
+
+  // The language choice and its catalog are watched the same way, so
+  // picking a language under Setup retitles the menu with no shell restart.
+  FileView {
+    id: languageFile
+    path: root.languagePath
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.setLanguage(text())
+    onLoadFailed: root.setLanguage("")
+    onFileChanged: reload()
+  }
+
+  FileView {
+    id: menuCatalogFile
+    path: root.omarchyPath + "/default/i18n/" + root.language + "/menu.json"
+    watchChanges: true
+    printErrors: false
+    onLoaded: { root.menuCatalog = root.parseCatalog(text()); root.rebuildItemsFromSources(true) }
+    onLoadFailed: { root.menuCatalog = ({}); root.rebuildItemsFromSources(true) }
     onFileChanged: reload()
   }
 
@@ -943,6 +1223,7 @@ Item {
 
   property var whenResults: ({})       // id → true|false (allow visibility)
   property var checkedResults: ({})    // id → true|false (show ✓)
+  property var disabledResults: ({})   // id → true|false (dim, skip cursor)
   property bool guardsPending: false
 
   function evaluateGuards() {
@@ -962,6 +1243,7 @@ Item {
     if (!script) {
       root.whenResults = ({})
       root.checkedResults = ({})
+      root.disabledResults = ({})
       return
     }
     guardProc.collected = ""
@@ -985,9 +1267,28 @@ Item {
         return
       }
 
-      var guards = MenuModel.parseGuardOutput(guardProc.collected)
-      root.whenResults = guards.when
-      root.checkedResults = guards.checked
+      var nextWhen = ({})
+      var nextChecked = ({})
+      var nextDisabled = ({})
+      var lines = guardProc.collected.split("\n")
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim()
+        if (!line) continue
+        var colon = line.lastIndexOf(":")
+        if (colon < 0) continue
+        var value = line.substring(colon + 1) === "1"
+        var rest = line.substring(0, colon)
+        var tagAt = rest.lastIndexOf(":")
+        if (tagAt < 0) continue
+        var id = rest.substring(0, tagAt)
+        var tag = rest.substring(tagAt + 1)
+        if (tag === "w") nextWhen[id] = value
+        else if (tag === "c") nextChecked[id] = value
+        else if (tag === "d") nextDisabled[id] = value
+      }
+      root.whenResults = nextWhen
+      root.checkedResults = nextChecked
+      root.disabledResults = nextDisabled
       if (root.opened) root.rebuildDisplay()
       // Run the evaluation that had to stand aside. Deferred by a turn so the
       // process is settled before its command is set again.
@@ -995,9 +1296,10 @@ Item {
     }
   }
   // ================================================================ Vista
-  // ocko.vista-menu: the logic above is omarchy.menu 4.0.6 (routes, JSONC
-  // merge, providers, guards, dmenu, launch, uninstall), changed only in
-  // open() (a bare root request opens the Vista Start menu) and the row heights.
+  // ocko.vista-menu: the logic above is omarchy.menu 4.5.0 (routes, JSONC
+  // merge, translations, providers, guards, dmenu, launch, uninstall), changed
+  // only in the blocks marked "Vista:" (open() routes, appLibrary fallback, row
+  // heights, runAction's screensaver, the Apps row).
   // The window below replaces the card with Vista's own windows, drawn with the
   // shared chrome in omarchy/vista/qml:
   //   - Omarchy menu and power menu: Control Panel, category view. Task pane
@@ -1060,16 +1362,12 @@ Item {
     }
   }
 
-
-  PanelWindow {
+  // Vista: the stock OverlayWindow (focused monitor, sharp first frame) hosting
+  // a Vista window instead of the stock card.
+  OverlayWindow {
     id: panel
-    visible: root.opened && root.rowsLoaded
-    anchors { top: true; bottom: true; left: true; right: true }
-    color: "transparent"
+    shown: root.opened && root.rowsLoaded
     WlrLayershell.namespace: "omarchy-menu"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
-    exclusionMode: ExclusionMode.Ignore
 
     function s(n) { return Style.space(n) }
 
@@ -1079,12 +1377,13 @@ Item {
     property int maxRowsHeight: -1
     readonly property int effectiveCardTop: cardTop >= 0 ? cardTop : Math.round((height - card.height) / 2)
     function freezeCardTop() {
-      if (visible && cardTop < 0) {
+      if (shown && cardTop < 0) {
         cardTop = effectiveCardTop
         maxRowsHeight = root.visibleRowsHeight
       }
     }
-    onVisibleChanged: if (!visible) { cardTop = -1; maxRowsHeight = -1 }
+    onShownChanged: if (!shown) { cardTop = -1; maxRowsHeight = -1 }
+    onTargetScreenChanged: { cardTop = -1; maxRowsHeight = -1 }
 
     readonly property int dmenuListHeight: root.mode === "input" ? 0 : Math.max(root.baseRowHeight * 3, root.visibleRowsHeight)
 
@@ -1120,16 +1419,18 @@ Item {
 
       MouseArea { anchors.fill: parent; onClicked: {} }
 
+      // The stock 4.5 key handler. Focus is on filterInput, which forwards
+      // every key here first and takes whatever is left as typed text.
       Item {
         id: keyCatcher
         anchors.fill: parent
         z: root.deleteConfirmOpen ? 20 : 0
-        focus: true
 
-        Keys.priority: Keys.BeforeItem
         Keys.onPressed: function(event) {
           if (root.deleteConfirmOpen) {
-            if (deleteConfirm.handleKey(event)) event.accepted = true
+            // Swallow the rest too, or it would type into the search line behind the dialog.
+            deleteConfirm.handleKey(event)
+            event.accepted = true
             return
           }
 
@@ -1143,7 +1444,7 @@ Item {
           } else if (Util.editsFilter(event, root.filterText)) {
             root.setFilter(Util.editedFilter(event, root.filterText))
             event.accepted = true
-          } else if ((event.key === Qt.Key_Backspace || event.key === Qt.Key_Left) && !root.filterText) {
+          } else if ((event.key === Qt.Key_Backspace || Util.readingKey(event) === Qt.Key_Left) && !root.filterText) {
             root.goBack()
             event.accepted = true
           } else if (event.key === Qt.Key_Up) {
@@ -1158,15 +1459,12 @@ Item {
           } else if (event.key === Qt.Key_PageDown) {
             root.select(6)
             event.accepted = true
-          } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Right) {
+          } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || Util.readingKey(event) === Qt.Key_Right) {
             if (root.dmenuActive) {
               if (root.mode === "input") root.applyDmenuSelection(root.filterText)
               else if (displayModel.count > 0) root.activateIndex(root.cursorActive ? root.selectedIndex : 0)
             } else if (root.cursorActive) root.activateIndex(root.selectedIndex)
-            else if (displayModel.count > 0) root.cursorActive = true
-            event.accepted = true
-          } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32 && event.text.charCodeAt(0) !== 127 && (event.modifiers === Qt.NoModifier || event.modifiers === Qt.ShiftModifier)) {
-            root.setFilter(root.filterText + event.text)
+            else root.settleCursor()
             event.accepted = true
           }
         }
@@ -1177,8 +1475,8 @@ Item {
           anchors.fill: parent
           opened: root.deleteConfirmOpen
           z: 10
-          message: "Do you want to uninstall " + ((root.deleteTarget && root.deleteTarget.label) || "") + "?"
-          confirmText: "Uninstall"
+          message: Commons.I18n.t("common.uninstallConfirm").arg((root.deleteTarget && root.deleteTarget.label) || "")
+          confirmText: Commons.I18n.t("common.uninstall")
           background: root.background
           foreground: root.foreground
           scrim: root.scrim
@@ -1189,6 +1487,20 @@ Item {
           onCanceled: root.cancelDelete()
           onConfirmed: root.confirmDelete()
         }
+      }
+
+      // Vista: the stock search line, kept as the focus holder and text sink
+      // (input methods commit only into a TextInput) but not drawn: the Vista
+      // text fields below show root.filterText.
+      FilterInput {
+        id: filterInput
+        width: 1
+        height: 1
+        opacity: 0
+        keyHandler: keyCatcher
+        // Input-method commits bypass key handling, so the dialog has to refuse them here.
+        readOnly: root.deleteConfirmOpen
+        onTextChanged: if (text !== root.filterText) root.setFilter(text)
       }
 
       // ---- Address bar (Control Panel / Search Results), filter box (dmenu)
@@ -1364,7 +1676,11 @@ Item {
             required property string label
             required property string detail
             required property string action
+            required property string icon
+            required property bool disabled
 
+            // Vista: a multi-select dmenu option draws its ✓/○ as a check box.
+            readonly property bool isCheck: row.kind === "dmenu" && root.dmenuMultiple && row.itemId !== "dmenu.apply"
             readonly property bool hasCursor: root.cursorActive && row.index === root.selectedIndex
             readonly property bool isApp: row.kind === "app"
             readonly property url iconUrl: row.isApp && root.appLibrary ? root.appLibrary.iconSource(row.appIcon)
@@ -1372,6 +1688,9 @@ Item {
 
             width: resultList.cellWidth
             height: resultList.cellHeight
+            // Vista: 4.5 `disabled:` rows (software already installed) are GrayText.
+            readonly property color textColor: row.disabled ? VistaScheme.sc.gray
+              : row.hasCursor ? VistaScheme.sc.highlightText : "#000000"
 
             // Category view: a 32 px icon and a link, dotted focus rectangle
             // for the keyboard cursor, underline on hover.
@@ -1398,10 +1717,10 @@ Item {
                 wrapMode: Text.Wrap
                 maximumLineCount: 2
                 elide: Text.ElideRight
-                color: VistaScheme.sc.normalText
+                color: row.disabled ? VistaScheme.sc.gray : VistaScheme.sc.normalText
                 font.family: "Segoe UI"
                 font.pixelSize: Style.font.bodySmall
-                font.underline: mouseArea.containsMouse
+                font.underline: mouseArea.containsMouse && !row.disabled
               }
               Rectangle {
                 visible: row.hasCursor
@@ -1421,6 +1740,13 @@ Item {
               visible: !root.vistaGrid
               anchors.fill: parent
               color: row.hasCursor ? VistaScheme.sc.highlight : "transparent"
+              VistaCheckBox {
+                id: checkBox
+                visible: row.isCheck
+                x: panel.s(4)
+                anchors.verticalCenter: parent.verticalCenter
+                checked: row.icon === "✓"
+              }
               Image {
                 id: smallIcon
                 visible: row.kind !== "dmenu"
@@ -1435,13 +1761,14 @@ Item {
               }
               Text {
                 id: nameText
-                x: smallIcon.visible ? smallIcon.x + smallIcon.width + panel.s(5) : panel.s(5)
+                x: smallIcon.visible ? smallIcon.x + smallIcon.width + panel.s(5)
+                  : checkBox.visible ? checkBox.x + checkBox.width + panel.s(5) : panel.s(5)
                 width: (row.detail ? resultList.width * 0.45 : resultList.width) - x - panel.s(4)
                 anchors.verticalCenter: parent.verticalCenter
                 textFormat: Text.PlainText
                 text: row.label
                 elide: Text.ElideRight
-                color: row.hasCursor ? VistaScheme.sc.highlightText : "#000000"
+                color: row.textColor
                 font.family: root.vistaDmenuMono ? "Lucida Console" : "Segoe UI"
                 font.pixelSize: Style.font.bodySmall
               }
@@ -1453,7 +1780,7 @@ Item {
                 textFormat: Text.PlainText
                 text: row.detail
                 elide: Text.ElideRight
-                color: row.hasCursor ? VistaScheme.sc.highlightText : "#404040"
+                color: row.disabled ? VistaScheme.sc.gray : row.hasCursor ? VistaScheme.sc.highlightText : "#404040"
                 font.family: "Segoe UI"
                 font.pixelSize: Style.font.bodySmall
               }
@@ -1463,10 +1790,11 @@ Item {
               id: mouseArea
               anchors.fill: parent
               hoverEnabled: true
-              cursorShape: root.vistaGrid ? Qt.PointingHandCursor : Qt.ArrowCursor
+              cursorShape: root.vistaGrid && !row.disabled ? Qt.PointingHandCursor : Qt.ArrowCursor
               onEntered: root.selectFromPointer(row.index, row, { x: mouseArea.mouseX, y: mouseArea.mouseY })
               onPositionChanged: function(mouse) { root.selectFromPointer(row.index, row, mouse) }
               onClicked: {
+                if (row.disabled) return
                 root.cursorActive = true
                 root.selectedIndex = row.index
                 root.activateIndex(row.index, true)
@@ -1512,6 +1840,12 @@ Item {
           isDefault: true
           onClicked: {
             if (root.mode === "input") root.applyDmenuSelection(root.filterText)
+            // Vista: multi-select OK = the 4.5 Apply row (index 0); a live
+            // (onChange) selection has applied already, so OK just closes.
+            else if (root.dmenuMultiple) {
+              if (root.dmenuOnChange.length > 0) root.cancel()
+              else root.activateIndex(0)
+            }
             else if (displayModel.count > 0) root.activateIndex(root.cursorActive ? root.selectedIndex : 0)
           }
         }
