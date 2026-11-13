@@ -5,7 +5,7 @@
     "plugins/osd/OsdModel.js": "07ef57284ec7af574a5320450a52b231845adfbe2b3ce18d5c0dbabca8f3ed9d"
   },
   "shared": "a89a85796e5321e02fff44aa5f19687a0d862af09479626f3ef92352c4788823",
-  "self": "00c006637cf80bc1e6b610e2e3ea417b0fbb8597abcc9066af033004d5646b4a",
+  "self": "264421233bf2184b2223994aee847d987c36a724164b70ed5f2a50344669b5fc",
   "external": [
     "I18n",
     "PlainText",

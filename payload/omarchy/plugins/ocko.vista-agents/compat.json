@@ -6,7 +6,7 @@
     "plugins/agents/Panel.qml": "9e23f39a47f416fae9df00f8451c17d198d24026d107bd0fed20ec95fa7b4b94"
   },
   "shared": "a89a85796e5321e02fff44aa5f19687a0d862af09479626f3ef92352c4788823",
-  "self": "69c03f66506b35fdf4fb0619ff6e0d4817f833c120d8e2d1348a9a830325ee3b",
+  "self": "af66c7ae561302c96451773cccc5df44ff490b6d4afed8cac802f194b6b8712a",
   "external": [
     "Color",
     "Error",

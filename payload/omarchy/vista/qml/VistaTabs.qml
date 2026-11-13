@@ -7,6 +7,8 @@ import qs.Commons
 // 5 frames: normal, hot, selected, disabled, focused. The page is
 // [Tab.Pane] (TabPaneEdge, SizingMargins 2, 4, 2, 4). Children go in the
 // page; show one per tab by binding `visible: tabs.currentIndex === n`.
+// Tabs that do not fit wrap onto more rows, as a multi-line Windows tab
+// control does; the pane starts below the last row.
 Item {
   id: tabs
 
@@ -28,7 +30,7 @@ Item {
   Rectangle {
     id: pane
     anchors.fill: parent
-    anchors.topMargin: tabs.tabHeight
+    anchors.topMargin: Math.max(tabs.tabHeight, strip.height)
     color: "#FFFFFF"
     border.width: 1
     border.color: "#898C95"
@@ -40,8 +42,10 @@ Item {
     }
   }
 
-  Row {
+  Flow {
+    id: strip
     x: Style.space(2)
+    width: tabs.width - Style.space(4)
     Repeater {
       model: tabs.titles
       Item {
@@ -50,12 +54,17 @@ Item {
         required property var modelData
         readonly property bool selected: index === tabs.currentIndex
         width: label.implicitWidth + Style.space(12)
-        height: tabs.tabHeight + (selected ? Style.space(1) : 0)
-        y: selected ? 0 : Style.space(2)
+        // Flow places the slot; the art inside keeps the selected tab 1 px
+        // taller and the others 2 px lower, over the row below or the pane.
+        height: tabs.tabHeight
         z: selected ? 1 : 0
 
         VistaArt {
-          anchors.fill: parent
+          id: tabArt
+          x: 0
+          y: tab.selected ? 0 : Style.space(2)
+          width: parent.width
+          height: tabs.tabHeight + (tab.selected ? Style.space(1) : 0)
           readonly property int frame: tab.selected ? (tabs.focused ? 4 : 2)
                                        : (!tabs.enabled ? 3 : tabMouse.containsMouse ? 1 : 0)
           source: tabs.artDir + "/tab" + (tab.selected ? "-top" : "") + (tab.index === 0 ? (tab.selected ? "left" : "-left") : "")
@@ -65,7 +74,7 @@ Item {
 
         Text {
           id: label
-          anchors.centerIn: parent
+          anchors.centerIn: tabArt
           anchors.verticalCenterOffset: tab.selected ? -Style.space(1) : 0
           text: String(tab.modelData)
           color: tabs.enabled ? "#000000" : "#A1A192"

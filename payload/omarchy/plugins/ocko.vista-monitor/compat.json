@@ -5,7 +5,7 @@
     "plugins/panels/monitor/Panel.qml": "b405184f103f1e82200a1aebe984f2c654804009af27cad58d056368e948afca"
   },
   "shared": "a89a85796e5321e02fff44aa5f19687a0d862af09479626f3ef92352c4788823",
-  "self": "f6b4faddc573a108ee1bd41a5b6e4eb27130c963504c5a107dec394cb19acf88",
+  "self": "201276e57b68925dbe76b2db7c1d10fe18955565d3c3b8cd1199ef12cdaa7c56",
   "external": [
     "AlignHCenter",
     "I18n",

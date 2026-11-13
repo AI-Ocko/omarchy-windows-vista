@@ -7,7 +7,7 @@
     "plugins/panels/clock/WallClock.qml": "369c0c5313a56b9963e6b1853ebf9294b666c3ec9aa9fa819f3becb024a5261d"
   },
   "shared": "a89a85796e5321e02fff44aa5f19687a0d862af09479626f3ef92352c4788823",
-  "self": "6434d0947548dcedac7ef19efa8155c6b99c3cb4acb7e07836873ca8751973b9",
+  "self": "c8f38c74bddc150405db1e91e4173f1102881e2903c3a7b2ad94c3ae907b0e3b",
   "external": [
     "AlignHCenter",
     "AlignVCenter",

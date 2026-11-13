@@ -13,7 +13,7 @@
     "plugins/notifications/Toast.qml": "abd059d05d46dc81e9d0247c647a521681ead91da03e2b9e6ee3c6bfbee3ad30"
   },
   "shared": "a89a85796e5321e02fff44aa5f19687a0d862af09479626f3ef92352c4788823",
-  "self": "8d9089269d0cda86951c7a3991be3733b976c9b6540ebf4d83034faa919b0ac8",
+  "self": "c2e437617d280868d083ffc43d95c16c24b942b0c68fa6d2c38df82eebcfc42b",
   "external": [
     "$",
     "Bezier",

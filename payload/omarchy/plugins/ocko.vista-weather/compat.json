@@ -6,7 +6,7 @@
     "plugins/panels/weather/Panel.qml": "55dfe63d84b5421a5e3cad0f619bc3e0a5b3b495a972b44af0fe3a32269ed829"
   },
   "shared": "a89a85796e5321e02fff44aa5f19687a0d862af09479626f3ef92352c4788823",
-  "self": "55fd62fa159bc9177005963c16f148f543e25aa13b8df2d6fd84c2ab88360670",
+  "self": "5ef3b0c625f90717959f3b66cfbc5a974ca550e4cfcadda1d90e72094e27785e",
   "external": [
     "AlignHCenter",
     "I18n",
