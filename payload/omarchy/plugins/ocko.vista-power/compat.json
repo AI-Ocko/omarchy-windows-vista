@@ -1,18 +1,19 @@
 {
-  "verified": "omarchy 4.0.6-1",
+  "verified": "omarchy 4.5.0-3",
   "stock": {
-    "plugins/panels/power/Model.js": "5ed21781bcd315742b8eda1aa72f415f72217a38e03c659fe40095ed939f7ed2",
-    "plugins/panels/power/Panel.qml": "8e7b6c32c2bda2069a03a04d4d71d6a82aa8aa435bfba0b81782a51d3195a848"
+    "plugins/panels/power/Model.js": "0a7f42b18dcdea6da54e02813f0fe9ff57e355f16e7a9caba1ba63913420ca43",
+    "plugins/panels/power/Panel.qml": "145cd9632d8caa3a9b390b27cb6e7382b2ccb83610ae4bda04a2755c52a75068"
   },
-  "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "9d10d93d93ebe4e7fbb6c738348da4940e436add66c1b01e5df84a2e2bca93ec",
+  "shared": "a89a85796e5321e02fff44aa5f19687a0d862af09479626f3ef92352c4788823",
+  "self": "43cf7deb28977449db1c570ee7ce4017a5e01400919498f347698b3662da7282",
   "external": [
     "Color",
-    "InQuad",
-    "OutQuad",
+    "I18n",
+    "OutCubic",
     "RightButton",
     "Wrap",
     "assign",
+    "callLater",
     "ceil",
     "changeRate",
     "charAt",
@@ -22,14 +23,13 @@
     "isPresent",
     "onBattery",
     "push",
-    "restart",
+    "replace",
     "round",
     "slice",
-    "split",
-    "stop",
     "substring",
     "timeToEmpty",
     "timeToFull",
+    "toFixed",
     "toUpperCase",
     "trim"
   ]

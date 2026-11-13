@@ -1,10 +1,11 @@
 // ocko.vista-bluetooth: omarchy.bluetooth for the Vista notification area (Windows
-// Vista theme only; see omarchy/vista/bin/vista-mode). Lines 9-670 are
-// /usr/share/omarchy/shell/plugins/panels/bluetooth/Panel.qml (Omarchy 4.0.6,
-// sha256 018af5e96d27fe1f09dca2b2f24904c06290e31d21d00974387e0d51de8ae4b2,
-// lines 1-662), unchanged. The card below that is rebuilt as Vista SP2's
-// "Bluetooth Devices" control panel (VistaBluetooth.qml).
-// Re-diff the logic against a newer Omarchy: diff <(sed -n 9,670p Panel.qml) <(sed -n 1,662p <stock>)
+// Vista theme only; see omarchy/vista/bin/vista-mode). Lines 10-671 are
+// /usr/share/omarchy/shell/plugins/panels/bluetooth/Panel.qml (Omarchy 4.5.0,
+// sha256 1e03d3ae942f4fe095a57252d1f8253a4de269428bc5444b75ac30da84e1b269,
+// lines 1-661), with three lines marked "Vista:" (the phrase fade's target).
+// The card below that is rebuilt as Vista SP2's "Bluetooth Devices" control
+// panel (VistaBluetooth.qml).
+// Re-diff the logic against a newer Omarchy: diff <(sed -n 10,671p Panel.qml) <(sed -n 1,661p <stock>)
 
 import QtQuick
 import QtQuick.Controls
@@ -73,19 +74,19 @@ Panel {
 
   property int phraseIndex: 0
   readonly property var activePhrases: [
-    "Untangling wires",
-    "Streaming vikings",
-    "Pairing mysteries",
-    "Herding headsets",
-    "Taming radios",
-    "Summoning speakers",
-    "Wrangling codecs",
-    "Polishing packets"
+    Commons.I18n.t("bluetooth.phrase1"),
+    Commons.I18n.t("bluetooth.phrase2"),
+    Commons.I18n.t("bluetooth.phrase3"),
+    Commons.I18n.t("bluetooth.phrase4"),
+    Commons.I18n.t("bluetooth.phrase5"),
+    Commons.I18n.t("bluetooth.phrase6"),
+    Commons.I18n.t("bluetooth.phrase7"),
+    Commons.I18n.t("bluetooth.phrase8")
   ]
   readonly property bool rotatingPhrases: adapter && adapter.enabled
   readonly property string heroStatusText: {
-    if (!adapter) return "No adapter"
-    if (!adapter.enabled) return "Turned Off"
+    if (!adapter) return Commons.I18n.t("bluetooth.noAdapter")
+    if (!adapter.enabled) return Commons.I18n.t("bluetooth.turnedOff")
     return activePhrases[phraseIndex % activePhrases.length]
   }
 
@@ -110,7 +111,7 @@ Panel {
   // sits above the device sections so the adapter can be toggled by keyboard
   // even when it is off and no device rows exist.
   readonly property bool headerHasCursor: cursorActive && focusSection === "header"
-  readonly property string toggleHint: root.adapter && root.adapter.enabled ? "Turn Bluetooth off" : "Turn Bluetooth on"
+  readonly property string toggleHint: root.adapter && root.adapter.enabled ? Commons.I18n.t("bluetooth.turnOff") : Commons.I18n.t("bluetooth.turnOn")
 
   readonly property color hoverFill: bar
     ? Style.hoverFillFor(bar.foreground, Commons.Color.accent)
@@ -192,7 +193,7 @@ Panel {
     var rows = scrollRows
     if (index < 0 || index >= rows.length) return ""
     if (index > 0 && rows[index - 1].section === rows[index].section) return ""
-    return rows[index].section === "known" ? "PAIRED" : "AVAILABLE"
+    return rows[index].section === "known" ? Commons.I18n.t("bluetooth.paired") : Commons.I18n.t("bluetooth.available")
   }
 
   function audioSinks() {
@@ -611,15 +612,15 @@ Panel {
   SequentialAnimation {
     id: phraseSwap
     PropertyAnimation {
-      target: heroStatus; property: "opacity"
-      to: 0.0; duration: 180; easing.type: Easing.OutQuad
+      target: panel.loadedContent ? panel.loadedContent.heroStatus : heroStatus; property: "opacity"  // Vista: was : null (our eager card leaves loadedContent null)
+      to: 0.0; duration: Style.duration(150); easing.type: Easing.OutCubic
     }
     ScriptAction {
       script: root.phraseIndex = (root.phraseIndex + 1) % root.activePhrases.length
     }
     PropertyAnimation {
-      target: heroStatus; property: "opacity"
-      to: 1.0; duration: 260; easing.type: Easing.InQuad
+      target: panel.loadedContent ? panel.loadedContent.heroStatus : heroStatus; property: "opacity"  // Vista: was : null (our eager card leaves loadedContent null)
+      to: 1.0; duration: Style.duration(200); easing.type: Easing.OutCubic
     }
   }
 
@@ -628,7 +629,8 @@ Panel {
     function onRotatingPhrasesChanged() {
       if (!root.rotatingPhrases) {
         phraseSwap.stop()
-        heroStatus.opacity = 1.0
+        if (panel.loadedContent) panel.loadedContent.heroStatus.opacity = 1.0
+        else heroStatus.opacity = 1.0  // Vista: the root stub below
       }
     }
   }
@@ -646,7 +648,7 @@ Panel {
     Quickshell.execDetached(["omarchy-bluetooth-power", adapter.enabled ? "off" : "on"])
   }
 
-  IpcHandler {
+  ShellIpc {
     target: "omarchy.bluetooth"
 
     function open() { root.open() }
@@ -669,7 +671,8 @@ Panel {
   }
 
   // =========================================================================
-  // Vista UI (ocko.vista-bluetooth). Everything above is stock (see the header).
+  // Vista UI (ocko.vista-bluetooth). Everything above is stock (see the header)
+  // apart from the lines marked "Vista:".
   // Everything below replaces stock's card: VistaBluetooth draws it over this
   // panel's model, with these few Vista-only pieces of state.
   // =========================================================================
@@ -683,8 +686,9 @@ Panel {
   readonly property real vistaMinX: -panel.cardOrigin.x + Style.space(8)
   readonly property real phraseOpacity: heroStatus.opacity
 
-  // Stock's phrase swap animates heroStatus; the Vista status line reads its
-  // opacity through phraseOpacity.
+  // Stock's phrase swap animates heroStatus (retargeted here by the three
+  // "Vista:" lines above, since loadedContent is null for this eager card);
+  // the Vista status line reads its opacity through phraseOpacity.
   Item {
     id: heroStatus
     visible: false

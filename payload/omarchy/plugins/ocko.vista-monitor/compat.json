@@ -1,29 +1,24 @@
 {
-  "verified": "omarchy 4.0.6-1",
+  "verified": "omarchy 4.5.0-3",
   "stock": {
-    "plugins/panels/monitor/Model.js": "9dd9cb7f7dc11f16e571a48bf2a7c51be75ddaef3d4d5f35c511be8f91ecd2ec",
-    "plugins/panels/monitor/Panel.qml": "7ce864b8360625b008d5539adb555b3366513cdfd8fe57a93c64acef23d94bfa"
+    "plugins/panels/monitor/Model.js": "4374daa9cf57e7428dadfd7b0156ee8cef75b32a934ddd82b30dc4d0bf6d7c5c",
+    "plugins/panels/monitor/Panel.qml": "b405184f103f1e82200a1aebe984f2c654804009af27cad58d056368e948afca"
   },
-  "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "0a2847e3451f6efec0cbffd56f1367b52585ec768e64de9d143bb86df9437b00",
+  "shared": "a89a85796e5321e02fff44aa5f19687a0d862af09479626f3ef92352c4788823",
+  "self": "f6b4faddc573a108ee1bd41a5b6e4eb27130c963504c5a107dec394cb19acf88",
   "external": [
     "AlignHCenter",
-    "ElideRight",
+    "I18n",
     "PlainText",
     "Raised",
     "WordWrap",
-    "abs",
     "indexOf",
     "isArray",
-    "map",
     "mapToItem",
     "push",
     "replace",
-    "restart",
     "round",
     "sort",
-    "split",
-    "stop",
     "stringify",
     "trim"
   ]
