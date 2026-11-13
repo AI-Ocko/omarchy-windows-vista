@@ -478,6 +478,13 @@ Item {
             enabled: root.dialogVisible
             placeholder: root.submitted ? "Checking..." : (root.currentPrompt ? root.currentPrompt.replace(/\s*:?\s*$/, "") : "Password")
             echoMode: root.responseVisible ? TextInput.Normal : TextInput.Password
+            // Vista: Escape cancels from the field itself, as stock's does.
+            Keys.onPressed: function(event) {
+              if (event.key === Qt.Key_Escape) {
+                root.cancelRequest()
+                event.accepted = true
+              }
+            }
           }
         }
 
