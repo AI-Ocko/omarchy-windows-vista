@@ -350,6 +350,8 @@ Item {
     "": "sndvolsso/120",         //        muted, or no output
     "\u{F0200}": "pnidui/3048",        // network: wired, Internet access
     "\u{F092E}": "pnidui/3020",        //          disconnected
+    "\u{F0202}": "pnidui/3055",        //          wired, local access only
+    "\u{F0929}": "pnidui/3054",        //          wireless, local access only
     "\u{F092F}": "pnidui/3021",        //          wireless, by strength
     "\u{F091F}": "pnidui/3022",
     "\u{F0922}": "pnidui/3024",
