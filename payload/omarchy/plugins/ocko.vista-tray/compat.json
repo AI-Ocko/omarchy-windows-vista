@@ -47,5 +47,22 @@
     "toLowerCase",
     "tooltipTitle",
     "trim"
-  ]
+  ],
+  "stockMembers": {
+    "barSize": [
+      "Ui/BarWidget.qml",
+      "Ui/PluginBarApi.qml",
+      "Ui/WidgetButton.qml",
+      "plugins/bar/Bar.qml",
+      "plugins/dev-gallery/GalleryPanel.qml",
+      "services/PluginBarStateApi.qml"
+    ],
+    "moduleName": [
+      "Ui/BarIndicator.qml",
+      "Ui/BarWidget.qml",
+      "Ui/Panel.qml",
+      "Ui/PluginBarApi.qml",
+      "plugins/bar/Bar.qml"
+    ]
+  }
 }

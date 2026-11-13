@@ -27,5 +27,6 @@
     "slice",
     "trim",
     "weatherCode"
-  ]
+  ],
+  "stockMembers": {}
 }

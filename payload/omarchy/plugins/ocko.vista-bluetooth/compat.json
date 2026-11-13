@@ -41,5 +41,13 @@
     "toLowerCase",
     "trim",
     "trusted"
-  ]
+  ],
+  "stockMembers": {
+    "cardOrigin": [
+      "Ui/KeyboardPanel.qml"
+    ],
+    "loadedContent": [
+      "Ui/KeyboardPanel.qml"
+    ]
+  }
 }

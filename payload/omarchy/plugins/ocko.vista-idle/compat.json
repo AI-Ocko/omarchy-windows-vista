@@ -16,5 +16,6 @@
     "stringify",
     "toISOString",
     "trim"
-  ]
+  ],
+  "stockMembers": {}
 }

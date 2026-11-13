@@ -1,10 +1,10 @@
 // ocko.vista-audio: omarchy.audio for the Vista notification area (Windows Vista theme
-// only; see omarchy/vista/bin/vista-mode). Lines 9-777 are the logic of
+// only; see omarchy/vista/bin/vista-mode). Lines 9-780 are the logic of
 // /usr/share/omarchy/shell/plugins/panels/audio/Panel.qml (omarchy.audio 4.5.0,
 // sha256 f75564d2a8be05a18d832be926747b298401748d6e976a0c39f9053456439d09,
 // lines 1-756), with each change marked "Vista:". The card below that is rebuilt
 // as sndvol32's flyout, context menu, mixer and Properties. Re-diff the logic
-// against a newer Omarchy: diff <(sed -n 9,777p Panel.qml) <(sed -n 1,756p <stock>)
+// against a newer Omarchy: diff <(sed -n 9,780p Panel.qml) <(sed -n 1,756p <stock>)
 
 import QtQuick
 import QtQuick.Controls

@@ -41,5 +41,25 @@
     "test",
     "toISOString",
     "trim"
-  ]
+  ],
+  "stockMembers": {
+    "borderBottom": [
+      "Ui/BorderSurface.qml"
+    ],
+    "borderLeft": [
+      "Ui/BorderSurface.qml"
+    ],
+    "borderRight": [
+      "Ui/BorderSurface.qml"
+    ],
+    "borderTop": [
+      "Ui/BorderSurface.qml"
+    ],
+    "ready": [
+      "Ui/BackgroundMedia.qml",
+      "plugins/background/Background.qml",
+      "plugins/panels/elsewhen/CityRow.qml",
+      "plugins/panels/elsewhen/DaylightStrip.qml"
+    ]
+  }
 }

@@ -70,5 +70,32 @@
     "toUpperCase",
     "trim",
     "write"
-  ]
+  ],
+  "stockMembers": {
+    "availableCardHeight": [
+      "Ui/KeyboardPanel.qml",
+      "Ui/PopupCard.qml"
+    ],
+    "borderSpec": [
+      "Ui/BorderOverlay.qml",
+      "Ui/BorderSurface.qml",
+      "Ui/KeyboardPanel.qml",
+      "Ui/PopupCard.qml",
+      "plugins/clipboard/Clipboard.qml",
+      "plugins/emojis/Emojis.qml",
+      "plugins/menu/Menu.qml",
+      "plugins/polkit/PolkitAgent.qml",
+      "plugins/reminders/ReminderFlow.qml"
+    ],
+    "fittedContentWidth": [
+      "Ui/KeyboardPanel.qml",
+      "Ui/PopupCard.qml"
+    ],
+    "loadedContent": [
+      "Ui/KeyboardPanel.qml"
+    ],
+    "loadedContentHeight": [
+      "Ui/KeyboardPanel.qml"
+    ]
+  }
 }

@@ -106,5 +106,53 @@
     "unshift",
     "warn",
     "wayland"
-  ]
+  ],
+  "stockMembers": {
+    "closeForPopoutSwitch": [
+      "Ui/Panel.qml",
+      "plugins/panels/clock/BarWidget.qml",
+      "plugins/panels/weather/BarWidget.qml"
+    ],
+    "contentScale": [
+      "Ui/BarIconContent.qml"
+    ],
+    "heldButtons": [
+      "Ui/WidgetButton.qml"
+    ],
+    "iconComponent": [
+      "Ui/BarIconButton.qml",
+      "Ui/PanelHero.qml"
+    ],
+    "indicatorsModule": [
+      "plugins/bar/widgets/Indicators.qml"
+    ],
+    "openPanelIndicatorItem": [
+      "plugins/bar/widgets/Tray.qml"
+    ],
+    "opticalSize": [
+      "Ui/BarIconButton.qml"
+    ],
+    "remapping": [
+      "Ui/ScreenMoveRemap.qml"
+    ],
+    "revealProgress": [
+      "plugins/background/Background.qml",
+      "plugins/bar/widgets/Tray.qml"
+    ],
+    "sectionHost": [
+      "plugins/bar/widgets/Tray.qml"
+    ],
+    "sectionShown": [
+      "plugins/bar/widgets/Tray.qml"
+    ],
+    "setIndicatorAreaHovered": [
+      "plugins/bar/widgets/Indicators.qml"
+    ],
+    "sourceComponent": [
+      "Ui/BarIconContent.qml"
+    ],
+    "trayItemExtent": [
+      "plugins/bar/widgets/Tray.qml"
+    ]
+  }
 }

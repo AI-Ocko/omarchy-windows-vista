@@ -67,5 +67,18 @@
     "trim",
     "unshift",
     "warn"
-  ]
+  ],
+  "stockMembers": {
+    "allowInitialSample": [
+      "Ui/PointerMoveGate.qml"
+    ],
+    "handleKey": [
+      "Ui/ConfirmDialog.qml",
+      "plugins/panels/tailscale/Panel.qml"
+    ],
+    "reset": [
+      "Commons/UntypedInput.qml",
+      "Ui/PointerMoveGate.qml"
+    ]
+  }
 }

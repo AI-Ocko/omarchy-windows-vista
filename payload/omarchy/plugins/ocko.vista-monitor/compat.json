@@ -21,5 +21,10 @@
     "sort",
     "stringify",
     "trim"
-  ]
+  ],
+  "stockMembers": {
+    "loadedContent": [
+      "Ui/KeyboardPanel.qml"
+    ]
+  }
 }

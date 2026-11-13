@@ -69,5 +69,17 @@
     "toUpperCase",
     "trim",
     "tx_bytes"
-  ]
+  ],
+  "stockMembers": {
+    "cardOrigin": [
+      "Ui/KeyboardPanel.qml"
+    ],
+    "loadedContent": [
+      "Ui/KeyboardPanel.qml"
+    ],
+    "screenW": [
+      "Ui/KeyboardPanel.qml",
+      "Ui/PopupCard.qml"
+    ]
+  }
 }

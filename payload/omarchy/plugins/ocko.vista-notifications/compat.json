@@ -120,5 +120,6 @@
     "trim",
     "urgencyChanged",
     "var"
-  ]
+  ],
+  "stockMembers": {}
 }

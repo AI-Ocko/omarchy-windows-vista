@@ -54,5 +54,32 @@
     "weatherCode",
     "weather_code",
     "wind_speed_10m"
-  ]
+  ],
+  "stockMembers": {
+    "centerHoverRevealSuppressed": [
+      "Ui/PluginBarApi.qml",
+      "plugins/bar/Bar.qml"
+    ],
+    "date": [
+      "plugins/panels/clock/WallClock.qml"
+    ],
+    "loadedContent": [
+      "Ui/KeyboardPanel.qml"
+    ],
+    "loadedContentHeight": [
+      "Ui/KeyboardPanel.qml"
+    ],
+    "settings": [
+      "Ui/BarIndicator.qml",
+      "Ui/BarWidget.qml",
+      "Ui/Panel.qml",
+      "plugins/agents/Main.qml",
+      "plugins/bar/Bar.qml",
+      "plugins/panels/dropbox/Service.qml",
+      "plugins/panels/tailscale/Service.qml"
+    ],
+    "spacing": [
+      "Commons/Style.qml"
+    ]
+  }
 }
