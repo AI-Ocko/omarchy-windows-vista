@@ -790,6 +790,14 @@ Panel {
   // Strings and menus are the exe's STRING and MENU 150 resources.
   // =========================================================================
 
+  // Vista: stands in for stock's PopupCard (id panel), which the Vista card
+  // replaces; stock's resetScroll/ensureCursorVisible read its content, and
+  // the Vista windows have no scroll area of theirs.
+  QtObject {
+    id: panel
+    property var loadedContent: null
+  }
+
   property bool mixerOpen: false
   property bool menuOpen: false
   property bool propsOpen: false
