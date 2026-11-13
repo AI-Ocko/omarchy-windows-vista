@@ -288,6 +288,22 @@ if [[ -r $G/netshell/32/1111.png && ! -e $G/netshell/32/1111-cloud.png ]]; then
     -define png:exclude-chunks=date,time "PNG32:$G/netshell/32/1111-cloud.png"
 fi
 
+# Tray weather icons: the Sidebar Weather gadget's condition images (42 x 34,
+# by MSN condition code) on square 16 and 32 px canvases, for the taskbar's
+# weather glyph map (ocko.vista-taskbar vistaTrayArt "weather/<code>").
+WX=${G%/graphics}/gadgets/Weather.Gadget/images
+if [[ -d $WX && ! -e $G/weather/.done ]]; then
+  mkdir -p "$G/weather/16" "$G/weather/32"
+  for f in "$WX"/[0-9]*.png; do
+    n=${f##*/}
+    for size in 16 32; do
+      magick -quiet "$f" -trim +repage -filter Lanczos -resize "${size}x${size}" -background none -gravity center \
+        -extent "${size}x${size}" -define png:exclude-chunks=date,time "PNG32:$G/weather/$size/$n"
+    done
+  done
+  : >"$G/weather/.done"
+fi
+
 # XP icon names some ported windows still use (Bluetooth, the monitor and
 # agents windows, the network and mixer sub-windows), answered with Vista's
 # own icons so those windows need no XP files: <xp lib>/<id> = <vista lib>/<id>.

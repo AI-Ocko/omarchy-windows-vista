@@ -362,6 +362,25 @@ Item {
     "\u{F009B}": "imageres/105",       // do not disturb: the red shield
     "\u{F07F5}": "imageres/78",        // passwordless sudo: the UAC shield
     "\u{F08B9}": "imageres/171",       // remote session: connect to a remote computer
+    "\u{EF59}": "imageres/103",        // stay awake: Presentation Settings' projector screen
+    "\u{F050E}": "desk/40",            // night light: Display Settings
+    "\u{F088C}": "imageres/144",       // reminder: Date and Time
+    "\u{F0EC2}": "imageres/46",        // screen recording: the camcorder
+    "\u{F0379}": "desk/100",           // display: desk.cpl's monitor (one screen)
+    "\u{F037A}": "desk/100",           //          (several)
+    "\u{F16A3}": "imageres/101",       // agents
+    // Weather (stock weather/Model.js iconForCode): the Sidebar Weather
+    // gadget's condition images by MSN code (vista-art: weather/<code>).
+    "\uE30D": "weather/32", "\uE32B": "weather/31",      // clear, day / night
+    "\uE302": "weather/30", "\uE32E": "weather/29",      // partly cloudy
+    "\uE33D": "weather/26",                             // cloudy, overcast
+    "\uE313": "weather/20", "\uE346": "weather/20",      // fog
+    "\uE308": "weather/11", "\uE333": "weather/11",      // patchy rain, drizzle
+    "\uE318": "weather/12",                             // rain
+    "\uE30A": "weather/14", "\uE327": "weather/14",      // light snow
+    "\uE31A": "weather/42",                             // heavy snow
+    "\uE3AD": "weather/18",                             // sleet, freezing rain
+    "\uE31D": "weather/4",                              // thunder
     // Battery (stock power/Model.js batteryIcon): batmeter frames by charge;
     // ocko.vista-power's vistaBatteryFrame, when there, overrides these.
     "\u{F007A}": "battery/0", "\u{F007B}": "battery/1", "\u{F007C}": "battery/2",
