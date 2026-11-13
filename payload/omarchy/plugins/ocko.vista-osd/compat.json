@@ -1,23 +1,18 @@
 {
-  "verified": "omarchy 4.0.6-1",
+  "verified": "omarchy 4.5.0-3",
   "stock": {
-    "plugins/osd/Osd.qml": "f7abf7e92286671bdef821be169b6d6b456fb6df014524cf4d227d6f2a49a1a3",
-    "plugins/osd/OsdModel.js": "ad8cc27c204587a9aac9a7ec0513c72a1a33fe6e83090ee91b4e2c2bfe5fe35c"
+    "plugins/osd/Osd.qml": "7ae5b2a17a3da502fb51d09a6113e77efbf3216d61d722969d9dd81367afb676",
+    "plugins/osd/OsdModel.js": "07ef57284ec7af574a5320450a52b231845adfbe2b3ce18d5c0dbabca8f3ed9d"
   },
-  "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "9d0ee05d05bd26b86fc92ce5a4c82b0b63b249fdd07082481f13e96ab02067bd",
+  "shared": "a89a85796e5321e02fff44aa5f19687a0d862af09479626f3ef92352c4788823",
+  "self": "00c006637cf80bc1e6b610e2e3ea417b0fbb8597abcc9066af033004d5646b4a",
   "external": [
-    "ElideRight",
-    "None",
-    "Overlay",
+    "I18n",
     "PlainText",
     "advanceWidth",
     "ceil",
     "indexOf",
-    "progressText",
-    "restart",
     "round",
-    "stop",
     "tightBoundingRect",
     "toLowerCase"
   ]

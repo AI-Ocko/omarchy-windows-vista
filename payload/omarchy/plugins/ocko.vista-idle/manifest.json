@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "ocko.vista-idle",
   "name": "Windows Vista screensaver",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "ocko",
   "description": "omarchy.idle that runs the Windows Vista 3D Pipes screensaver (omarchy/vista/bin/vista-screensaver) while an Vista theme is active and the stock one otherwise. Enabled only while an Vista theme is active (omarchy/vista/bin/vista-mode).",
   "kinds": [

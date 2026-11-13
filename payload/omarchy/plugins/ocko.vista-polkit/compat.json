@@ -1,14 +1,15 @@
 {
-  "verified": "omarchy 4.0.6-1",
+  "verified": "omarchy 4.5.0-3",
   "stock": {
-    "plugins/polkit/PolkitAgent.qml": "33b31505ec127294eb906944bd2a15a97453229e78e22f816b4363ccb7d3e74c",
-    "plugins/polkit/PolkitModel.js": "29c0b96b25fea18d8dcc1e61912f8906ff75c599b07f9bf8b0f8cc4f6fb985c9"
+    "plugins/polkit/PolkitAgent.qml": "f14077e4b9e38ad07955df5761a35869dda9f5e2ad82cd889bf4d731a1143313",
+    "plugins/polkit/PolkitModel.js": "e9f7345f22997b47cdf8a10701e4c2063c847b2d204e788de95475b6cda6f20a"
   },
-  "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "fe77f40816a12d4d44e7805e2807d0235de75ae058e879c9a832cd8b5be8a6cd",
+  "shared": "a89a85796e5321e02fff44aa5f19687a0d862af09479626f3ef92352c4788823",
+  "self": "697f62df6bb161dcb112da8ca8ba40b7718d008b8fd1a6fdae29ed44543c59ec",
   "external": [
     "BeforeItem",
     "Color",
+    "I18n",
     "InOutQuad",
     "Key_Enter",
     "Key_Escape",
@@ -16,7 +17,6 @@
     "OutQuad",
     "Overlay",
     "PlainText",
-    "PreserveAspectCrop",
     "Wrap",
     "WrapAnywhere",
     "callLater",
@@ -30,9 +30,6 @@
     "isResponseRequired",
     "log",
     "replace",
-    "restart",
-    "split",
-    "stop",
     "supplementaryMessage",
     "test",
     "toLowerCase",
