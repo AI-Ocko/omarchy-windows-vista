@@ -57,7 +57,7 @@ Item {
   }
 
   function show(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration) {
-    var next = OsdModel.stateForShow(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration)
+    var next = OsdModel.stateForShow(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration, Commons.I18n.formatNumber)
     // Update before opening so a fresh OSD starts at its new value; only
     // subsequent updates while it remains open animate the progress bar.
     iconKey = next.iconKey
@@ -98,7 +98,7 @@ Item {
   TextMetrics {
     id: valueMetrics
     font: messageMetrics.font
-    text: "100%"
+    text: Commons.I18n.formatNumber(100) + "%"
   }
 
   TextMetrics {
@@ -114,7 +114,7 @@ Item {
     text: OsdModel.widestIcon
   }
 
-  IpcHandler {
+  ShellIpc {
     target: "osd"
     function show(payloadJson: string): string {
       root.open(payloadJson)
@@ -126,15 +126,21 @@ Item {
   }
 
   // ============================================================ Vista OSD
-  // ocko.vista-osd: everything above is omarchy.osd 4.0.6 unchanged (payload
+  // ocko.vista-osd: everything above is omarchy.osd 4.5.0 unchanged (payload
   // parsing, timers, IPC). The card is a small Vista tray popup above the
   // notification area: a raised Btnface panel with the shell32 Sounds or
   // Display icon, a Tahoma label, and the scheme's own progress bar
   // (Progress.Bar track + Progress.Chunk, 6 px chunks 2 px apart). Messages
   // without a value show as a plain Vista tooltip.
   property var shell: null
-  readonly property int barClearance: shell && shell.bar && !shell.bar.barHidden && shell.bar.barSize > 0
-    ? shell.bar.barSize : Style.space(30)
+  // Vista: the bar's thickness on the screen the OSD opened on (notch-aware
+  // barSizeFor, as 4.5 KeyboardPanel/PopupCard read it), else barSize.
+  readonly property int barClearance: {
+    var b = shell ? shell.bar : null
+    if (!b || b.barHidden) return Style.space(30)
+    var size = typeof b.barSizeFor === "function" && panel.targetScreen ? b.barSizeFor(panel.targetScreen.name) : b.barSize
+    return size > 0 ? size : Style.space(30)
+  }
   readonly property string vistaLabel: {
     var k = root.iconKey
     if (k.indexOf("volume") === 0 || k === "mute" || k === "muted") return k.indexOf("mute") !== -1 ? "Volume (muted)" : "Volume"
@@ -146,15 +152,11 @@ Item {
   readonly property string vistaIconUrl: VistaScheme.graphics + (root.iconKey === "brightness" || root.iconKey === "display"
     ? "/explorer/32/205.png" : "/sndvolsso/32/124.png")
 
-  PanelWindow {
+  OverlayWindow {
     id: panel
-    visible: root.opened
-    anchors { top: true; bottom: true; left: true; right: true }
-    color: "transparent"
+    shown: root.opened
+    shownKeyboardFocus: WlrKeyboardFocus.None
     WlrLayershell.namespace: "omarchy-osd"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-    exclusionMode: ExclusionMode.Ignore
     // Visual-only surface: keep the layer-shell input region empty so the OSD
     // never blocks clicks to the desktop below it.
     mask: Region {}

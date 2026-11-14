@@ -4,7 +4,9 @@
 # so Vista saves a clean pre-Vista state and nothing re-enables a stock plugin
 # after Vista has picked its clones. Leaving Vista is 00-windows-vista-off,
 # which runs FIRST. The logic and its error log live in vista-mode.
+# Any other theme: settle what leaving Vista left pending (the bar layout
+# format, which depends on the bar this switch ended on).
 case $1 in
   windows-vista | windows-vista-*) exec "$HOME/.config/omarchy/vista/bin/vista-mode" on ;;
+  *) exec "$HOME/.config/omarchy/vista/bin/vista-mode" settle ;;
 esac
-exit 0

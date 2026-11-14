@@ -21,7 +21,7 @@ VISTA=$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)
 running=$(hyprctl version -j 2>/dev/null | jq -r '.tag // empty')
 running=${running#v}
 [[ -n $running ]] || exit 0
-[[ $(cat "$OUT/hyprland-version" 2>/dev/null) == "$running" && -e $OUT/libhyprbars.so ]] && exit 0
+[[ $(cat "$OUT/hyprland-version" 2>/dev/null) == "$running" && -e $OUT/libvistabars.so ]] && exit 0
 # The patch targets 0.56.x; another Hyprland gets the stock bars until the Vista
 # package is updated (install.sh says so; nothing to rebuild here).
 [[ $running == 0.56.* ]] || exit 0

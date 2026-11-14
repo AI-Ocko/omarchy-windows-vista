@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """vista-compat-test [--plugins DIR] [--omarchy DIR] [--record]
+vista-compat-test --runtime [--since TIME] [--omarchy DIR]
 
 Can each ocko.vista-* plugin run on the installed Omarchy? Prints one line per
 plugin, "<id> ok", "<id> ok-unverified <why>" or "<id> fail <reason>", and
@@ -15,8 +16,33 @@ what was verified:
   self      one sha256 over the plugin's own files plus omarchy/vista/qml
   external  member names the plugin uses that nothing in Omarchy or Vista defines
             (Qt, Quickshell and JavaScript built-ins)
+  stockMembers  {name: [stock files that defined it]} for the stock members
+            the plugin reads off objects it does not define (below)
 
-  ok             all three hashes match: exactly what was verified; nothing runs.
+Always checked, before anything else:
+  behaviour clones  clones of omarchy.notifications, .lock, .polkit and .idle
+                 fail as soon as a copied stock file is missing or changed:
+                 "fail stock changed (behaviour clone, falls back to stock)".
+                 Stock drives them (the 4.5 lock service set properties the
+                 old lock view lacked: no lock screen at all), so unported
+                 they are worse than stock; other clones only turn
+                 ok-unverified.
+  stock members  a recorded stockMembers name that none of its files still
+                 defines (property, function, signal or id) is
+                 "fail stock member gone: <name> (was in <files>)".
+                 Recorded names are the ones the plugin reads (a) anywhere in
+                 a chain starting at `parent` (parent.button.text: button,
+                 text), (b) in `"<name>" in <expr>` tests and (c) as <id>.<name>
+                 where <id> names an instance of a stock type (a .qml under
+                 Ui/, Commons/ or the cloned stock plugin). Names the plugin
+                 or omarchy/vista/qml define, and a few Qt built-ins (width,
+                 text, anchors, ...), are left out. A heuristic, by name only:
+                 it does not know which object a chain reaches, so a member
+                 that moved to a deeper object but is still defined somewhere
+                 in its old file, a renamed id, or a changed parent depth
+                 (parent.parent.parent now landing on another item) all pass;
+                 `--runtime` sees those once they misbehave.
+  ok             all three hashes match: exactly what was verified; nothing else runs.
   otherwise both checks below run:
     members      every `.name` the plugin uses must still be defined by the
                  plugin, omarchy/vista/qml or the installed stock shell, or be in
@@ -35,6 +61,12 @@ what was verified:
 --record runs both checks and, for each plugin that passes, rewrites its
 compat.json for the Omarchy installed now. Run it after verifying Vista on a new
 Omarchy release (or after editing a plugin) and commit the result.
+
+--runtime reads the journal of the running Omarchy shell (the one quickshell
+started on <omarchy>/shell) and prints each distinct WARN/ERROR it logged
+about an ocko.vista-* plugin or omarchy/vista, "<id|shared> runtime
+<file>:<line> <message>" (--since takes a journalctl time). Exits 0 when there
+were none, 1 when there were, 2 when the shell or its journal is not found.
 """
 import argparse
 import hashlib
@@ -66,6 +98,80 @@ DEFINED = re.compile(
     + r'|\.\s*' + NAME + r'\s*=(?!=)'
     + r'|' + NAME + r'\s*\([^()]*\)\s*\{')
 ENUMS = re.compile(r'\benum\s+\w+\s*\{([^}]*)\}')
+
+# Clones stock drives (it sets their properties, calls their functions): run
+# against changed stock they break silently, so they fall back to stock.
+BEHAVIOUR_CLONES = {"omarchy.notifications", "omarchy.lock", "omarchy.polkit", "omarchy.idle"}
+
+# What counts as defining a stock member: stricter than DEFINED, where any
+# `name:` binding counts.
+MEMBER_DEF = re.compile(
+    r'\bproperty\s+(?:alias\s+|[\w.<>]+\s+)' + NAME
+    + r'|\bfunction\s+' + NAME + r'\s*\('
+    + r'|\bsignal\s+' + NAME
+    + r'|\bid\s*:\s*' + NAME)
+PARENT_CHAIN = re.compile(r'(?<![\w$.])parent((?:\s*\??\.\s*[A-Za-z_$][\w$]*)+)')
+IN_TEST = re.compile(r'(["\'])([A-Za-z_$][\w$]*)\1\s+in\b')
+TYPE_OPEN = re.compile(r'(?<![\w$.])(?:[A-Za-z_]\w*\.)?([A-Z]\w*)\s*\{')
+# Qt Quick members (Item, Rectangle, Text, anchors, font) and JS built-ins:
+# stock declares some of them too, but they never go away.
+BUILTINS = {
+    "width", "height", "x", "y", "z", "visible", "enabled", "opacity", "parent",
+    "children", "data", "resources", "text", "color", "font", "anchors",
+    "implicitWidth", "implicitHeight", "focus", "activeFocus", "objectName",
+    "scale", "rotation", "clip", "state", "states", "transitions", "smooth",
+    "radius", "border", "antialiasing", "childrenRect", "layer", "transform",
+    "transformOrigin", "visibleChildren", "baselineOffset", "left", "right",
+    "top", "bottom", "horizontalCenter", "verticalCenter", "fill", "centerIn",
+    "margins", "pixelSize", "pointSize", "family", "bold", "italic", "weight",
+    "length",
+    "toString", "hasOwnProperty", "mapToItem", "mapFromItem", "forceActiveFocus",
+}
+
+
+def member_defs(path):
+    return {g for m in MEMBER_DEF.finditer(code(path)) for g in m.groups() if g}
+
+
+def depth1(c, start):
+    """The block opened just before start, with nested blocks blanked."""
+    out, depth = [], 1
+    for ch in c[start:]:
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if not depth:
+                break
+        out.append(ch if depth == 1 else " ")
+    return "".join(out)
+
+
+def stock_reads(paths, stock_types):
+    """Member names read off objects the plugin does not define: see the docstring."""
+    names = set()
+    for p in paths:
+        c = code(p)
+        for m in PARENT_CHAIN.finditer(c):
+            names.update(re.findall(r'[A-Za-z_$][\w$]*', m.group(1)))
+        # The "<name>" in tests need the strings code() blanks; comments go.
+        text = TOKENS.sub(lambda m: m.group(0) if m.group(0)[0] in "\"'" else " ",
+                          p.read_text(encoding="utf-8", errors="replace"))
+        names.update(m.group(2) for m in IN_TEST.finditer(text))
+        for m in TYPE_OPEN.finditer(c):
+            if m.group(1) not in stock_types:
+                continue
+            i = re.search(r'\bid\s*:\s*' + NAME, depth1(c, m.end()))
+            if i:
+                names.update(re.findall(r'(?<![\w$.])' + re.escape(i.group(1)) + r'\s*\??\.\s*' + NAME, c))
+    return names
+
+
+def stock_types_for(shell, stock_dir, own):
+    """Type names a .qml under Ui/, Commons/ or stock_dir defines, unless the plugin shadows it."""
+    dirs = [shell / "Ui", shell / "Commons"] + ([stock_dir] if stock_dir else [])
+    types = {f.stem for d in dirs if d.is_dir() for f in d.rglob("*.qml")}
+    return types - {f.stem for f in own}
 
 
 def code(path):
@@ -187,16 +293,80 @@ def compile_all(files, shell, timeout=60):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+ANSI = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
+LOG_LEVEL = re.compile(r'^\s*(?:WARN|ERROR)(?:\s+[\w.-]+)?:\s*')
+OURS = re.compile(r'/plugins/(ocko\.vista-[\w.-]+)|/omarchy/vista/')
+LOCATION = re.compile(r'(?:qs|file)://(/[^\s\[\]]*?\.(?:qml|js))(?:\[(-?\d+):-?\d+\]|:(\d+)(?::\d+)?)?')
+
+
+def running_shell(shell):
+    """PIDs of quickshell processes started on the omarchy shell dir."""
+    pids = []
+    for d in Path("/proc").iterdir():
+        try:
+            args = (d / "cmdline").read_bytes().decode(errors="replace").split("\0")
+        except OSError:
+            continue
+        if args and Path(args[0]).name == "quickshell" \
+                and any(x == str(shell) or x.startswith(str(shell) + "/") for x in args[1:]):
+            pids.append(int(d.name))
+    return pids
+
+
+def runtime(shell, since):
+    """Print what the running shell logged about Vista; 0 nothing, 1 something, 2 cannot read."""
+    pids = running_shell(shell)
+    if len(pids) != 1:
+        print(f"vista-compat-test: want one quickshell on {shell}, found {len(pids)}"
+              + (f" ({', '.join(map(str, sorted(pids)))})" if pids else ""), file=sys.stderr)
+        return 2
+    cmd = ["journalctl", "--user", f"_PID={pids[0]}", "-o", "cat", "--no-pager"]
+    if since:
+        cmd += ["--since", since]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
+    except OSError as e:
+        r = subprocess.CompletedProcess(cmd, 1, "", str(e))
+    if r.returncode:
+        print(f"vista-compat-test: journalctl failed: {r.stderr.strip()}", file=sys.stderr)
+        return 2
+    seen = set()
+    for raw in r.stdout.splitlines():
+        line = ANSI.sub("", raw)
+        lvl = LOG_LEVEL.match(line)
+        owner = OURS.search(line)
+        # The scanner notes every plugin dir it skips: stock info, not ours.
+        if not lvl or not owner or "is outside of the config folder" in line:
+            continue
+        rest = line[lvl.end():]
+        loc, where = LOCATION.search(rest), "?:?"
+        if loc:
+            path, n = loc.group(1), loc.group(2) or loc.group(3) or "?"
+            o = OURS.search(path)
+            where = f"{path[o.end():].lstrip('/') if o else Path(path).name}:{n}"
+            before, after = rest[:loc.start()].rstrip(), rest[loc.end():].lstrip(": ").strip()
+            before = re.sub(r'\s+at$', "", before)
+            rest = f"{before}: {after}" if before else after
+        seen.add((owner.group(1) or "shared", where, rest.strip()))
+    for owner, where, msg in sorted(seen):
+        print(f"{owner:<22} runtime {where} {msg}")
+    return 1 if seen else 0
+
+
 def main():
     ap = argparse.ArgumentParser(description="Check Vista plugins against the installed Omarchy.")
     ap.add_argument("--plugins", type=Path, default=HERE.parent.parent / "plugins")
     ap.add_argument("--omarchy", type=Path, default=Path(os.environ.get("OMARCHY_PATH") or "/usr/share/omarchy"))
     ap.add_argument("--record", action="store_true", help="rewrite compat.json for each plugin that passes")
+    ap.add_argument("--runtime", action="store_true", help="report what the running shell logged about Vista")
+    ap.add_argument("--since", help="with --runtime: only journal entries since this journalctl time")
     a = ap.parse_args()
     # Absolute: the compile check hands the files to quickshell as file:// URLs.
     a.plugins, a.omarchy = a.plugins.absolute(), a.omarchy.absolute()
 
     shell = a.omarchy / "shell"
+    if a.runtime:
+        return runtime(shell, a.since)
     plugins = sorted(p for p in a.plugins.glob("ocko.vista-*") if (p / "manifest.json").is_file())
     xpqml = a.plugins.parent / "vista" / "qml"
     if not shell.is_dir() or not plugins or not xpqml.is_dir():
@@ -206,6 +376,8 @@ def main():
     shared_now = tree_sha(shell, SHARED)
     vista_defined = defined_in(sources(xpqml))
     stock_defined = defined_in(sources(shell))
+    vista_members = {n for f in sources(xpqml) for n in member_defs(f)}
+    stock_members = None  # {name: [files]}, built on the first record
     rows, to_check = {}, []
 
     for p in plugins:
@@ -216,6 +388,8 @@ def main():
         except (OSError, ValueError):
             compat = {}
         self_now = tree_sha(p.parent.parent, [f"{p.parent.name}/{pid}", "vista/qml"], skip=("compat.json",))
+        manifest = json.loads((p / "manifest.json").read_text())
+        clone_of = manifest.get("omarchy", {}).get("clonedFrom", "")
         changed = []
         if compat.get("self") != self_now:
             changed.append("plugin")
@@ -223,10 +397,21 @@ def main():
             f = shell / rel
             if not f.is_file() or sha(f) != h:
                 changed.append(rel)
+        stock_changed = [c for c in changed if c != "plugin"]
         if compat.get("shared") != shared_now:
             changed.append("shared")
         if not compat:
             changed = ["no compat.json"]
+        if not a.record and clone_of in BEHAVIOUR_CLONES and stock_changed:
+            rows[pid] = "fail stock changed (behaviour clone, falls back to stock): " + ", ".join(stock_changed)
+            continue
+        gone = []
+        for name, files in sorted(compat.get("stockMembers", {}).items()):
+            if not any((shell / f).is_file() and name in member_defs(shell / f) for f in files):
+                gone.append(f"{name} (was in {', '.join(files)})")
+        if not a.record and gone:
+            rows[pid] = "fail stock member gone: " + "; ".join(gone)
+            continue
         if not changed and not a.record:
             rows[pid] = "ok"
             continue
@@ -257,15 +442,23 @@ def main():
                     if s.is_file():
                         stock[str(s.relative_to(shell))] = sha(s)
             used = used_in(own)
+            if stock_members is None:
+                stock_members = {}
+                for f in sources(shell):
+                    for name in member_defs(f):
+                        stock_members.setdefault(name, []).append(str(f.relative_to(shell)))
+            reads = (stock_reads(own, stock_types_for(shell, stock_dir, own)) - BUILTINS
+                     - {n for f in own for n in member_defs(f)} - vista_members)
             record = {
                 "verified": "omarchy " + omarchy_version(),
                 "stock": stock,
                 "shared": shared_now,
                 "self": self_now,
                 "external": sorted(used - defined_in(own) - vista_defined - stock_defined),
+                "stockMembers": {n: sorted(stock_members[n]) for n in sorted(reads) if n in stock_members},
             }
             (p / "compat.json").write_text(json.dumps(record, indent=2) + "\n")
-            rows[pid] = f"recorded ({len(stock)} stock files)"
+            rows[pid] = f"recorded ({len(stock)} stock files, {len(record['stockMembers'])} stock members)"
         else:
             rows[pid] = "ok-unverified changed: " + ", ".join(changed)
 

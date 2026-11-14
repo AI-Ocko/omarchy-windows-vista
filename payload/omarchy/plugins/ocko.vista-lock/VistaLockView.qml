@@ -13,11 +13,17 @@ import "../../vista/qml"
 // omarchy/vista/assets/graphics, cut by vista-art). The power and Ease of
 // Access buttons are drawn but inert: a locked session offers no actions
 // without the password. Falls back to the stock LockView without the art.
+// Vista: the background is always the theme's own logon still (bg-WxH.jpg), never
+// current/background, so a video wallpaper can never reach an Image here; the
+// stock fallback shows 4.5's poster still (videoPosterPath) for a video.
 Item {
   id: root
 
   // ---- the stock LockView interface (Service.qml binds these)
   property string backgroundPath: ""
+  // Vista: 4.5.0 inputs (Service.qml binds both; a missing one fails the service).
+  property string videoPosterPath: ""
+  property bool fingerprintUnavailable: false
   property int backgroundVersion: 0
   property bool fingerprintConfigured: false
   property bool authenticatingPassword: false
@@ -42,6 +48,25 @@ Item {
     passwordTextEdited("")
   }
 
+  // Vista: 4.5.0 LockView.dropsAutoRepeat. Waking a DPMS-blanked display can stall
+  // the compositor, so the wake key's auto-repeat would flood the field (and run
+  // into faillock); only holding Backspace/Delete to clear stays useful.
+  function dropsAutoRepeat(key) {
+    return key !== Qt.Key_Backspace && key !== Qt.Key_Delete
+  }
+
+  // Vista: 4.5.0 LockView.restorePasswordFocus. A VT switch (forced around every
+  // suspend on NVIDIA) drops the field's focus and nothing gives it back. The
+  // wrong-password page keeps its focus on OK. The stock fallback restores its own.
+  function restorePasswordFocus() {
+    if (!vistaReady || !inputEnabled) return
+    if (errorState) {
+      if (!ok.activeFocus) ok.forceActiveFocus()
+    } else if (passwordInput.enabled && !passwordInput.activeFocus) {
+      forcePasswordFocus()
+    }
+  }
+
   function syncPasswordText() {
     if (!vistaReady || passwordInput.text === passwordText) return
     syncingPasswordText = true
@@ -59,6 +84,8 @@ Item {
   onInputEnabledChanged: {
     if (inputEnabled) Qt.callLater(forcePasswordFocus)
   }
+  // Vista: 4.5.0 focus restore after suspend / VT switch.
+  Window.onActiveFocusItemChanged: Qt.callLater(restorePasswordFocus)
   Component.onCompleted: {
     syncPasswordText()
     if (inputEnabled) Qt.callLater(forcePasswordFocus)
@@ -136,8 +163,10 @@ Item {
     active: !root.vistaReady
     sourceComponent: LockView {
       backgroundPath: root.backgroundPath
+      videoPosterPath: root.videoPosterPath
       backgroundVersion: root.backgroundVersion
       fingerprintConfigured: root.fingerprintConfigured
+      fingerprintUnavailable: root.fingerprintUnavailable
       authenticatingPassword: root.authenticatingPassword
       failureMessage: root.failureMessage
       failedAttempts: root.failedAttempts
@@ -157,6 +186,10 @@ Item {
     id: screen
     anchors.fill: parent
     visible: root.vistaReady
+    // Vista: the Windows logon is not mirrored for right-to-left languages
+    // (4.5.0 mirrors the lock surface; the stock fallback still mirrors).
+    LayoutMirroring.enabled: false
+    LayoutMirroring.childrenInherit: true
 
     Image {
       anchors.fill: parent
@@ -279,6 +312,11 @@ Item {
 
             Keys.onPressed: function(event) {
               root.wakeRequested()
+              // Vista: 4.5.0 auto-repeat drop.
+              if (event.isAutoRepeat && root.dropsAutoRepeat(event.key)) {
+                event.accepted = true
+                return
+              }
               if (event.key === Qt.Key_Escape || (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_U)) {
                 root.passwordTextEdited("")
                 event.accepted = true
@@ -320,13 +358,17 @@ Item {
         text: "Switch User"
       }
 
-      // Fingerprint hint under the box.
+      // Fingerprint hint under the box. Vista: 4.5.0 passes fingerprintConfigured
+      // also while the reader is unreachable; then say so instead of inviting touches.
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         visible: root.fingerprintConfigured
         topPadding: root.rp(8)
-        text: "You can also unlock with your fingerprint."
-        color: "white"
+        text: root.fingerprintUnavailable
+          ? "The fingerprint reader is not available. Use your password."
+          : "You can also unlock with your fingerprint."
+        color: root.fingerprintUnavailable ? "#ffd5d5" : "white"
+        font.italic: root.fingerprintUnavailable
         font.family: "Segoe UI"
         font.pixelSize: root.pt(9)
       }
@@ -368,6 +410,11 @@ Item {
           GradientStop { position: 1.0; color: okMouse.containsMouse ? "#a7d9f5" : "#cfcfcf" }
         }
         focus: root.errorState
+        // Vista: every key wakes the displays; a held wake key must not repeat-dismiss.
+        Keys.onPressed: function(event) {
+          root.wakeRequested()
+          if (event.isAutoRepeat) event.accepted = true
+        }
         Keys.onReturnPressed: root.clearFailureRequested()
         Keys.onEnterPressed: root.clearFailureRequested()
         Keys.onSpacePressed: root.clearFailureRequested()

@@ -4,8 +4,9 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import "IdleModel.js" as IdleModel
+import qs.Commons
 
-// ocko.vista-idle: omarchy.idle 4.0.6 with the Windows Vista screensaver. Enabled
+// ocko.vista-idle: omarchy.idle 4.5.0 with the Windows Vista screensaver. Enabled
 // only while an Vista theme is active (omarchy/vista/bin/vista-mode swaps it for the
 // stock plugin). Everything is the stock service except, marked "Vista:":
 //   - launchScreensaver() runs omarchy/vista/bin/vista-screensaver (xscreensaver's
@@ -19,6 +20,7 @@ import "IdleModel.js" as IdleModel
 //     dismisses itself on a key press; pipes cannot see input at all);
 //   - the lock stops it once the lock surface is up, so it never renders
 //     under the lock screen.
+
 Item {
   id: root
 
@@ -404,7 +406,7 @@ Item {
     refreshStayAwakeState()
   }
 
-  IpcHandler {
+  ShellIpc {
     target: "idle"
 
     function status(): string {

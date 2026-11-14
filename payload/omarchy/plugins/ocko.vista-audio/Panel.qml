@@ -1,10 +1,10 @@
 // ocko.vista-audio: omarchy.audio for the Vista notification area (Windows Vista theme
-// only; see omarchy/vista/bin/vista-mode). Lines 9-671 are the logic of
-// /usr/share/omarchy/shell/plugins/panels/audio/Panel.qml (Omarchy 4.0.6,
-// sha256 a683e771f495837170371da658e00cef1dacc89d0220d44d9e0e988ab2bbd2c0,
-// lines 1-650), with each change marked "Vista:". The card below that is rebuilt
+// only; see omarchy/vista/bin/vista-mode). Lines 9-780 are the logic of
+// /usr/share/omarchy/shell/plugins/panels/audio/Panel.qml (omarchy.audio 4.5.0,
+// sha256 f75564d2a8be05a18d832be926747b298401748d6e976a0c39f9053456439d09,
+// lines 1-756), with each change marked "Vista:". The card below that is rebuilt
 // as sndvol32's flyout, context menu, mixer and Properties. Re-diff the logic
-// against a newer Omarchy: diff <(sed -n 9,671p Panel.qml) <(sed -n 1,650p <stock>)
+// against a newer Omarchy: diff <(sed -n 9,780p Panel.qml) <(sed -n 1,756p <stock>)
 
 import QtQuick
 import QtQuick.Controls
@@ -16,7 +16,7 @@ import qs.Ui
 import qs.Commons
 import qs.Commons as Commons
 import "Model.js" as Model
-import "../../vista/qml"
+import "../../vista/qml"  // Vista
 
 Panel {
   id: root
@@ -30,11 +30,25 @@ Panel {
   readonly property var mediaService: bar?.shell?.firstPartyServiceFor("omarchy.media")
   readonly property var activeMediaPlayer: mediaService ? mediaService.activePlayer : null
 
+  // Nodes of a platform's audio processing, which are neither devices nor apps,
+  // stay out of every list (AudioNodes.platformHides). Most machines have none.
+  readonly property var nodeNames: {
+    var names = []
+    for (var i = 0; i < nodes.length; i++)
+      if (nodes[i] && nodes[i].name) names.push(String(nodes[i].name))
+    return names
+  }
+
+  function platformHides(node) {
+    return !!node && AudioNodes.platformHides(node.name, nodeNames)
+  }
+
   readonly property var candidateSinks: {
     var list = []
     for (var i = 0; i < nodes.length; i++) {
       var n = nodes[i]
-      if (n && n.isSink && !n.isStream) list.push(n)
+      if (!n || !n.isSink || n.isStream || platformHides(n)) continue
+      list.push(n)
     }
     return list
   }
@@ -43,11 +57,11 @@ Panel {
     var list = []
     for (var i = 0; i < nodes.length; i++) {
       var n = nodes[i]
-      if (n && !n.isSink && !n.isStream && isAudioSource(n)) {
-        var name = n.name || ""
-        if (name === "quickshell") continue
-        list.push(n)
-      }
+      if (!n || n.isSink || n.isStream) continue
+      if (!isAudioSource(n) && !Model.isUntypedSource(n, sourceAvailability)) continue
+      var name = n.name || ""
+      if (name === "quickshell" || platformHides(n)) continue
+      list.push(n)
     }
     return list
   }
@@ -60,6 +74,7 @@ Panel {
       // A tuning's output is a playback stream too, but it is the processing
       // itself rather than an application, so it does not belong in the list.
       if (String(n.name || "").indexOf("omarchy_speaker_tuning") === 0) continue
+      if (platformHides(n)) continue
       list.push(n)
     }
     return list
@@ -67,6 +82,7 @@ Panel {
 
   property var sinkAvailability: ({})
   property bool sinkAvailabilityLoaded: false
+  property var sourceAvailability: ({})
 
   // Identify true playback streams without reading node.properties here:
   // PwNode.properties is invalid until the node is bound, and reading it while
@@ -110,11 +126,13 @@ Panel {
     return list
   }
 
-  // Feed Repeaters with panel-local snapshots instead of the live PipeWire
-  // model. PipeWire can remove nodes while Quickshell is dispatching the
-  // removal signal; rebuilding a Repeater from that signal path has crashed
-  // in Quickshell's PipeWire service. The snapshot timer lets that mutation
-  // settle first, and closed panels keep their repeaters detached entirely.
+  // Feed Repeaters with panel-local snapshots of primitives instead of the live
+  // PipeWire model. PipeWire can remove nodes while Quickshell is dispatching
+  // the removal signal, and a row still holding the PwNode is a QObject Qt
+  // dereferences without a null check, which segfaults the shell. Rows carry id
+  // and name only; every delegate resolves its own node through nodeFor(). The
+  // snapshot timer lets the mutation settle first, and closed panels keep their
+  // repeaters detached entirely.
   property var displayAudioSinks: []
   property var displayAudioSources: []
   property var displayAudioStreams: []
@@ -145,19 +163,63 @@ Panel {
     return sink
   }
 
-  // Re-resolve whenever the selected output changes; the timer below is only a
-  // safety net for the tuning being applied or removed underneath us.
-  onSinkChanged: resolveVolumeSink()
+  // Re-resolve whenever the selected output changes, and when nodes or links
+  // come and go: a tuning being applied or removed underneath us, or a DSP sink
+  // rerouted to another output, shows up as exactly that.
+  // Vista: a tick later. The mixer reads volumeSink early; sink first settles
+  // inside that read, and resolving there rewrote volumeSinkName mid-binding
+  // (a binding loop on volumeSink).
+  onSinkChanged: Qt.callLater(resolveVolumeSink)
+  onNodesChanged: volumeSinkResolveTimer.restart()
+
+  Connections {
+    target: Pipewire.linkGroups
+    function onValuesChanged() { volumeSinkResolveTimer.restart() }
+  }
+
+  property bool volumeSinkStale: false
+  // Bumped by every resolve, so a script read still running from before cannot
+  // overwrite a newer answer, the hardware fast path's included.
+  property int volumeSinkGeneration: 0
+  property int volumeSinkRequest: -1
 
   function resolveVolumeSink() {
-    if (!volumeSinkProc.running) volumeSinkProc.running = true
+    volumeSinkGeneration++
+    // A hardware output is its own volume sink, as omarchy-audio-output-sink
+    // reports without looking further, so only a DSP sink needs the script.
+    if (sink && String(sink.name).indexOf("alsa_output.") === 0) {
+      volumeSinkName = String(sink.name)
+      return
+    }
+    if (volumeSinkProc.running) {
+      volumeSinkStale = true
+      return
+    }
+    volumeSinkRequest = volumeSinkGeneration
+    volumeSinkProc.running = true
+  }
+
+  // An idle EasyEffects is resolved through its configured output device, which
+  // changes without touching the Pipewire graph.
+  FileView {
+    path: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/easyeffects/db/easyeffectsrc"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: volumeSinkResolveTimer.restart()
   }
 
   // Vista: the louder channel, so Balance survives a Volume move (level()).
   readonly property real outputVolume: volumeSink && volumeSink.audio ? root.level(volumeSink.audio) : 0
   readonly property bool outputMuted: volumeSink && volumeSink.audio ? volumeSink.audio.muted : false
-  readonly property real inputVolume: source && source.audio ? source.audio.volume : 0
-  readonly property bool inputMuted: source && source.audio ? source.audio.muted : false
+  // A virtual source is untyped in Quickshell (see Model.isUntypedSource), so
+  // its volume and mute go through wpctl (UntypedInput), and the panel shows no
+  // level meter for it: Quickshell's peak monitor takes typed nodes only.
+  readonly property bool inputViaWpctl: UntypedInput.active
+  readonly property bool inputLevelKnown: !inputViaWpctl || UntypedInput.known
+  readonly property real inputVolume: inputViaWpctl ? UntypedInput.volume : (source && source.audio ? source.audio.volume : 0)
+  readonly property bool inputMuted: inputViaWpctl ? UntypedInput.muted : (source && source.audio ? source.audio.muted : false)
+  readonly property var inputPeakNode: inputViaWpctl ? null : source
+  readonly property bool inputLevelShown: !!inputPeakNode
 
   onRawAudioSinksChanged: if (rawAudioSinks.length > 0) cachedAudioSinks = rawAudioSinks
   onRawAudioSourcesChanged: if (rawAudioSources.length > 0) cachedAudioSources = rawAudioSources
@@ -183,9 +245,9 @@ Panel {
   // would otherwise report "input unmuted" forever, leaving the hero switch
   // able to mute but never to unmute.
   readonly property bool hasOutput: !!(volumeSink && volumeSink.audio)
-  readonly property bool hasInput: !!(source && source.audio)
+  readonly property bool hasInput: !!(source && source.audio) || (inputViaWpctl && UntypedInput.known)
   readonly property bool anyAudible: (hasOutput && !outputMuted) || (hasInput && !inputMuted)
-  readonly property string toggleHint: anyAudible ? "Mute" : "Unmute"
+  readonly property string toggleHint: anyAudible ? Commons.I18n.t("audio.mute") : Commons.I18n.t("audio.unmute")
 
   readonly property color hoverFill: bar
     ? Style.hoverFillFor(bar.foreground, Commons.Color.accent)
@@ -292,7 +354,7 @@ Panel {
       return
     }
     if (focusSection === "streams" && selectedIndex >= 0 && selectedIndex < displayAudioStreams.length) {
-      var s = displayAudioStreams[selectedIndex]
+      var s = nodeFor(displayAudioStreams[selectedIndex])
       if (s && s.audio) s.audio.volume = Math.max(0, Math.min(1.5, s.audio.volume + delta))
     }
   }
@@ -302,18 +364,18 @@ Panel {
     if (focusSection === "header") { toggleAllMuted(); return }
     if (focusSection === "output") {
       if (selectedIndex === -1) { toggleOutputMute(); return }
-      var sink = displayAudioSinks[selectedIndex]
+      var sink = nodeFor(displayAudioSinks[selectedIndex])
       if (sink) setDefaultSink(sink)
       return
     }
     if (focusSection === "input") {
       if (selectedIndex === -1) { toggleInputMute(); return }
-      var src = displayAudioSources[selectedIndex]
+      var src = nodeFor(displayAudioSources[selectedIndex])
       if (src) setDefaultSource(src)
       return
     }
     if (focusSection === "streams" && selectedIndex >= 0) {
-      var st = displayAudioStreams[selectedIndex]
+      var st = nodeFor(displayAudioStreams[selectedIndex])
       if (st && st.audio) st.audio.muted = !st.audio.muted
     }
   }
@@ -324,7 +386,7 @@ Panel {
       focusSection = "output"
       selectedIndex = -1  // first keyboard cursor reveal starts on the output slider
       cursorActive = false
-      // Vista: no scroll area to reset (was Qt.callLater(resetScroll))
+      Qt.callLater(resetScroll)
     } else if (!mixerOpen) {  // Vista: the mixer, not the flyout, lists nodes
       clearDisplayAudioModels()
     }
@@ -335,15 +397,27 @@ Panel {
   onAudioSourcesChanged: scheduleDisplayAudioModelRefresh()
   onAudioStreamsChanged: scheduleDisplayAudioModelRefresh()
 
-  function listSnapshot(list) {
-    return Model.listSnapshot(list)
+  function rowSnapshot(list) {
+    return Model.rowSnapshot(list)
+  }
+
+  // A row that outlives its node resolves to null, or to a node PipeWire recreated
+  // under the same id and name; every binding below guards for null, and a row
+  // that never held the node cannot dangle.
+  function nodeFor(row) {
+    if (!row) return null
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i]
+      if (n && n.id === row.id && String(n.name || "") === row.name) return n
+    }
+    return null
   }
 
   function refreshDisplayAudioModels() {
     if (!mixerOpen) return  // Vista
-    displayAudioSinks = listSnapshot(audioSinks)
-    displayAudioSources = listSnapshot(audioSources)
-    displayAudioStreams = listSnapshot(audioStreams)
+    displayAudioSinks = rowSnapshot(audioSinks)
+    displayAudioSources = rowSnapshot(audioSources)
+    displayAudioStreams = rowSnapshot(audioStreams)
     clampCursor()
   }
 
@@ -365,12 +439,14 @@ Panel {
   // walk the selection off-screen — wifi uses ListView.positionViewAtIndex
   // for this; we don't have that affordance with a multi-section Column.
   function resetScroll() {
+    var scrollArea = panel.loadedContent ? panel.loadedContent.scrollArea : null
     if (!scrollArea) return
     var flick = scrollArea.contentItem
     if (flick && flick.contentY !== undefined) flick.contentY = 0
   }
 
   function ensureCursorVisible(item) {
+    var scrollArea = panel.loadedContent ? panel.loadedContent.scrollArea : null
     if (!item || !scrollArea) return
     var flick = scrollArea.contentItem
     if (!flick || flick.contentY === undefined) return
@@ -423,7 +499,7 @@ Panel {
   }
 
   function inputIcon() {
-    if (!source || !source.audio) return "󰍭"
+    if (!hasInput) return "󰍭"
     return inputMuted ? "󰍭" : "󰍬"
   }
 
@@ -431,7 +507,7 @@ Panel {
   // panel's brightnessName ladder; bands are wide enough that small
   // tweaks don't rename the room you're in.
   function outputVolumeName(volume, muted) {
-    return Model.outputVolumeName(volume, muted)
+    return Model.outputVolumeName(volume, muted, Commons.I18n.t)
   }
 
   function setOutputVolume(v) {
@@ -450,6 +526,10 @@ Panel {
   }
 
   function setInputVolume(v) {
+    if (inputViaWpctl) {
+      UntypedInput.setVolume(v)
+      return
+    }
     if (!source || !source.audio) return
     source.audio.volume = Math.max(0, Math.min(1, v))
   }
@@ -459,7 +539,10 @@ Panel {
   }
 
   function toggleInputMute() {
-    if (source && source.audio) source.audio.muted = !source.audio.muted
+    if (inputViaWpctl) {
+      if (UntypedInput.known) UntypedInput.setMuted(!UntypedInput.muted)
+    }
+    else if (source && source.audio) source.audio.muted = !source.audio.muted
   }
 
   // The hero switch is the whole panel's on/off, so it carries both channels
@@ -468,7 +551,8 @@ Panel {
   function toggleAllMuted() {
     var mute = anyAudible
     if (hasOutput) volumeSink.audio.muted = mute
-    if (hasInput) source.audio.muted = mute
+    if (hasInput && inputViaWpctl) UntypedInput.setMuted(mute)
+    else if (hasInput) source.audio.muted = mute
   }
 
   function setDefaultSink(node) {
@@ -485,7 +569,8 @@ Panel {
 
   function setDefaultSource(node) {
     if (!node) return
-    Pipewire.preferredDefaultAudioSource = node
+    // Quickshell refuses an untyped node; the command below still selects it.
+    if (node.audio) Pipewire.preferredDefaultAudioSource = node
     if (node.id !== undefined && node.name) {
       Quickshell.execDetached([
         "omarchy-audio-input-set-default",
@@ -511,7 +596,7 @@ Panel {
   }
 
   function nodeLabel(node) {
-    return Model.nodeLabel(node)
+    return Model.nodeLabel(node, Commons.I18n.t)
   }
 
   function nodeProps(node) {
@@ -570,15 +655,18 @@ Panel {
     // Spotify exposes its PipeWire stream as "audio-src". For generic stream
     // names, use the one MPRIS player not already represented by another audio
     // stream (e.g. Chromium, or ALSA apps like cliamp).
-    return Model.unmatchedMprisStreamLabel(label, mprisPlayers, displayAudioStreams)
+    return Model.unmatchedMprisStreamLabel(label, mprisPlayers, audioStreams)
   }
 
+  // These read the other streams' node properties, so they take the live list --
+  // displayAudioStreams carries primitives now, and resolving each row back
+  // would only rebuild what audioStreams already is.
   function streamLabel(node) {
-    return Model.streamLabel(node, mprisPlayers, displayAudioStreams)
+    return Model.streamLabel(node, mprisPlayers, audioStreams, Commons.I18n.t)
   }
 
   function streamRepresentsPlayer(node, player) {
-    return Model.streamRepresentsPlayer(node, player, mprisPlayers, displayAudioStreams)
+    return Model.streamRepresentsPlayer(node, player, mprisPlayers, audioStreams)
   }
 
   implicitWidth: button.implicitWidth
@@ -590,8 +678,8 @@ Panel {
 
   PwNodePeakMonitor {
     id: inputPeakMonitor
-    node: root.source
-    enabled: root.mixerOpen && !!root.source  // Vista: the meter is in the mixer
+    node: root.inputPeakNode
+    enabled: root.mixerOpen && !!root.inputPeakNode  // Vista: the meter is in the mixer
   }
 
   Process {
@@ -604,11 +692,28 @@ Panel {
   }
 
   Process {
+    id: sourceAvailabilityProc
+    command: ["omarchy-audio-sink-availability", "sources"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.sourceAvailability = Model.parseSinkAvailability(text)
+    }
+  }
+
+  Process {
     id: volumeSinkProc
     command: ["omarchy-audio-output-sink"]
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: root.volumeSinkName = String(text).trim()
+      onStreamFinished: {
+        if (root.volumeSinkRequest === root.volumeSinkGeneration) root.volumeSinkName = String(text).trim()
+      }
+    }
+    onExited: {
+      if (!root.volumeSinkStale) return
+      root.volumeSinkStale = false
+      // Deferred: the process still reports running while it signals exit.
+      Qt.callLater(root.resolveVolumeSink)
     }
   }
 
@@ -617,19 +722,23 @@ Panel {
     running: root.mixerOpen  // Vista: only the mixer lists sinks
     repeat: true
     triggeredOnStart: true
-    onTriggered: if (!sinkAvailabilityProc.running) sinkAvailabilityProc.running = true
+    onTriggered: {
+      if (!sinkAvailabilityProc.running) sinkAvailabilityProc.running = true
+      if (!sourceAvailabilityProc.running) sourceAvailabilityProc.running = true
+    }
   }
 
   // Runs whether or not the panel is open: the bar shows and scrolls the output
   // volume too, so an unresolved sink there would read and change the virtual
-  // tuning sink instead of the speakers.
+  // tuning sink instead of the speakers. Streams starting and stopping also
+  // change the graph, so a burst of changes resolves once.
   Timer {
-    interval: 15000
-    running: true
-    repeat: true
-    triggeredOnStart: true
+    id: volumeSinkResolveTimer
+    interval: 500
     onTriggered: root.resolveVolumeSink()
   }
+
+  Component.onCompleted: root.resolveVolumeSink()
 
   Timer {
     id: audioModelRefreshTimer
@@ -669,7 +778,6 @@ Panel {
     }
   }
 
-
   // =========================================================================
   // Vista UI (ocko.vista-audio). Everything above is stock (see the header) apart
   // from the lines marked "Vista:". Everything below replaces stock's card.
@@ -681,6 +789,14 @@ Panel {
   //   107  Properties, 224 x 250
   // Strings and menus are the exe's STRING and MENU 150 resources.
   // =========================================================================
+
+  // Vista: stands in for stock's PopupCard (id panel), which the Vista card
+  // replaces; stock's resetScroll/ensureCursorVisible read its content, and
+  // the Vista windows have no scroll area of theirs.
+  QtObject {
+    id: panel
+    property var loadedContent: null
+  }
 
   property bool mixerOpen: false
   property bool menuOpen: false
@@ -792,18 +908,33 @@ Panel {
   }
 
   // ---- mixer columns ------------------------------------------------------
+  // Vista: 4.5.0's display lists hold {id,name} rows, not nodes; resolve each
+  // through stock nodeFor() and drop rows whose node is gone. Our Repeaters
+  // count ints, so no QObject ever becomes a Repeater model.
+  function vistaNodes(rows) {
+    var out = []
+    for (var i = 0; i < rows.length; i++) {
+      var n = root.nodeFor(rows[i])
+      if (n) out.push(n)
+    }
+    return out
+  }
+  readonly property var mixerSinkNodes: vistaNodes(displayAudioSinks)
+  readonly property var mixerSourceNodes: vistaNodes(displayAudioSources)
+  readonly property var mixerStreamNodes: vistaNodes(displayAudioStreams)
+
   // master (the resolved volume sink), every other output, the default
   // input, then each app stream. Built from the panel-local snapshots, like
   // stock's lists, so a vanishing node never rebuilds a Repeater mid-signal.
   readonly property var mixerColumns: {
     var cols = [{ kind: "master", node: volumeSink, key: "master" }]
-    for (var i = 0; i < displayAudioSinks.length; i++) {
-      var n = displayAudioSinks[i]
+    for (var i = 0; i < mixerSinkNodes.length; i++) {
+      var n = mixerSinkNodes[i]
       if (n && n !== volumeSink) cols.push({ kind: "output", node: n, key: "out:" + n.name })
     }
     if (source) cols.push({ kind: "input", node: source, key: "in" })
-    for (var j = 0; j < displayAudioStreams.length; j++) {
-      var st = displayAudioStreams[j]
+    for (var j = 0; j < mixerStreamNodes.length; j++) {
+      var st = mixerStreamNodes[j]
       // By label, not node id: an app's stream gets a new id every run.
       if (st) cols.push({ kind: "stream", node: st, key: "app:" + streamLabel(st) })
     }
@@ -833,29 +964,44 @@ Panel {
     if (!col || !col.node) return ""
     if (col.kind === "master") return "Volume Control"
     if (col.kind === "stream") return streamLabel(col.node)
-    return vistaLabel(col.node, displayAudioSinks.concat(displayAudioSources))
+    return vistaLabel(col.node, mixerSinkNodes.concat(mixerSourceNodes))
+  }
+
+  // Vista: the input column goes through 4.5.0's input API (inputVolume,
+  // setInputVolume, inputMuted, toggleInputMute), which also drives an untyped
+  // (virtual) source over wpctl; that node has no .audio of its own.
+  function columnEnabled(col) {
+    if (!col) return false
+    if (col.kind === "master") return hasOutput
+    if (col.kind === "input") return hasInput
+    return !!(col.node && col.node.audio)
   }
 
   function columnLevel(col) {
-    if (!col || !col.node || !col.node.audio) return 0
+    if (!col) return 0
+    if (col.kind === "input") return inputVolume
+    if (!col.node || !col.node.audio) return 0
     return col.kind === "master" ? outputVolume : level(col.node.audio)
   }
 
   function setColumnLevel(col, v) {
     if (!col) return
     if (col.kind === "master") setOutputVolume(v)
+    else if (col.kind === "input") setInputVolume(v)
     else setLevel(col.node, v, col.kind === "stream" ? 1.5 : 1)
   }
 
   function columnMuted(col) {
     if (!col) return false
     if (col.kind === "master") return !anyAudible
+    if (col.kind === "input") return inputMuted
     return !!(col.node && col.node.audio && col.node.audio.muted)
   }
 
   function toggleColumnMute(col) {
     if (!col) return
     if (col.kind === "master") toggleAllMuted()
+    else if (col.kind === "input") toggleInputMute()
     else if (col.node && col.node.audio) col.node.audio.muted = !col.node.audio.muted
   }
 
@@ -886,8 +1032,9 @@ Panel {
   }
 
   // `omarchy-shell vistaaudio mixer|sound`: the Volume Mixer, or the mixer
-  // with the Sound dialog over it.
-  IpcHandler {
+  // with the Sound dialog over it. Vista: ShellIpc, so omarchy-shell reaches it
+  // over the shell socket.
+  ShellIpc {
     target: "vistaaudio"
     function mixer(): void { root.openMixer(false) }
     function sound(): void { root.openMixer(true) }
@@ -919,11 +1066,12 @@ Panel {
   }
 
   // ---- Properties ---------------------------------------------------------
-  readonly property var propsDevices: propsMode === "playback" ? displayAudioSinks : displayAudioSources
+  // Vista: nodes resolved from 4.5.0's {id,name} rows (see mixerSinkNodes).
+  readonly property var propsDevices: propsMode === "playback" ? mixerSinkNodes : mixerSourceNodes
 
   function openProps() {
     propsMode = "playback"
-    propsDevice = displayAudioSinks.indexOf(sink)
+    propsDevice = mixerSinkNodes.indexOf(sink)
     propsHidden = JSON.parse(JSON.stringify(hiddenColumns))
     propsOpen = true
   }
@@ -1050,7 +1198,7 @@ Panel {
       maximumLineCount: 2
       elide: Text.ElideRight
       textFormat: Text.PlainText
-      text: col.master ? (root.volumeSink ? root.vistaLabel(root.volumeSink, root.displayAudioSinks) : "Speakers") : root.columnCaption(col.info)
+      text: col.master ? (root.volumeSink ? root.vistaLabel(root.volumeSink, root.mixerSinkNodes) : "Speakers") : root.columnCaption(col.info)
       color: "#000000"
       font.family: "Segoe UI"
       font.pixelSize: root.s(12)
@@ -1064,7 +1212,7 @@ Panel {
       thumbStyle: "both"
       tickCount: 11
       to: col.info && col.info.kind === "stream" ? 1.5 : 1
-      enabled: !!col.audio
+      enabled: root.columnEnabled(col.info)  // Vista: 4.5.0 input API
       focused: root.mixerFocus === col.colIndex && !root.propsOpen
       value: root.columnLevel(col.info)
       onMoved: function(v) { root.setColumnLevel(col.info, v); root.mixerFocus = col.colIndex }
@@ -1086,7 +1234,7 @@ Panel {
         id: muteMouse
         anchors.fill: parent
         hoverEnabled: true
-        enabled: col.master ? root.hasOutput : !!col.audio
+        enabled: col.master ? root.hasOutput : root.columnEnabled(col.info)  // Vista: 4.5.0 input API
         onClicked: {
           if (col.master) root.toggleOutputMute()
           else root.toggleColumnMute(col.info)
@@ -1314,7 +1462,7 @@ Panel {
         id: mixerWin
         anchors.fill: parent
         visible: !root.soundOnly
-        title: "Volume Mixer - " + (root.volumeSink ? root.vistaLabel(root.volumeSink, root.displayAudioSinks) : "Speakers")
+        title: "Volume Mixer - " + (root.volumeSink ? root.vistaLabel(root.volumeSink, root.mixerSinkNodes) : "Speakers")
         titleIcon: VistaScheme.graphics + "/sndvol/16/101.png"
         buttons: ["min", "close"]
         active: !root.propsOpen
@@ -1428,7 +1576,7 @@ Panel {
                   }
                   Column {
                     x: root.s(48); anchors.verticalCenter: parent.verticalCenter
-                    VistaLabel { text: root.friendlyDeviceLabel(devRow.node.description || root.nodeLabel(devRow.node)); textFormat: Text.PlainText }
+                    VistaLabel { text: devRow.node ? root.friendlyDeviceLabel(devRow.node.description || root.nodeLabel(devRow.node)) : ""; textFormat: Text.PlainText }
                     VistaLabel { text: devRow.isDefault ? "Default Device" : "Working"; color: "#575757" }
                   }
                   MouseArea {

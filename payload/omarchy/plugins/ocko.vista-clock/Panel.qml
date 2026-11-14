@@ -1,10 +1,10 @@
 // ocko.vista-clock: omarchy.clock's calendar for the Vista notification area (Windows
-// Vista theme only; see omarchy/vista/bin/vista-mode). Lines 9-250 are the logic of
-// /usr/share/omarchy/shell/plugins/panels/clock/Panel.qml (Omarchy 4.0.6,
-// sha256 ff6062b3a5714a727c345d239449d460c95e6087c99f4cda786942c33cdaa612,
-// lines 1-240), with each change marked "Vista:". The card below that is
+// Vista theme only; see omarchy/vista/bin/vista-mode). Lines 9-261 are the logic of
+// /usr/share/omarchy/shell/plugins/panels/clock/Panel.qml (Omarchy 4.5.0,
+// sha256 9eed7b315a07c61aeb57aa9ed7ae27b126eea91ecc66af0b5f49ce792ef56b7c,
+// lines 1-251), with each change marked "Vista:". The card below that is
 // Vista's clock flyout (timedate.cpl UIFILE 305).
-// Re-diff the logic against a newer Omarchy: diff <(sed -n 9,250p Panel.qml) <(sed -n 1,240p <stock>)
+// Re-diff the logic against a newer Omarchy: diff <(sed -n 9,261p Panel.qml) <(sed -n 1,251p <stock>)
 
 import QtQuick
 import Quickshell
@@ -41,7 +41,7 @@ Panel {
   property var hostWidget: null
   readonly property var barIdentity: hostWidget || root
 
-  // ---- Today. SystemClock keeps this honest across midnight so the
+  // ---- Today. The wall clock keeps this honest across midnight so the
   //      highlight rolls over without the panel being reopened.
   property date today: new Date()
   readonly property string todayKey: Model.keyForDate(today)
@@ -76,11 +76,16 @@ Panel {
   // starts out matching the rest of the desktop rather than a hardcoded
   // convention. Clicking the grid's "W" heading writes the choice back to
   // shell.json.
-  readonly property int weekStart: Model.normalizedWeekStart(setting("weekStartDay", null), Qt.locale().firstDayOfWeek)
-  // The interface is English throughout, so day names are not taken from the
-  // system locale. Where the week starts still is: that is a regional
-  // convention rather than a translation, and it stays overridable above.
-  readonly property var labelLocale: Qt.locale("en_US")
+  readonly property int weekStart: Model.normalizedWeekStart(setting("weekStartDay", null), labelLocale.firstDayOfWeek)
+  // Names and the default week start follow the Omarchy language rather than
+  // the system locale, which only catches up at the next login.
+  readonly property var labelLocale: Qt.locale(Commons.I18n.formatLocale)
+  // Qt's MMMM is the genitive form ("октября"), right beside a day but not
+  // in a month heading, so the title takes the standalone name ("октябрь")
+  // and lets each language order it against the year.
+  readonly property string monthYearLabel: Commons.I18n.t("clock.monthYear")
+    .arg(labelLocale.standaloneMonthName(viewMonth, Locale.LongFormat))
+    .arg(viewDate.toLocaleDateString(labelLocale, "yyyy"))
   readonly property string nextWeekStartLabel: labelLocale.dayName(Model.toggledWeekStart(weekStart), Locale.LongFormat)
   readonly property var weekdays: Model.weekdayOrder(weekStart)
   readonly property var weeks: Model.monthGrid(viewYear, viewMonth, weekStart, todayKey)
@@ -184,6 +189,10 @@ Panel {
   function startEditingLife() {
     root.editingLife = true
     Qt.callLater(function() {
+      var content = panel.loadedContent
+      if (!content) return
+      var bornField = content.bornField
+      var expectancyField = content.expectancyField
       bornField.text = root.birthYear > 0 ? String(root.birthYear) : ""
       expectancyField.text = String(root.lifeExpectancy)
       bornField.selectAll()
@@ -193,7 +202,7 @@ Panel {
 
   function cancelEditingLife() {
     root.editingLife = false
-    Qt.callLater(function() { if (keyCatcher) keyCatcher.forceActiveFocus() })
+    Qt.callLater(function() { if (panel.loadedContent) panel.loadedContent.forceActiveFocus() })
   }
 
   // Shared by both fields: Tab hops to the other one, Enter commits the pair,
@@ -221,6 +230,10 @@ Panel {
   }
 
   function commitLife() {
+    var content = panel.loadedContent
+    if (!content) return
+    var bornField = content.bornField
+    var expectancyField = content.expectancyField
     var born = Model.parseBirthYear(bornField.text, today.getFullYear())
     var span = Model.parseLifeExpectancy(expectancyField.text)
     if (born !== root.birthYear || span !== root.lifeExpectancy)
@@ -237,9 +250,8 @@ Panel {
     return String(labelLocale.dayName(weekday, Locale.ShortFormat)).toUpperCase()
   }
 
-  SystemClock {
+  WallClock {
     id: clock
-    precision: SystemClock.Minutes
     onDateChanged: {
       if (Model.keyForDate(clock.date) === String(root.todayKey)) return
       var followToday = root.viewingCurrentMonth
@@ -247,7 +259,6 @@ Panel {
       if (followToday) root.goToToday()
     }
   }
-
 
   // =========================================================================
   // Vista's clock flyout, as timedate.cpl's UIFILE 305 lays it out: the date
@@ -260,18 +271,16 @@ Panel {
   // between calendar and clock.
   // =========================================================================
 
-  // Stock's commitLife/startEditingLife read these by name; the flyout has no
-  // life fields (Vista had none), so they are inert.
-  TextInput { id: bornField; visible: false }
-  TextInput { id: expectancyField; visible: false }
-
   function s(n) { return Style.space(n) }
   readonly property string tdArt: "file://" + Quickshell.env("HOME") + "/.config/omarchy/vista/assets/graphics/timedate/PNGFILE/"
   readonly property string mcArt: "file://" + Quickshell.env("HOME") + "/.config/omarchy/vista/assets/graphics/aero/parts/MonthCal/"
 
+  // Vista: the card behind the content is the first ancestor with a radius
+  // (content -> Loader -> contentHolder -> card in 4.5).
   function vistaBareCard(item) {
-    var card = item && item.parent ? item.parent.parent : null
-    if (card && "radius" in card) {
+    var card = item ? item.parent : null
+    while (card && !("radius" in card)) card = card.parent
+    if (card) {
       card.color = "transparent"
       card.radius = 0
     }
@@ -324,15 +333,25 @@ Panel {
     open: root.opened
     // Vista: over the clock, not centred on the bar
     centerOnBar: false
-    focusTarget: keyCatcher
+    // Vista: the flyout is the panel's lazy `content` (4.5 KeyboardPanel), so
+    // stock's code that reaches the card through panel.loadedContent (focus
+    // after editing, the life fields) finds it as it finds the stock card.
+    focusTarget: panel.loadedContent
     padding: 0
     borderSpec: Border.none()
-    contentWidth: flyout.width
-    contentHeight: flyout.height
+    contentWidth: panel.loadedContent ? panel.loadedContent.implicitWidth : 0
+    contentHeight: panel.loadedContentHeight
 
-    PanelKeyCatcher {
+    content: PanelKeyCatcher {
       id: keyCatcher
-      anchors.fill: parent
+      implicitWidth: flyout.width
+      implicitHeight: flyout.height
+      // Vista: stock's startEditingLife/commitLife read these off the content;
+      // the flyout has no life fields (Vista had none), so they are inert.
+      property alias bornField: vistaBornField
+      property alias expectancyField: vistaExpectancyField
+      TextInput { id: vistaBornField; visible: false }
+      TextInput { id: vistaExpectancyField; visible: false }
       Component.onCompleted: root.vistaBareCard(keyCatcher)
       onMoveRequested: function(dx, dy) {
         if (dx !== 0) root.moveMonth(dx)

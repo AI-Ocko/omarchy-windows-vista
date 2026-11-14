@@ -26,7 +26,7 @@
 # append <name> to STEPS. Each step is run and logged independently; `off`
 # keeps saved-state.json if any restore failed so a rerun can finish the job.
 
-STEPS=(gsettings hypr shell tmux files sizes browser)
+STEPS=(gsettings hypr shell notif owe tmux files sizes browser)
 
 SCHEMA=org.gnome.desktop.interface
 STATE_DIR=$HOME/.local/state/omarchy/vista
@@ -199,13 +199,19 @@ VISTA_CLONES='[["ocko.vista-menu", "omarchy.menu"], ["ocko.vista-polkit", "omarc
             ["ocko.vista-notifications", "omarchy.notifications"], ["ocko.vista-osd", "omarchy.osd"],
             ["ocko.vista-idle", "omarchy.idle"], ["ocko.vista-lock", "omarchy.lock"]]'
 # Bar-widget clones are enabled the same way but the stock widget is NOT
-# disabled: bar.layout keeps naming the stock id, the Vista taskbar puts the
-# enabled clone in its place (Bar.qml xpCloneEntry), and resolveEnabledId()
-# sends `omarchy-shell shell toggle omarchy.<id>` to the clone. A stock bar
-# (no Vista) never sees them, because restore puts plugins[] back.
+# disabled. Their bar.layout entries are rewritten to the clone id (Omarchy
+# 4.5's own `omarchy plugin enable <clone>` does the same), with the id it
+# replaced kept in "vistaFrom" so restore puts each entry back exactly, inline
+# settings and order included; that covers the user's own clones too (a
+# you.power entry becomes ocko.vista-power while Vista is on). A stock bar
+# (no Vista) never sees them: restore puts plugins[] and the ids back.
 VISTA_WIDGET_CLONES='["ocko.vista-monitor", "ocko.vista-audio", "ocko.vista-network", "ocko.vista-clock", "ocko.vista-tray", "ocko.vista-power", "ocko.vista-weather", "ocko.vista-bluetooth", "ocko.vista-agents", "ocko.vista-sidebar"]'
 # (ocko.vista-sidebar is no clone: it rides on this list because, like the
 # widget clones, it is enabled without disabling anything.)
+# Stock plugins Vista turns off with no clone in their place ($stockoff): the
+# Omarchy 4.5 dock, which would sit over the taskbar. Passed only when the
+# installed Omarchy has them.
+VISTA_STOCK_OFF='["omarchy.dock"]'
 # Rivals: the user's own clones of the same stock plugin (manifest
 # omarchy.clonedFrom, e.g. a you.polkit cloned from omarchy.polkit).
 # One listed in plugins[] (or placed in bar.layout, which stock also counts as
@@ -235,7 +241,8 @@ VISTA_CONFIG='($failed | index($bar) | not) as $bar_ok
     rivals($on + [$won[] | [., $cloned[.]]]) as $rivals
   | rivals($off + [($widgets - $won)[] | [., $cloned[.]]]) as $off_rivals
   | ([$off[] | .[0]] + ($widgets - $won)) as $drop
-  | (([$off[] | .[1]] + $off_rivals) - ($orig.disabledPlugins.v // []) - $rivals) as $undisable
+  | (if $bar_ok then $stockoff else [] end) as $stock_on
+  | (([$off[] | .[1]] + $off_rivals + ($stockoff - $stock_on)) - ($orig.disabledPlugins.v // []) - $rivals) as $undisable
   | (if $bar_ok then .bar.id = $bar
      elif (.bar | type) == "object" and .bar.id == $bar then
        (if $orig.bar_id then .bar.id = $orig.bar_id.v else del(.bar.id) end)
@@ -243,8 +250,24 @@ VISTA_CONFIG='($failed | index($bar) | not) as $bar_ok
   | .plugins = ([(.plugins // [])[] | select((if type == "object" then .id else . end) as $i | $drop | index($i) | not)] as $p
       | $p + [([$on[] | .[0]] + $won)[] as $c | select([$p[] | if type == "object" then .id else . end] | index($c) | not) | {id: $c}])
   | .disabledPlugins = ([(.disabledPlugins // [])[] | select(. as $s | $undisable | index($s) | not)] as $d
-      | $d + ([$on[] | .[1]] + $rivals | reduce .[] as $s ([]; if index($s) then . else . + [$s] end)
-              | map(select(. as $s | $d | index($s) | not))))'
+      | $d + ([$on[] | .[1]] + $rivals + $stock_on | reduce .[] as $s ([]; if index($s) then . else . + [$s] end)
+              | map(select(. as $s | $d | index($s) | not))))
+  | if (.bar | type) == "object" and (.bar.layout | type) == "object" then
+      .bar.layout |= map_values(if type == "array" then map(
+        if type == "object" and (.id | type) == "string" then
+          (.vistaFrom // .id) as $src | ($cloned[$src] // $src) as $stock
+          | ([$won[] | select($cloned[.] == $stock)][0]) as $w
+          | if $w != null and $w != $src then .id = $w | .vistaFrom = $src
+            else .id = $src | del(.vistaFrom) end
+        else . end) else . end)
+    else . end'
+
+# Undo of the layout rewrite above: every entry back to the id it replaced.
+# shellcheck disable=SC2016
+VISTA_UNMAP='if (.bar | type) == "object" and (.bar.layout | type) == "object" then
+    .bar.layout |= map_values(if type == "array" then map(
+      if type == "object" and has("vistaFrom") then .id = .vistaFrom | del(.vistaFrom) else . end) else . end)
+  else . end'
 
 # ------------------------------------------------------------ compatibility
 # Every Vista plugin copies stock Omarchy code and calls stock APIs, so an
@@ -322,8 +345,12 @@ shell_apply() {
   # omarchy.power -> ocko.vista-power): a plugin bar cannot see other manifests.
   [[ $(cat "$STATE_DIR/clones.json" 2>/dev/null) == "$cloned" ]] ||
     { printf '%s\n' "$cloned" >"$STATE_DIR/clones.json.tmp" && mv "$STATE_DIR/clones.json.tmp" "$STATE_DIR/clones.json"; }
+  local stockoff='[]' id
+  for id in $(jq -r '.[]' <<<"$VISTA_STOCK_OFF"); do
+    [[ -d ${OMARCHY_PATH:-/usr/share/omarchy}/shell/plugins/${id#omarchy.} ]] && stockoff=$(jq -c --arg i "$id" '. + [$i]' <<<"$stockoff")
+  done
   jq --indent 2 --arg bar "$VISTA_BAR" --argjson clones "$VISTA_CLONES" --argjson widgets "$VISTA_WIDGET_CLONES" \
-    --argjson failed "$VISTA_FAILED" --argjson orig "$orig" --argjson cloned "$cloned" \
+    --argjson failed "$VISTA_FAILED" --argjson orig "$orig" --argjson cloned "$cloned" --argjson stockoff "$stockoff" \
     "$VISTA_CONFIG" "$SHELL_JSON" >"$SHELL_JSON.vista-tmp" || return 1
   # Quoted right-hand side: unquoted, [[ == ]] reads it as a glob pattern and
   # JSON's brackets never match (it restarted the shell on every Vista -> Vista switch).
@@ -351,18 +378,49 @@ shell_apply() {
 }
 
 shell_restore() {
-  [[ $1 != null ]] || return 0
-  local now
-  now=$(jq -c "$SHELL_KEYS" "$SHELL_JSON") || return 1
-  [[ $(jq -cS . <<<"$now") == "$(jq -cS . <<<"$1")" ]] && return 0
-  # A saved state from before `plugins` was recorded leaves plugins alone.
-  jq --indent 2 --argjson s "$1" '
-    (if $s.bar_id then .bar.id = $s.bar_id.v elif (.bar | type) == "object" then del(.bar.id) else . end)
-    | (if $s.disabledPlugins then .disabledPlugins = $s.disabledPlugins.v else del(.disabledPlugins) end)
-    | (if ($s | has("plugins")) then (if $s.plugins then .plugins = $s.plugins.v else del(.plugins) end) else . end)
-  ' "$SHELL_JSON" >"$SHELL_JSON.vista-tmp" && mv "$SHELL_JSON.vista-tmp" "$SHELL_JSON" || return 1
-  shell_restart
+  local now changed=0
+  if [[ $1 != null ]]; then
+    now=$(jq -c "$SHELL_KEYS" "$SHELL_JSON") || return 1
+    if [[ $(jq -cS . <<<"$now") != "$(jq -cS . <<<"$1")" ]]; then
+      # A saved state from before `plugins` was recorded leaves plugins alone.
+      jq --indent 2 --argjson s "$1" '
+        (if $s.bar_id then .bar.id = $s.bar_id.v elif (.bar | type) == "object" then del(.bar.id) else . end)
+        | (if $s.disabledPlugins then .disabledPlugins = $s.disabledPlugins.v else del(.disabledPlugins) end)
+        | (if ($s | has("plugins")) then (if $s.plugins then .plugins = $s.plugins.v else del(.plugins) end) else . end)
+      ' "$SHELL_JSON" >"$SHELL_JSON.vista-tmp" && mv "$SHELL_JSON.vista-tmp" "$SHELL_JSON" || return 1
+      changed=1
+    fi
+  fi
+  if jq -e '[(.bar.layout? // {})[]? | arrays | .[] | objects | select(has("vistaFrom"))] | length > 0' "$SHELL_JSON" >/dev/null 2>&1; then
+    jq --indent 2 "$VISTA_UNMAP" "$SHELL_JSON" >"$SHELL_JSON.vista-tmp" && mv "$SHELL_JSON.vista-tmp" "$SHELL_JSON" || return 1
+    changed=1
+  fi
+  # The layout format is settled after the whole theme switch (settle).
+  : >"$LAYOUT_PENDING"
+  ((changed)) && shell_restart
   return 0
+}
+
+# Omarchy 4.5 rewrote the bar layout format (migrations 1791968925: the tray
+# where the bar drew it, 1791969355: centerAnchor split into centerBegin /
+# center / centerEnd), but only for the stock bar: while Vista's taskbar was
+# selected they skipped this shell.json. Restore marks the layout pending, and
+# `vista-mode settle` (zz-windows-vista-on, after every other theme hook)
+# runs those two stock migrations, which convert it only if the bar the
+# switch ended on is the stock one: another theme's own replacement bar keeps
+# the format it was written for, exactly as the migrations leave it.
+# They change nothing when there is nothing to do (or on an Omarchy without
+# them). True if shell.json changed.
+LAYOUT_PENDING=$STATE_DIR/layout-pending
+OMARCHY_MIGRATIONS=${OMARCHY_PATH:-/usr/share/omarchy}/migrations
+layout_normalize() {
+  local before m
+  before=$(jq -cS . "$SHELL_JSON") || return 1
+  for m in 1791968925 1791969355; do
+    [[ -r $OMARCHY_MIGRATIONS/$m.sh ]] || continue
+    bash "$OMARCHY_MIGRATIONS/$m.sh" >/dev/null 2>&1 || log "layout migration $m failed"
+  done
+  [[ $(jq -cS . "$SHELL_JSON") != "$before" ]]
 }
 
 # Both directions restart the shell: entering Vista for the service swap (see
@@ -402,6 +460,48 @@ shell_restart() {
   else
     log "session locked or shell not answering: skipped shell restart; run omarchy-restart-shell"
   fi
+}
+
+# -------------------------------------------------------------------- notif
+# Vista's notifications clone from before Omarchy 4.5 kept running on 4.5
+# until this release, writing 4.0-format files (per-popup JSON, history/,
+# images/) after migration 1792648436 had cleared them. Once the shell step
+# has restarted onto the 4.5 clone, run that stock migration again: it only
+# deletes those files (old message content) and leaves 4.5's store alone.
+notif_save() { echo null; }
+notif_restore() { return 0; }
+notif_apply() {
+  local m=${OMARCHY_PATH:-/usr/share/omarchy}/migrations/1792648436.sh dir=$HOME/.local/state/omarchy/notifications
+  [[ -r $m ]] || return 0
+  [[ -e $dir/history || -e $dir/images || -e $HOME/.local/state/omarchy/notifications.json ]] ||
+    compgen -G "$dir/[0-9]*-*.json" >/dev/null || return 0
+  bash "$m" >/dev/null 2>&1 || { log "notification clean-up (migration 1792648436) failed"; return 1; }
+  log "removed notification files the pre-4.5 Vista clone left behind"
+}
+
+# ---------------------------------------------------------------------- owe
+# Omarchy 4.5's OWE plays video backgrounds. Vista's backgrounds are stills,
+# which the shell draws (OWE idles), so this only guards against a video one:
+# `on` pauses OWE (runtime only, never persisted) unless it was paused by hand
+# already, and `off` resumes it only if `on` paused it (the marker). OWE stays
+# running either way.
+OWE_PAUSED=$STATE_DIR/owe-paused
+
+owe_save() { echo null; }
+
+owe_apply() {
+  command -v owe >/dev/null || return 0
+  [[ -e $OWE_PAUSED ]] && return 0
+  [[ $(timeout 3 owe status 2>/dev/null | jq -r '.manual_pause | tostring') == false ]] || return 0
+  timeout 3 owe pause >/dev/null 2>&1 || { log "owe pause failed"; return 1; }
+  : >"$OWE_PAUSED"
+}
+
+owe_restore() {
+  [[ -e $OWE_PAUSED ]] || return 0
+  rm -f "$OWE_PAUSED"
+  command -v owe >/dev/null || return 0
+  timeout 3 owe resume >/dev/null 2>&1 || { log "owe resume failed"; return 1; }
 }
 
 # --------------------------------------------------------------------- tmux
@@ -1002,9 +1102,10 @@ cmd_status() {
 }
 
 CMD=${1:-}
-USAGE="usage: vista-mode on|off|status|sizes|cleanup|browser-dark [on|off|status]"
+USAGE="usage: vista-mode on|off|settle|status|sizes|cleanup|browser-dark [on|off|status]"
 case $CMD in
   on | off) ;;
+  settle) [[ -e $LAYOUT_PENDING ]] || exit 0 ;;
   status) cmd_status; exit ;;
   sizes) vista_theme_active || exit 0 ;;
   cleanup) [[ -e $ZEN_PENDING ]] || exit 0 ;;
@@ -1019,7 +1120,7 @@ esac
 
 # Never forked or locked when there is nothing to undo: this runs on every
 # non-Vista theme switch.
-[[ $CMD == off && ! -e $SAVED && ! -e $TOGGLE && ! -e $ZEN_PENDING ]] && exit 0
+[[ $CMD == off && ! -e $SAVED && ! -e $TOGGLE && ! -e $ZEN_PENDING && ! -e $OWE_PAUSED ]] && exit 0
 
 # Theme switches can overlap (omarchy-theme-set runs hooks outside its lock);
 # two concurrent first `on`s could otherwise both save, the second capturing Vista
@@ -1033,6 +1134,7 @@ flock 9
 case $CMD in
   sizes) sizes_apply ;;
   cleanup) ;;
+  settle) rm -f "$LAYOUT_PENDING"; layout_normalize && log "bar layout converted to the Omarchy 4.5 format for the stock bar" ;;
   browser-dark) cmd_browser_dark "$2" ;;
   *) "cmd_$CMD" ;;
 esac

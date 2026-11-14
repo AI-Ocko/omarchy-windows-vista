@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "ocko.vista-menu",
   "name": "Windows Vista menu",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "ocko",
   "description": "omarchy.menu restyled as Windows Vista: the Omarchy and power menus as a Control Panel window, the launcher as Search Results, dmenu prompts as Vista dialogs. A bare root request opens the Vista Start menu. Enabled only while an Vista theme is active (omarchy/vista/bin/vista-mode).",
   "kinds": [

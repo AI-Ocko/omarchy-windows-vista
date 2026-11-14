@@ -43,7 +43,8 @@ Item {
     onLoaded: root.shown = String(text()).trim() === "on"
   }
 
-  IpcHandler {
+  // Vista: ShellIpc (4.5 qs.Commons) so omarchy-shell answers over its socket.
+  ShellIpc {
     target: "vistasidebar"
     function toggle(): string { root.setShown(!root.shown); return root.shown ? "on" : "off" }
     function show(): string { root.setShown(true); return "on" }

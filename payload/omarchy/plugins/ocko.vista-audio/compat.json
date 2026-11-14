@@ -1,43 +1,45 @@
 {
-  "verified": "omarchy 4.0.6-1",
+  "verified": "omarchy 4.5.0-3",
   "stock": {
-    "plugins/panels/audio/Model.js": "9e15d94b2076b039418339ea4e5f4bd305d80d8129a53fd6d3dfb67d1817e4b0",
-    "plugins/panels/audio/Panel.qml": "a683e771f495837170371da658e00cef1dacc89d0220d44d9e0e988ab2bbd2c0"
+    "plugins/panels/audio/Model.js": "cac32aa2c2a2449223f64bfd935be360b4f61eb8112d4f62dc21270447eaee1b",
+    "plugins/panels/audio/Panel.qml": "f75564d2a8be05a18d832be926747b298401748d6e976a0c39f9053456439d09"
   },
-  "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "d77af8fbef5dbc8cdace78e9e4667af49550758458e87a248e837556df792144",
+  "shared": "a89a85796e5321e02fff44aa5f19687a0d862af09479626f3ef92352c4788823",
+  "self": "b6b5403873a9350d1d0730670919ad3570767eef3be86ec6bf7712ff3e83e6d3",
   "external": [
     "AlignHCenter",
     "Color",
-    "ElideRight",
     "FrontLeft",
     "FrontRight",
+    "I18n",
     "LeftButton",
     "PlainText",
     "RightButton",
     "Vertical",
     "WordWrap",
+    "callLater",
     "canPlay",
     "channels",
     "concat",
     "defaultAudioSink",
     "defaultAudioSource",
+    "env",
+    "hasOwnProperty",
     "iconPath",
     "indexOf",
     "isArray",
     "isSink",
     "isStream",
     "join",
+    "linkGroups",
     "mapToItem",
     "mouseDoubleClickInterval",
+    "prototype",
     "push",
     "replace",
-    "restart",
     "round",
     "slice",
     "sort",
-    "split",
-    "stop",
     "stringify",
     "styleHints",
     "test",
@@ -45,5 +47,18 @@
     "trim",
     "unshift",
     "warn"
-  ]
+  ],
+  "stockMembers": {
+    "cardOrigin": [
+      "Ui/KeyboardPanel.qml"
+    ],
+    "fittedContentWidth": [
+      "Ui/KeyboardPanel.qml",
+      "Ui/PopupCard.qml"
+    ],
+    "screenW": [
+      "Ui/KeyboardPanel.qml",
+      "Ui/PopupCard.qml"
+    ]
+  }
 }

@@ -1,10 +1,10 @@
 // ocko.vista-weather: omarchy.weather's detail pop-up for the Vista notification
-// area (Windows Vista theme only; see omarchy/vista/bin/vista-mode). Lines 9-497 are
-// /usr/share/omarchy/shell/plugins/panels/weather/Panel.qml (Omarchy 4.0.6,
-// sha256 3a5b1345741f699e426ac08a2e4548a8bc0e0c4c82a54600402f716c20736de5,
-// lines 1-489), unchanged. The card below them is rebuilt as an Vista Weather
+// area (Windows Vista theme only; see omarchy/vista/bin/vista-mode). Lines 9-544 are
+// /usr/share/omarchy/shell/plugins/panels/weather/Panel.qml (Omarchy 4.5.0,
+// sha256 55dfe63d84b5421a5e3cad0f619bc3e0a5b3b495a972b44af0fe3a32269ed829,
+// lines 1-536), unchanged. The card below them is rebuilt as an Vista Weather
 // property sheet in VistaWeather.qml.
-// Re-diff the logic against a newer Omarchy: diff <(sed -n 9,497p Panel.qml) <(sed -n 1,489p <stock>)
+// Re-diff the logic against a newer Omarchy: diff <(sed -n 9,544p Panel.qml) <(sed -n 1,536p <stock>)
 
 import QtQuick
 import Quickshell
@@ -81,15 +81,24 @@ Panel {
   // Parsed wttr.in j1 response. Kept on failure so stale data stays visible.
   property var report: null
   property var dailyForecastReport: null
-  property string wttrLocation: ""
 
   // Configured location, read from the weather.json state file (owned by
-  // omarchy-weather-location). The query is the wttr.in path segment
-  // (coordinates when stored, else the encoded name); empty means IP
-  // auto-detect. The watch makes hand edits take effect live.
+  // omarchy-weather-location). The watch makes hand edits take effect live.
   property var configuredLocationState: ({ name: "", latitude: null, longitude: null })
   readonly property string configuredLocation: configuredLocationState.name
-  readonly property string locationQuery: Model.wttrLocationQuery(configuredLocationState.name, configuredLocationState.latitude, configuredLocationState.longitude)
+
+  // With nothing configured, where geo.omarchy.org places this network, in the
+  // same shape. Kept when a later lookup fails.
+  property var detectedLocationState: ({ name: "", latitude: null, longitude: null })
+  property bool detectingLocation: false
+  readonly property bool autoLocation: Model.isAutoLocation(configuredLocationState)
+  onAutoLocationChanged: if (autoLocation) detectLocation()
+
+  // The query is the wttr.in path segment (coordinates when known, else the
+  // encoded name); empty means wttr.in's own IP auto-detect, used only when
+  // geo.omarchy.org could not answer.
+  readonly property var locationState: Model.effectiveLocation(configuredLocationState, detectedLocationState)
+  readonly property string locationQuery: Model.wttrLocationQuery(locationState.name, locationState.latitude, locationState.longitude)
 
   // Keep the previous report visible while the new location loads. The
   // editor remains open with a spinner, so stale data is never presented
@@ -140,8 +149,9 @@ Panel {
   // wttr's current conditions when available; open-meteo's (bundled with the
   // much faster daily forecast fetch) fill the hero while wttr is in flight.
   readonly property bool hasConfiguredCoordinates: !isNaN(parseFloat(String(configuredLocationState.latitude))) && !isNaN(parseFloat(String(configuredLocationState.longitude)))
+  readonly property bool hasCoordinates: !isNaN(parseFloat(String(locationState.latitude))) && !isNaN(parseFloat(String(locationState.longitude)))
   readonly property var openMeteoCurrent: Model.openMeteoCurrentCondition(dailyForecastReport)
-  readonly property var current: (hasConfiguredCoordinates && openMeteoCurrent) ? openMeteoCurrent : ((report && report.current_condition && report.current_condition[0]) ? report.current_condition[0] : openMeteoCurrent)
+  readonly property var current: (hasCoordinates && openMeteoCurrent) ? openMeteoCurrent : ((report && report.current_condition && report.current_condition[0]) ? report.current_condition[0] : openMeteoCurrent)
   readonly property var areaInfo: report && report.nearest_area && report.nearest_area[0] ? report.nearest_area[0] : null
   readonly property var forecastDays: buildForecastDays()
   readonly property string reportCountry: areaInfo && areaInfo.country && areaInfo.country[0] ? areaInfo.country[0].value : ""
@@ -151,12 +161,18 @@ Panel {
   // Auto-refresh interval in minutes; clamped to a sane minimum.
   readonly property int refreshMinutes: Math.max(1, parseInt(setting("refreshMinutes", 15), 10) || 15)
 
-  readonly property string reportLocation:  configuredLocation || wttrLocation || (areaInfo && areaInfo.areaName && areaInfo.areaName[0] ? areaInfo.areaName[0].value : "")
-  readonly property string reportTempNum:   current ? String(useImperial ? current.temp_F : current.temp_C) : ""
+  readonly property string reportLocation:  configuredLocation || (autoLocation ? detectedLocationState.name : "") || (areaInfo && areaInfo.areaName && areaInfo.areaName[0] ? areaInfo.areaName[0].value : "")
+  readonly property string reportTempNum:   current ? displayNumber(useImperial ? current.temp_F : current.temp_C) : ""
   readonly property string tempUnit:        "°" + (useImperial ? "F" : "C")
   readonly property string reportFeels:     current ? formatTemp(useImperial ? current.FeelsLikeF : current.FeelsLikeC) : ""
-  readonly property string reportWind:      current ? (useImperial ? (current.windspeedMiles + " mph") : (current.windspeedKmph + " km/h")) : ""
-  readonly property string reportHumidity:  current ? (current.humidity + "%") : ""
+  readonly property string reportWind:      current ? (useImperial ? (displayNumber(current.windspeedMiles) + " mph") : (displayNumber(current.windspeedKmph) + " km/h")) : ""
+  readonly property string reportHumidity:  current ? (displayNumber(current.humidity) + "%") : ""
+
+  // The report's numbers arrive as strings ("13"), and blank when missing.
+  function displayNumber(value) {
+    if (value === undefined || value === null || value === "") return ""
+    return Commons.I18n.formatNumber(value)
+  }
 
   function refresh() {
     // Each full refresh cycle gets a fresh retry budget, so an earlier
@@ -164,19 +180,28 @@ Panel {
     // starve retries for the rest of the session.
     forecastRetries = 0
     dailyForecastRetries = 0
+    // Until geo.omarchy.org answers there is nothing to ask for: wait for it
+    // rather than have wttr.in look this machine up. Its answer, or its
+    // failure, refreshes again.
+    if (detectingLocation && locationQuery === "") return
     if (!forecastProc.running) forecastProc.running = true
-    if (root.locationQuery === "" && !locationProc.running) locationProc.running = true
-    // With stored coordinates this fetches open-meteo right away — no need
-    // to wait for the slow wttr response. Without them it's a no-op until
-    // wttr reports the detected area.
+    // With coordinates this fetches open-meteo right away — no need to wait
+    // for the slow wttr response. Without them it's a no-op until wttr
+    // reports the area.
     refreshDailyForecast(null)
+  }
+
+  function detectLocation() {
+    if (locationProc.running) return
+    detectingLocation = true
+    locationProc.running = true
   }
 
   function refreshDailyForecast(sourceReport) {
     if (dailyForecastProc.running) return
 
-    var lat = parseFloat(String(root.configuredLocationState.latitude))
-    var lon = parseFloat(String(root.configuredLocationState.longitude))
+    var lat = parseFloat(String(root.locationState.latitude))
+    var lon = parseFloat(String(root.locationState.longitude))
     if (isNaN(lat) || isNaN(lon)) {
       var area = sourceReport && sourceReport.nearest_area && sourceReport.nearest_area[0] ? sourceReport.nearest_area[0] : root.areaInfo
       if (!area) return
@@ -199,6 +224,11 @@ Panel {
   // ---- Location editing. Clicking the location label swaps it for a search
   //      field; picking a geocoded suggestion persists name + coordinates to
   //      the module's shell.json entry. An empty commit returns to auto.
+  // The search field lives in the panel's lazily built content.
+  function locationInput() {
+    return panel.loadedContent ? panel.loadedContent.locationField : null
+  }
+
   function startEditingLocation() {
     editingLocation = true
     savingLocation = false
@@ -206,6 +236,8 @@ Panel {
     locationSuggestions = []
     suggestionIndex = 0
     Qt.callLater(function() {
+      var locationField = root.locationInput()
+      if (!locationField) return
       locationField.text = root.configuredLocation
       locationField.selectAll()
       locationField.forceActiveFocus()
@@ -218,10 +250,12 @@ Panel {
     savingLocationQueryStarted = false
     locationSuggestions = []
     geocodeDebounce.stop()
-    Qt.callLater(function() { if (keyCatcher) keyCatcher.forceActiveFocus() })
+    Qt.callLater(function() { if (panel.loadedContent) panel.loadedContent.forceActiveFocus() })
   }
 
   function commitLocation() {
+    var locationField = root.locationInput()
+    if (!locationField) return
     var location = Model.locationCommit(locationField.text, locationSuggestions, suggestionIndex)
     if (location.name === "") {
       clearLocation()
@@ -239,7 +273,6 @@ Panel {
 
   function clearLocation() {
     persistLocation("", null, null)
-    wttrLocation = ""
     cancelEditingLocation()
   }
 
@@ -272,7 +305,8 @@ Panel {
   // Debounced geocoding. Only one curl runs at a time; if the query moved on
   // while a fetch was in flight, the latest query is fetched right after.
   function requestGeocode() {
-    var query = locationField.text.trim()
+    var locationField = root.locationInput()
+    var query = locationField ? locationField.text.trim() : ""
     if (query.length < 2) {
       locationSuggestions = []
       return
@@ -313,16 +347,17 @@ Panel {
   }
 
   function formatTemp(value) {
-    return Model.formatTemp(value, useImperial)
+    return Model.formatTemp(value, useImperial, Commons.I18n.formatNumber)
   }
 
   function dayName(dateString) {
-    return Model.dayName(dateString, function(date) { return Qt.formatDate(date, "dddd") })
+    var locale = Qt.locale(Commons.I18n.formatLocale)
+    return Model.dayName(dateString, function(date) { return locale.standaloneDayName(date.getDay(), Locale.LongFormat) })
   }
 
   // Bare degree value (no unit letter), used in the forecast row.
   function bareTempForDay(day, kind) {
-    return Model.bareTempForDay(day, kind, useImperial)
+    return Model.bareTempForDay(day, kind, useImperial, Commons.I18n.formatNumber)
   }
 
   // Representative icon for a forecast day: the hourly entry nearest noon.
@@ -358,9 +393,10 @@ Panel {
           root.forecastRetries = 0
           if (Model.weatherResponseCompletesSave(root.hasConfiguredCoordinates, "wttr"))
             root.finishSavingLocation()
-          // Stored coordinates already drove the fast open-meteo fetch from
-          // refresh(); only auto-detect needs the area wttr reported.
-          if (isNaN(parseFloat(String(root.configuredLocationState.latitude))))
+          // Known coordinates already drove the fast open-meteo fetch from
+          // refresh(); only a name, or wttr's own IP lookup, needs the area
+          // wttr reported.
+          if (!root.hasCoordinates)
             root.refreshDailyForecast(parsed)
         } catch (e) {
           // Keep last-good report visible, but try again shortly.
@@ -462,15 +498,24 @@ Panel {
     }
   }
 
+  // Omarchy's own lookup: city and coordinates from Cloudflare's view of
+  // this network, in weather.json's shape.
   Process {
     id: locationProc
-    command: ["curl", "-fsS", "--max-time", "4", "https://wttr.in/?format=%l"]
+    command: ["curl", "-fsS", "--max-time", "4", "https://geo.omarchy.org/"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        var raw = String(text || "").trim()
-        if (!raw) return
-        root.wttrLocation = raw.split(",")[0]
+        root.detectingLocation = false
+        var detected = Model.parseLocationFile(text)
+        var query = Model.wttrLocationQuery(detected.name, detected.latitude, detected.longitude)
+        // A new place changes locationQuery, which refreshes. An unchanged
+        // one was already fetched; a failure keeps the last place, or with
+        // none falls back to wttr.in's own lookup.
+        if (query !== "" && query !== root.locationQuery)
+          root.detectedLocationState = detected
+        else if (root.locationQuery === "")
+          root.refresh()
       }
     }
   }
@@ -481,10 +526,13 @@ Panel {
     running: true
     repeat: true
     triggeredOnStart: true
-    onTriggered: root.refresh()
+    onTriggered: {
+      if (root.autoLocation) root.detectLocation()
+      root.refresh()
+    }
   }
 
-  IpcHandler {
+  ShellIpc {
     target: root.ipcTarget
 
     function open(): void { root.openFromHotkey() }
@@ -496,17 +544,22 @@ Panel {
   }
 
   // ---- Vista: the card, rebuilt as VistaWeather.qml ------------------------------
-  // Stock's location functions read the edit box by this name.
-  readonly property var locationField: vistaView.locationInput
+  // Vista: the card is the panel's lazy `content` (4.5 KeyboardPanel), so
+  // stock's location functions find the edit box as
+  // panel.loadedContent.locationField and focus panel.loadedContent, exactly
+  // as they do for the stock card.
 
   // Stock's TextField restarted the geocode debounce from onTextChanged.
   function vistaLocationEdited() {
     if (root.editingLocation && !root.savingLocation) geocodeDebounce.restart()
   }
 
+  // Vista: the card behind the content is the first ancestor with a radius
+  // (content -> Loader -> contentHolder -> card in 4.5).
   function vistaBareCard(item) {
-    var card = item && item.parent ? item.parent.parent : null
-    if (card && "radius" in card) {
+    var card = item ? item.parent : null
+    while (card && !("radius" in card)) card = card.parent
+    if (card) {
       card.color = "transparent"
       card.radius = 0
     }
@@ -519,15 +572,18 @@ Panel {
     bar: root.bar
     open: root.opened
     centerOnBar: true
-    focusTarget: keyCatcher
+    focusTarget: panel.loadedContent
     padding: 0
     borderSpec: Border.none()
-    contentWidth: vistaView.width
-    contentHeight: vistaView.height
+    contentWidth: panel.loadedContent ? panel.loadedContent.implicitWidth : 0
+    contentHeight: panel.loadedContentHeight
 
-    PanelKeyCatcher {
+    content: PanelKeyCatcher {
       id: keyCatcher
-      anchors.fill: parent
+      // Stock's location functions read the edit box by this name.
+      readonly property var locationField: vistaView.locationInput
+      implicitWidth: vistaView.width
+      implicitHeight: vistaView.height
       blocked: root.editingLocation
       Component.onCompleted: root.vistaBareCard(keyCatcher)
       onReturnRequested: root.startEditingLocation()

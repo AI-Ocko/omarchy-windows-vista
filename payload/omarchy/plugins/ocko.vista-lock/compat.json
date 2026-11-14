@@ -1,46 +1,65 @@
 {
-  "verified": "omarchy 4.0.6-1",
+  "verified": "omarchy 4.5.0-3",
   "stock": {
-    "plugins/lock/LockView.qml": "8cfb7acbe062086ae90939f1e9b925ed2beac18e903b5e7f9d14a638d7cf5807",
-    "plugins/lock/Service.qml": "661ce2b70e6deadb293b0a7a2c2f19d10086ab191913ceb6d716bcc9b24fc7c4"
+    "plugins/lock/FingerprintModel.js": "6684762de3e3b88445a165344a9093e8faedb0647137199f16ffd1861db6f87c",
+    "plugins/lock/LockView.qml": "e5ec598e4dfafc0c6acb3ab8de1c3be810437ae943f6888fdcf1f92a6400876a",
+    "plugins/lock/Service.qml": "cf9da581ab749194d44d5f7f73dc028704373f59dd6b131a90b9c07419fed7c9"
   },
-  "shared": "1e73a03073c73d02a029ae323e4af4739975d96d259d586f8bba7525fb8cb1af",
-  "self": "1e84664938a650e636e44da453f81db39ecf2f6016fcbdf82882894ea04a65a4",
+  "shared": "a89a85796e5321e02fff44aa5f19687a0d862af09479626f3ef92352c4788823",
+  "self": "29874fa97f3eb0d829598a57b229220bceb7105d613166e70dea4291cbfb4584",
   "external": [
     "AlignHCenter",
     "AlignVCenter",
     "Color",
     "ControlModifier",
-    "ElideRight",
+    "Error",
+    "I18n",
+    "Key_Backspace",
+    "Key_Delete",
     "Key_Escape",
     "Key_U",
     "LeftButton",
     "Overlay",
     "PlainText",
-    "PreserveAspectCrop",
     "Raised",
     "Ready",
     "RightButton",
     "Success",
     "abort",
-    "abs",
     "advanceWidth",
     "callLater",
     "charAt",
     "env",
     "forceActiveFocus",
-    "join",
+    "isAutoRepeat",
     "log",
-    "map",
     "modifiers",
-    "picture",
+    "pow",
     "respond",
-    "restart",
     "round",
-    "split",
-    "stop",
     "stringify",
+    "test",
     "toISOString",
     "trim"
-  ]
+  ],
+  "stockMembers": {
+    "borderBottom": [
+      "Ui/BorderSurface.qml"
+    ],
+    "borderLeft": [
+      "Ui/BorderSurface.qml"
+    ],
+    "borderRight": [
+      "Ui/BorderSurface.qml"
+    ],
+    "borderTop": [
+      "Ui/BorderSurface.qml"
+    ],
+    "ready": [
+      "Ui/BackgroundMedia.qml",
+      "plugins/background/Background.qml",
+      "plugins/panels/elsewhen/CityRow.qml",
+      "plugins/panels/elsewhen/DaylightStrip.qml"
+    ]
+  }
 }

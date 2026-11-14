@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "ocko.vista-bluetooth",
   "name": "Windows Vista Bluetooth",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "ocko",
   "description": "omarchy.bluetooth for the Windows Vista notification area: Vista SP2's Bluetooth Devices control panel. Enabled only while an Vista theme is active (omarchy/vista/bin/vista-mode); the stock widget stays enabled for other bars.",
   "kinds": [

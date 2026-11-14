@@ -24,12 +24,22 @@ const hidden = {}; hidden[theme[0].id] = false
 assert.ok(M.searchRows(guarded, apps.itemOrder, hidden, "theme").every(e => e.id !== theme[0].id))
 assert.deepStrictEqual(M.searchRows(apps.items, apps.itemOrder, {}, "zzqqxx"), [])
 
-const g = M.parseGuardOutput("style.theme:w:1\nsetup.dns:c:0\nbogus\n")
-assert.deepStrictEqual(g, { when: { "style.theme": true }, checked: { "setup.dns": false } })
+const g = M.parseGuardOutput("appearance.theme:w:1\nsetup.dns:c:0\ninstall.x:d:1\nbogus\n")
+assert.deepStrictEqual(g, { when: { "appearance.theme": true }, checked: { "setup.dns": false }, disabled: { "install.x": true } })
+
+// 4.5 `disabled:` rows never match a search, as in the stock menu.
+const dis = Object.assign({}, apps.items)
+dis[theme[0].id] = Object.assign({}, theme[0], { disabled: "true" })
+const off = {}; off[theme[0].id] = true
+assert.ok(M.searchRows(dis, apps.itemOrder, {}, "theme", off).every(e => e.id !== theme[0].id))
+assert.strictEqual(M.appRow({ id: "x" }, "X", "").disabled, "")
 
 assert.strictEqual(M.vistaCommand("omarchy-launch-screensaver force", "/h"), "'/h/.config/omarchy/vista/bin/vista-screensaver' force")
 assert.strictEqual(M.vistaCommand("omarchy-theme-set x", "/h"), "omarchy-theme-set x")
 assert.strictEqual(M.vistaIconId("style.theme", "menu", ""), 185)
+assert.strictEqual(M.vistaIconId("appearance", "menu", ""), 185)
+assert.strictEqual(M.vistaIconId("appearance.font", "menu", ""), 156)
+assert.strictEqual(M.vistaIconId("install.style.font.fira", "action", ""), 166)
 assert.strictEqual(M.vistaIconId("nothing", "action", ""), 3)
 
 console.log("MenuModel Vista helpers: ok (theme -> " + theme[0].id + ")")

@@ -2,7 +2,10 @@
 # Builds hyprbars with the Vista caption art (vista-captions.patch: image
 # caption buttons as in omarchy-windows-xp, plus per-button geometry, a 9-slice
 # caption image, the glass overlay and the title glow) into
-# ~/.local/lib/hyprbars-vista/libhyprbars.so. User-level: no sudo, nothing
+# ~/.local/lib/hyprbars-vista/libvistabars.so, renamed "vistabars" (plugin
+# name, plugin:vistabars:* options, hl.plugin.vistabars, vistabars:* window
+# rules) so it never collides with Omarchy 4.5's own hyprbars build
+# (omarchy-hyprland-titlebars). User-level: no sudo, nothing
 # outside ~/.local/lib/hyprbars-vista is written.
 #
 # RERUN THIS AFTER EVERY HYPRLAND UPDATE. The plugin is ABI-locked to the
@@ -45,11 +48,19 @@ git -C "$tmp/hp" cat-file -e "$COMMIT^{commit}" 2>/dev/null ||
   git -C "$tmp/hp" fetch -q --depth 1 https://github.com/hyprwm/hyprland-plugins.git "$COMMIT"
 git -C "$tmp/hp" -c advice.detachedHead=false checkout -q "$COMMIT"
 git -C "$tmp/hp" apply "$HERE/vista-captions.patch"
+# Rename every "hyprbars" inside a string literal (twice: a literal can hold
+# two, as in "plugin:hyprbars:hyprbars-button").
+sed -i -E 's/("[^"]*)hyprbars/\1vistabars/g; s/("[^"]*)hyprbars/\1vistabars/g' \
+  "$tmp/hp/hyprbars/main.cpp" "$tmp/hp/hyprbars/barDeco.cpp"
+! grep -n '"[^"]*hyprbars' "$tmp/hp/hyprbars/main.cpp" "$tmp/hp/hyprbars/barDeco.cpp" ||
+  { echo "rename incomplete" >&2; exit 1; }
 make -s -C "$tmp/hp/hyprbars" all
 
 mkdir -p "$OUT"
-install -m 755 "$tmp/hp/hyprbars/hyprbars.so" "$OUT/libhyprbars.so.new"
-mv -f "$OUT/libhyprbars.so.new" "$OUT/libhyprbars.so"
+install -m 755 "$tmp/hp/hyprbars/hyprbars.so" "$OUT/libvistabars.so.new"
+mv -f "$OUT/libvistabars.so.new" "$OUT/libvistabars.so"
+# The pre-rename build; Hyprland drops it once late.lua stops loading it.
+rm -f "$OUT/libhyprbars.so"
 # late.lua compares this with hl.version()
 echo "${run_tag#v}" > "$OUT/hyprland-version"
-echo "built $OUT/libhyprbars.so for Hyprland ${run_tag#v}"
+echo "built $OUT/libvistabars.so for Hyprland ${run_tag#v}"
